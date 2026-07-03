@@ -46,6 +46,7 @@ function FlowApp() {
   const [shiftHeld, setShiftHeld] = useState(false);
   const lastSyncData = useRef({ nodes: '[]', edges: '[]' });
   const channelRef = useRef(null);
+  const isInteracting = useRef(false);
 
   // ── Undo/Redo State ──────────────────────────────────────────
   const [past, setPast] = useState([]);
@@ -133,6 +134,7 @@ function FlowApp() {
     const channel = supabase
       .channel('org_chart_room')
       .on('broadcast', { event: 'sync' }, (payload) => {
+        if (isInteracting.current) return;
         if (payload.payload && payload.payload.nodes) {
           lastSyncData.current = { nodes: JSON.stringify(payload.payload.nodes), edges: JSON.stringify(payload.payload.edges) };
           setNodes(payload.payload.nodes);
@@ -140,6 +142,7 @@ function FlowApp() {
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'org_chart_data' }, (payload) => {
+        if (isInteracting.current) return;
         if (payload.new && payload.new.nodes) {
           lastSyncData.current = { nodes: JSON.stringify(payload.new.nodes), edges: JSON.stringify(payload.new.edges) };
           setNodes(payload.new.nodes);
@@ -200,8 +203,13 @@ function FlowApp() {
 
   // ── Handlers ─────────────────────────────────────────────────
   const onNodeDragStart = useCallback(() => {
+    isInteracting.current = true;
     takeSnapshot();
   }, [takeSnapshot]);
+
+  const onNodeDragStop = useCallback(() => {
+    isInteracting.current = false;
+  }, []);
 
   const onConnect = useCallback(
     (params) => {
@@ -451,6 +459,7 @@ function FlowApp() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStart={onNodeDragStart}
+          onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
           onEdgeUpdate={onEdgeUpdate}
           onNodeClick={onNodeClick}
