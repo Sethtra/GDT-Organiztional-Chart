@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -23,10 +23,9 @@ import OrgNode from "./components/OrgNode";
 import PropertiesPanel from "./components/PropertiesPanel";
 import { initialNodes, initialEdges } from "./data/initialData";
 import { getLayoutedElements } from "./utils/layoutUtils";
+import { supabase } from "./supabaseClient";
 
 const nodeTypes = { orgNode: OrgNode };
-
-const STORAGE_KEY = "gdt-flow-v2";
 
 const DEFAULT_EDGE_OPTIONS = {
   type: "smoothstep",
@@ -35,33 +34,17 @@ const DEFAULT_EDGE_OPTIONS = {
   markerEnd: { type: MarkerType.ArrowClosed, color: "#4b8fd4" },
 };
 
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.nodes?.length) return parsed;
-    }
-  } catch {}
-  return null;
-}
-
-function getInitialData() {
-  const stored = loadFromStorage();
-  if (stored) return stored;
-  return getLayoutedElements(initialNodes, initialEdges, "TB");
-}
-
 function FlowApp() {
   const { getNodes } = useReactFlow();
-  const { nodes: initN, edges: initE } = getInitialData();
-  const [nodes, setNodes, onNodesChange] = useNodesState(initN);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initE);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [layoutDir, setLayoutDir] = useState("TB");
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
+  const lastSyncData = useRef({ nodes: '[]', edges: '[]' });
 
   // ── Undo/Redo State ──────────────────────────────────────────
   const [past, setPast] = useState([]);
@@ -122,10 +105,70 @@ function FlowApp() {
     };
   }, [undo, redo]);
 
-  // Persist whenever nodes/edges change
+  // Fetch initial data & subscribe to realtime updates
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ nodes, edges }));
-  }, [nodes, edges]);
+    async function loadData() {
+      const { data, error } = await supabase
+        .from('org_chart_data')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (data && data.nodes && data.nodes.length > 0) {
+        setNodes(data.nodes);
+        setEdges(data.edges);
+        lastSyncData.current = { nodes: JSON.stringify(data.nodes), edges: JSON.stringify(data.edges) };
+      } else {
+        const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
+        setNodes(dn);
+        setEdges(de);
+        lastSyncData.current = { nodes: JSON.stringify(dn), edges: JSON.stringify(de) };
+      }
+      setLoading(false);
+    }
+    loadData();
+
+    // Setup Realtime subscription
+    const channel = supabase
+      .channel('public:org_chart_data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_chart_data' }, (payload) => {
+        console.log("🔥 REALTIME UPDATE RECEIVED:", payload);
+        if (payload.new && payload.new.nodes) {
+          lastSyncData.current = { nodes: JSON.stringify(payload.new.nodes), edges: JSON.stringify(payload.new.edges) };
+          setNodes(payload.new.nodes);
+          setEdges(payload.new.edges);
+        }
+      })
+      .subscribe((status) => {
+        console.log("🔥 REALTIME STATUS:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [setNodes, setEdges]);
+
+  // Persist whenever nodes/edges change, debounced
+  useEffect(() => {
+    if (loading) return;
+    
+    const nodesStr = JSON.stringify(nodes);
+    const edgesStr = JSON.stringify(edges);
+    
+    // Prevent save loops if the data came from Supabase realtime
+    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
+      return;
+    }
+    
+    const timeoutId = setTimeout(async () => {
+      lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
+      await supabase
+        .from('org_chart_data')
+        .upsert({ id: 1, nodes, edges, updated_at: new Date().toISOString() });
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, loading]);
 
   // Sync selectedNode/Edge data when nodes/edges update
   useEffect(() => {
@@ -268,15 +311,18 @@ function FlowApp() {
     setEdges(le);
   }, [layoutDir, nodes, edges, setNodes, setEdges, takeSnapshot]);
 
-  const resetToDefault = useCallback(() => {
+  const resetToDefault = useCallback(async () => {
     if (window.confirm("Reset all data to the default GDT structure?")) {
       takeSnapshot();
-      localStorage.removeItem(STORAGE_KEY);
       const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
       setNodes(dn);
       setEdges(de);
       setSelectedNode(null);
       setLayoutDir("TB");
+      
+      await supabase
+        .from('org_chart_data')
+        .upsert({ id: 1, nodes: dn, edges: de, updated_at: new Date().toISOString() });
     }
   }, [setNodes, setEdges, takeSnapshot]);
 
@@ -377,7 +423,13 @@ function FlowApp() {
 
       {/* ── Canvas + Panel ─────────────────────────────── */}
       <div className="canvas-wrapper">
-        <ReactFlow
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'white', fontSize: '1.2rem' }}>
+            Loading Data from Cloud...
+          </div>
+        ) : (
+          <>
+            <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -449,6 +501,8 @@ function FlowApp() {
             onAddChild={addChildNode}
             onClose={() => { setSelectedNode(null); setSelectedEdge(null); }}
           />
+        )}
+          </>
         )}
       </div>
     </div>
