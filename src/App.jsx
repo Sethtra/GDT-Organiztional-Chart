@@ -45,6 +45,7 @@ function FlowApp() {
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const lastSyncData = useRef({ nodes: '[]', edges: '[]' });
+  const channelRef = useRef(null);
 
   // ── Undo/Redo State ──────────────────────────────────────────
   const [past, setPast] = useState([]);
@@ -130,18 +131,24 @@ function FlowApp() {
 
     // Setup Realtime subscription
     const channel = supabase
-      .channel('public:org_chart_data')
+      .channel('org_chart_room')
+      .on('broadcast', { event: 'sync' }, (payload) => {
+        if (payload.payload && payload.payload.nodes) {
+          lastSyncData.current = { nodes: JSON.stringify(payload.payload.nodes), edges: JSON.stringify(payload.payload.edges) };
+          setNodes(payload.payload.nodes);
+          setEdges(payload.payload.edges);
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'org_chart_data' }, (payload) => {
-        console.log("🔥 REALTIME UPDATE RECEIVED:", payload);
         if (payload.new && payload.new.nodes) {
           lastSyncData.current = { nodes: JSON.stringify(payload.new.nodes), edges: JSON.stringify(payload.new.edges) };
           setNodes(payload.new.nodes);
           setEdges(payload.new.edges);
         }
       })
-      .subscribe((status) => {
-        console.log("🔥 REALTIME STATUS:", status);
-      });
+      .subscribe();
+
+    channelRef.current = channel;
 
     return () => {
       supabase.removeChannel(channel);
@@ -158,6 +165,15 @@ function FlowApp() {
     // Prevent save loops if the data came from Supabase realtime
     if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
       return;
+    }
+
+    // Instantly broadcast the change to other users
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'sync',
+        payload: { nodes, edges }
+      }).catch(() => {});
     }
     
     const timeoutId = setTimeout(async () => {
