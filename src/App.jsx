@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -15,15 +17,39 @@ import {
   getNodesBounds,
   getViewportForBounds,
   reconnectEdge,
+  useViewport,
 } from "@xyflow/react";
 import { toPng } from "html-to-image";
 import "@xyflow/react/dist/style.css";
 
+import {
+  Plus, LayoutGrid, ArrowDownUp, ArrowLeftRight,
+  Undo2, Redo2, Eye, EyeOff, RotateCcw, Download,
+  Search as SearchIcon, Keyboard, CheckCircle2, Loader2, Share2,
+} from "lucide-react";
+
 import OrgNode from "./components/OrgNode";
 import PropertiesPanel from "./components/PropertiesPanel";
+import ConfirmModal from "./components/ConfirmModal";
+import ShareModal from "./components/ShareModal";
+import SearchBar from "./components/SearchBar";
+import ContextMenu from "./components/ContextMenu";
+import ShortcutsModal from "./components/ShortcutsModal";
+import StatusBar from "./components/StatusBar";
 import { initialNodes, initialEdges } from "./data/initialData";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import { supabase } from "./supabaseClient";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import ProfilePage from "./pages/ProfilePage";
+import DashboardPage from "./pages/DashboardPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 const nodeTypes = { orgNode: OrgNode };
 
@@ -35,20 +61,41 @@ const DEFAULT_EDGE_OPTIONS = {
 };
 
 function FlowApp() {
-  const { getNodes } = useReactFlow();
+  const { chartId } = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { getNodes, fitView, setCenter } = useReactFlow();
+  const viewport = useViewport();
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(true);
+  const [chartName, setChartName] = useState("Untitled Chart");
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [layoutDir, setLayoutDir] = useState("TB");
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
-  const lastSyncData = useRef({ nodes: '[]', edges: '[]' });
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const saveTimerRef = useRef(null);
+
+  // New feature states
+  const [collapsedNodes, setCollapsedNodes] = useState(new Set());
+  const [searchHighlights, setSearchHighlights] = useState([]);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [showShare, setShowShare] = useState(false);
+  const [chartIsPublic, setChartIsPublic] = useState(false);
+  const [canEdit, setCanEdit] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+
+  const lastSyncData = useRef({ nodes: "[]", edges: "[]" });
   const channelRef = useRef(null);
   const isInteracting = useRef(false);
 
-  // ── Undo/Redo State ──────────────────────────────────────────
+  // ── Undo/Redo ─────────────────────────────────────────────────
   const [past, setPast] = useState([]);
   const [future, setFuture] = useState([]);
 
@@ -75,75 +122,120 @@ function FlowApp() {
     setEdges(next.edges);
   }, [future, nodes, edges, setNodes, setEdges]);
 
-  // Keyboard listeners for undo/redo and shift
+  // ── Keyboard shortcuts ────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Shift") setShiftHeld(true);
+      const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
 
-      // Ignore if user is typing in an input or textarea
-      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      
       if (e.ctrlKey || e.metaKey) {
         if (e.key === "z") {
           e.preventDefault();
-          if (e.shiftKey) redo();
-          else undo();
+          if (e.shiftKey) redo(); else undo();
         } else if (e.key === "y") {
           e.preventDefault();
           redo();
+        } else if (e.key === "f") {
+          e.preventDefault();
+          setShowSearch((v) => !v);
+        } else if (e.key === "d") {
+          e.preventDefault();
+          if (selectedNode) duplicateNode(selectedNode.id);
+        }
+        return;
+      }
+
+      if (inInput) return;
+
+      if (e.key === "?" || e.key === "/") setShowShortcuts((v) => !v);
+      if (e.key === "Escape") {
+        setShowSearch(false);
+        setShowShortcuts(false);
+        setContextMenu(null);
+        setSelectedNode(null);
+        setSelectedEdge(null);
+      }
+      if ((e.key === "Delete" || e.key === "Backspace") && !inInput) {
+        if (selectedNode) {
+          showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(selectedNode.id); setConfirmModal(null); }, true);
+        } else if (selectedEdge) {
+          takeSnapshot();
+          setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
+          setSelectedEdge(null);
         }
       }
     };
-
-    const handleKeyUp = (e) => {
-      if (e.key === "Shift") setShiftHeld(false);
-    };
-
+    const handleKeyUp = (e) => { if (e.key === "Shift") setShiftHeld(false); };
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keyup", handleKeyUp);
     };
-  }, [undo, redo]);
+  }, [undo, redo, selectedNode, selectedEdge]);
 
-  // Fetch initial data & subscribe to realtime updates
+  // ── Save status helper ────────────────────────────────────────
+  const triggerSave = useCallback(() => {
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => setSaveStatus("saved"), 1200);
+  }, []);
+
+  // ── Load data + realtime ──────────────────────────────────────
   useEffect(() => {
+    if (!chartId) { navigate('/dashboard'); return; }
+
     async function loadData() {
-      const { data, error } = await supabase
-        .from('org_chart_data')
-        .select('*')
-        .eq('id', 1)
+      const { data } = await supabase
+        .from("charts")
+        .select("*, chart_shares(access_level, shared_email)")
+        .eq("id", chartId)
         .single();
-      
-      if (data && data.nodes && data.nodes.length > 0) {
-        setNodes(data.nodes);
-        setEdges(data.edges);
-        lastSyncData.current = { nodes: JSON.stringify(data.nodes), edges: JSON.stringify(data.edges) };
+
+      if (data) {
+        setChartName(data.name || "Untitled Chart");
+        setChartIsPublic(data.is_public);
+
+        let editAccess = false;
+        let ownerStatus = false;
+        if (data.owner_id === user?.id) {
+          editAccess = true;
+          ownerStatus = true;
+        }
+        else if (data.is_public && data.public_access_level === 'edit') editAccess = true;
+        else if (user && data.chart_shares?.some(s => s.shared_email === user.email && s.access_level === 'edit')) {
+          editAccess = true;
+        }
+        setCanEdit(editAccess);
+        setIsOwner(ownerStatus);
+        if (!editAccess) setPreviewMode(true);
+
+        // Respect empty arrays — don't fall back to GDT template for blank charts
+        setNodes(data.nodes || []);
+        setEdges(data.edges || []);
+        lastSyncData.current = { nodes: JSON.stringify(data.nodes || []), edges: JSON.stringify(data.edges || []) };
       } else {
-        const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
-        setNodes(dn);
-        setEdges(de);
-        lastSyncData.current = { nodes: JSON.stringify(dn), edges: JSON.stringify(de) };
+        // Chart not found — go back to dashboard
+        navigate('/dashboard');
+        return;
       }
       setLoading(false);
     }
     loadData();
 
-    // Setup Realtime subscription
     const channel = supabase
-      .channel('org_chart_room')
-      .on('broadcast', { event: 'sync' }, (payload) => {
+      .channel(`chart_room_${chartId}`)
+      .on("broadcast", { event: "sync" }, (payload) => {
         if (isInteracting.current) return;
-        if (payload.payload && payload.payload.nodes) {
+        if (payload.payload?.nodes) {
           lastSyncData.current = { nodes: JSON.stringify(payload.payload.nodes), edges: JSON.stringify(payload.payload.edges) };
           setNodes(payload.payload.nodes);
           setEdges(payload.payload.edges);
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_chart_data' }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "charts", filter: `id=eq.${chartId}` }, (payload) => {
         if (isInteracting.current) return;
-        if (payload.new && payload.new.nodes) {
+        if (payload.new?.nodes) {
           lastSyncData.current = { nodes: JSON.stringify(payload.new.nodes), edges: JSON.stringify(payload.new.edges) };
           setNodes(payload.new.nodes);
           setEdges(payload.new.edges);
@@ -152,44 +244,31 @@ function FlowApp() {
       .subscribe();
 
     channelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [chartId, navigate, setNodes, setEdges]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [setNodes, setEdges]);
-
-  // Persist whenever nodes/edges change, debounced
+  // ── Persist on change ─────────────────────────────────────────
   useEffect(() => {
-    if (loading) return;
-    
+    if (loading || !canEdit) return;
     const nodesStr = JSON.stringify(nodes);
     const edgesStr = JSON.stringify(edges);
-    
-    // Prevent save loops if the data came from Supabase realtime
-    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
-      return;
+    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) return;
+
+    triggerSave();
+
+    if (channelRef.current) {
+      channelRef.current.send({ type: "broadcast", event: "sync", payload: { nodes, edges } }).catch(() => {});
     }
 
-    // Instantly broadcast the change to other users
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'sync',
-        payload: { nodes, edges }
-      }).catch(() => {});
-    }
-    
     const timeoutId = setTimeout(async () => {
       lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
-      await supabase
-        .from('org_chart_data')
-        .upsert({ id: 1, nodes, edges, updated_at: new Date().toISOString() });
+      await supabase.from("charts").update({ nodes, edges, updated_at: new Date().toISOString() }).eq("id", chartId);
     }, 1000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [nodes, edges, loading]);
 
-  // Sync selectedNode/Edge data when nodes/edges update
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, loading, canEdit, chartId]);
+
+  // ── Sync selected node ────────────────────────────────────────
   useEffect(() => {
     if (selectedNode) {
       const fresh = nodes.find((n) => n.id === selectedNode.id);
@@ -201,35 +280,75 @@ function FlowApp() {
     }
   }, [nodes, edges]);
 
-  // ── Handlers ─────────────────────────────────────────────────
-  const onNodeDragStart = useCallback(() => {
-    isInteracting.current = true;
+  // ── Compute visible nodes/edges (collapse) ────────────────────
+  const { visibleNodes, visibleEdges } = useMemo(() => {
+    if (collapsedNodes.size === 0) {
+      // Still annotate with childCount
+      const childCounts = {};
+      edges.forEach((e) => {
+        childCounts[e.source] = (childCounts[e.source] || 0) + 1;
+      });
+      const annotated = nodes.map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          childCount: childCounts[n.id] || 0,
+          collapsed: false,
+          searchHighlight: searchHighlights.includes(n.id),
+        },
+      }));
+      return { visibleNodes: annotated, visibleEdges: edges };
+    }
+
+    // Collect all descendants of collapsed nodes
+    const hidden = new Set();
+    function collectDescendants(nodeId) {
+      edges.filter((e) => e.source === nodeId).forEach((e) => {
+        if (!hidden.has(e.target)) {
+          hidden.add(e.target);
+          collectDescendants(e.target);
+        }
+      });
+    }
+    collapsedNodes.forEach((id) => collectDescendants(id));
+
+    const childCounts = {};
+    edges.forEach((e) => { childCounts[e.source] = (childCounts[e.source] || 0) + 1; });
+
+    const vNodes = nodes
+      .filter((n) => !hidden.has(n.id))
+      .map((n) => ({
+        ...n,
+        data: {
+          ...n.data,
+          childCount: childCounts[n.id] || 0,
+          collapsed: collapsedNodes.has(n.id),
+          searchHighlight: searchHighlights.includes(n.id),
+        },
+      }));
+
+    const vEdges = edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
+    return { visibleNodes: vNodes, visibleEdges: vEdges };
+  }, [nodes, edges, collapsedNodes, searchHighlights]);
+
+  // ── Handlers ──────────────────────────────────────────────────
+  const onNodeDragStart = useCallback(() => { isInteracting.current = true; takeSnapshot(); }, [takeSnapshot]);
+  const onNodeDragStop  = useCallback(() => { isInteracting.current = false; }, []);
+
+  const onConnect = useCallback((params) => {
     takeSnapshot();
-  }, [takeSnapshot]);
+    setEdges((eds) => addEdge({ ...params, ...DEFAULT_EDGE_OPTIONS }, eds));
+  }, [setEdges, takeSnapshot]);
 
-  const onNodeDragStop = useCallback(() => {
-    isInteracting.current = false;
-  }, []);
-
-  const onConnect = useCallback(
-    (params) => {
-      takeSnapshot();
-      setEdges((eds) => addEdge({ ...params, ...DEFAULT_EDGE_OPTIONS }, eds));
-    },
-    [setEdges, takeSnapshot]
-  );
-
-  const onEdgeUpdate = useCallback(
-    (oldEdge, newConnection) => {
-      takeSnapshot();
-      setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
-    },
-    [setEdges, takeSnapshot]
-  );
+  const onReconnect = useCallback((oldEdge, newConnection) => {
+    takeSnapshot();
+    setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
+  }, [setEdges, takeSnapshot]);
 
   const onNodeClick = useCallback((_evt, node) => {
     setSelectedNode(node);
     setSelectedEdge(null);
+    setContextMenu(null);
   }, []);
 
   const onEdgeClick = useCallback((_evt, edge) => {
@@ -240,13 +359,19 @@ function FlowApp() {
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
     setSelectedEdge(null);
+    setContextMenu(null);
+  }, []);
+
+  const onNodeContextMenu = useCallback((evt, node) => {
+    evt.preventDefault();
+    setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
+    setSelectedNode(node);
+    setSelectedEdge(null);
   }, []);
 
   const updateNode = useCallback((id, data) => {
     takeSnapshot();
-    setNodes((nds) =>
-      nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n))
-    );
+    setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...data } } : n)));
   }, [setNodes, takeSnapshot]);
 
   const updateEdgeProperties = useCallback((id, edgeData) => {
@@ -261,59 +386,52 @@ function FlowApp() {
     setSelectedNode(null);
   }, [setNodes, setEdges, takeSnapshot]);
 
+  const duplicateNode = useCallback((id) => {
+    const original = nodes.find((n) => n.id === id);
+    if (!original) return;
+    takeSnapshot();
+    const newId = `node-${Date.now()}`;
+    const newNode = {
+      ...original,
+      id: newId,
+      position: { x: original.position.x + 40, y: original.position.y + 40 },
+      data: { ...original.data },
+      selected: false,
+    };
+    setNodes((nds) => [...nds, newNode]);
+    setSelectedNode(newNode);
+  }, [nodes, setNodes, takeSnapshot]);
+
   const addChildNode = useCallback((parentId, orgType) => {
     takeSnapshot();
     const parent = nodes.find((n) => n.id === parentId);
     if (!parent) return;
-
     const newId = `node-${Date.now()}`;
     const colorMap = {
       ministry: "#0f2044", department: "#0e7d6e",
       division: "#1e5799", office: "#0369a1",
     };
-
     const newNode = {
       id: newId,
       type: "orgNode",
-      position: {
-        x: parent.position.x + (Math.random() * 60 - 30),
-        y: parent.position.y + 180,
-      },
-      data: {
-        name: "ថ្មី",
-        nameEn: "New Node",
-        orgType,
-        color: colorMap[orgType] || "#1e5799",
-        description: "",
-      },
+      position: { x: parent.position.x + (Math.random() * 60 - 30), y: parent.position.y + 180 },
+      data: { name: "ថ្មី", nameEn: "New Node", orgType, color: colorMap[orgType] || "#1e5799", description: "" },
     };
-
-    const newEdge = {
-      id: `e-${parentId}-${newId}`,
-      source: parentId,
-      target: newId,
-      ...DEFAULT_EDGE_OPTIONS,
-    };
-
+    const newEdge = { id: `e-${parentId}-${newId}`, source: parentId, target: newId, ...DEFAULT_EDGE_OPTIONS };
     setNodes((nds) => [...nds, newNode]);
     setEdges((eds) => [...eds, newEdge]);
     setSelectedNode(newNode);
+    // Expand parent if collapsed
+    setCollapsedNodes((prev) => { const s = new Set(prev); s.delete(parentId); return s; });
   }, [nodes, setNodes, setEdges, takeSnapshot]);
 
   const addRootNode = useCallback(() => {
     takeSnapshot();
     const newId = `node-${Date.now()}`;
     const newNode = {
-      id: newId,
-      type: "orgNode",
+      id: newId, type: "orgNode",
       position: { x: Math.random() * 600 - 300, y: -200 },
-      data: {
-        name: "ថ្មី",
-        nameEn: "New Node",
-        orgType: "department",
-        color: "#1e5799",
-        description: "",
-      },
+      data: { name: "ថ្មី", nameEn: "New Node", orgType: "department", color: "#1e5799", description: "" },
     };
     setNodes((nds) => [...nds, newNode]);
     setSelectedNode(newNode);
@@ -322,8 +440,7 @@ function FlowApp() {
   const autoLayout = useCallback(() => {
     takeSnapshot();
     const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, layoutDir);
-    setNodes(ln);
-    setEdges(le);
+    setNodes(ln); setEdges(le);
   }, [nodes, edges, layoutDir, setNodes, setEdges, takeSnapshot]);
 
   const toggleLayout = useCallback(() => {
@@ -331,24 +448,38 @@ function FlowApp() {
     const nextDir = layoutDir === "TB" ? "LR" : "TB";
     setLayoutDir(nextDir);
     const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, nextDir);
-    setNodes(ln);
-    setEdges(le);
+    setNodes(ln); setEdges(le);
   }, [layoutDir, nodes, edges, setNodes, setEdges, takeSnapshot]);
 
-  const resetToDefault = useCallback(async () => {
-    if (window.confirm("Reset all data to the default GDT structure?")) {
-      takeSnapshot();
-      const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
-      setNodes(dn);
-      setEdges(de);
-      setSelectedNode(null);
-      setLayoutDir("TB");
-      
-      await supabase
-        .from('org_chart_data')
-        .upsert({ id: 1, nodes: dn, edges: de, updated_at: new Date().toISOString() });
-    }
-  }, [setNodes, setEdges, takeSnapshot]);
+  const toggleCollapse = useCallback((nodeId) => {
+    setCollapsedNodes((prev) => {
+      const s = new Set(prev);
+      if (s.has(nodeId)) s.delete(nodeId); else s.add(nodeId);
+      return s;
+    });
+  }, []);
+
+  const showConfirm = (title, message, onConfirm, danger = false) => {
+    setConfirmModal({ title, message, onConfirm, danger });
+  };
+
+  const resetToDefault = useCallback(() => {
+    showConfirm(
+      "Reset to Default",
+      "This will replace the entire chart with the default GDT structure. This cannot be undone.",
+      async () => {
+        takeSnapshot();
+        const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
+        setNodes(dn); setEdges(de);
+        setSelectedNode(null);
+        setLayoutDir("TB");
+        setCollapsedNodes(new Set());
+        await supabase.from("charts").update({ nodes: dn, edges: de, updated_at: new Date().toISOString() }).eq("id", chartId);
+        setConfirmModal(null);
+      },
+      true
+    );
+  }, [setNodes, setEdges, takeSnapshot, chartId]);
 
   const onEdgeDoubleClick = useCallback((evt, edge) => {
     takeSnapshot();
@@ -359,31 +490,14 @@ function FlowApp() {
   const downloadImage = useCallback(() => {
     const currentNodes = getNodes();
     if (currentNodes.length === 0) return;
-
     const nodesBounds = getNodesBounds(currentNodes);
-    const imageWidth = 1920;
-    const imageHeight = 1080;
-    
-    const viewport = getViewportForBounds(
-      nodesBounds,
-      imageWidth,
-      imageHeight,
-      0.1, // min zoom
-      2,   // max zoom
-      0.1  // padding
-    );
-
+    const imageWidth = 1920, imageHeight = 1080;
+    const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.1, 2, 0.1);
     const el = document.querySelector(".react-flow__viewport");
-    
     toPng(el, {
       backgroundColor: "#0f2044",
-      width: imageWidth,
-      height: imageHeight,
-      style: {
-        width: `${imageWidth}px`,
-        height: `${imageHeight}px`,
-        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-      },
+      width: imageWidth, height: imageHeight,
+      style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` },
     }).then((dataUrl) => {
       const a = document.createElement("a");
       a.setAttribute("download", "org-chart.png");
@@ -392,152 +506,350 @@ function FlowApp() {
     });
   }, [getNodes]);
 
+  // Search fly-to
+  const handleFlyTo = useCallback((node) => {
+    setCenter(node.position.x + 100, node.position.y + 50, { zoom: 1.2, duration: 600 });
+  }, [setCenter]);
+
+  const panelOpen = !previewMode && (selectedNode || selectedEdge);
+
   return (
     <div className={`app-wrapper ${previewMode ? "preview-mode" : ""}`}>
-      {/* ── Header ─────────────────────────────────────── */}
+
+      {/* ── Header ────────────────────────────────────────── */}
       {!previewMode && (
-      <header className="app-header">
-        <div className="header-brand">
-          <span className="header-emblem">🏛️</span>
-          <div>
-            <div className="header-title-kh">ក្រសួងសេដ្ឋកិច្ច និងហិរញ្ញវត្ថុ</div>
-            <div className="header-title-en">Ministry of Economy and Finance — GDT Org Chart</div>
-          </div>
-        </div>
-
-        <div className="header-toolbar">
-          <button className="tb-btn tb-btn--primary" onClick={addRootNode} title="Add a standalone node">
-            <span>＋</span> Add Node
-          </button>
-          <button className="tb-btn" onClick={autoLayout} title="Re-run auto layout">
-            ⬡ Auto Layout
-          </button>
-          <button className="tb-btn" onClick={toggleLayout} title="Toggle TB ↔ LR">
-            {layoutDir === "TB" ? "↕ Vertical" : "↔ Horizontal"}
-          </button>
-          <div className="tb-divider" />
-          <button className="tb-btn" onClick={undo} disabled={past.length === 0} title="Undo (Ctrl+Z)">
-            ↶ Undo
-          </button>
-          <button className="tb-btn" onClick={redo} disabled={future.length === 0} title="Redo (Ctrl+Y)">
-            ↷ Redo
-          </button>
-          <div className="tb-divider" />
-          <button className="tb-btn tb-btn--primary" onClick={() => { setPreviewMode(true); setSelectedNode(null); }} style={{ background: "#0ea5e9" }}>
-            👁 Preview
-          </button>
-          <button className="tb-btn tb-btn--danger" onClick={resetToDefault}>
-            ↺ Reset
-          </button>
-        </div>
-      </header>
-      )}
-
-      {/* ── Preview Toolbar ────────────────────────────── */}
-      {previewMode && (
-        <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10, display: "flex", gap: 10 }}>
-          <button className="tb-btn tb-btn--primary" onClick={downloadImage}>
-            ⬇ Download PNG
-          </button>
-          <button className="tb-btn tb-btn--danger" onClick={() => setPreviewMode(false)}>
-            ✕ Exit Preview
-          </button>
-        </div>
-      )}
-
-      {/* ── Canvas + Panel ─────────────────────────────── */}
-      <div className="canvas-wrapper">
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'white', fontSize: '1.2rem' }}>
-            Loading Data from Cloud...
-          </div>
-        ) : (
-          <>
-            <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeDragStart={onNodeDragStart}
-          onNodeDragStop={onNodeDragStop}
-          onConnect={onConnect}
-          onEdgeUpdate={onEdgeUpdate}
-          onNodeClick={onNodeClick}
-          onEdgeClick={onEdgeClick}
-          onPaneClick={onPaneClick}
-          onEdgeDoubleClick={onEdgeDoubleClick}
-          nodeTypes={nodeTypes}
-          defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-          connectionMode={ConnectionMode.Loose}
-          edgesUpdatable={true}
-          connectionRadius={shiftHeld ? 150 : 20}
-          fitView
-          fitViewOptions={{ padding: 0.15 }}
-          minZoom={0.05}
-          maxZoom={2.5}
-          proOptions={{ hideAttribution: true }}
-        >
-          {/* Dot-grid background */}
-          {!previewMode && <Background color="#ffffff18" gap={24} size={1.5} />}
-
-          {/* Bottom-left controls (zoom in/out/fit) */}
-          {!previewMode && (
-          <Controls
-            style={{
-              background: "rgba(15,32,68,.85)",
-              border: "1px solid rgba(255,255,255,.12)",
-              borderRadius: 8,
-            }}
-          />
-          )}
-
-          {/* Mini-map */}
-          {!previewMode && (
-          <MiniMap
-            nodeColor={(n) => n.data?.color || "#1e5799"}
-            maskColor="rgba(0,0,0,0.65)"
-            style={{
-              background: "rgba(15,32,68,.85)",
-              border: "1px solid rgba(255,255,255,.12)",
-              borderRadius: 8,
-            }}
-          />
-          )}
-
-          {/* Keyboard shortcut hint */}
-          {!previewMode && (
-          <Panel position="top-right" style={{ pointerEvents: "none" }}>
-            <div className="hint-chip">
-              Click node to edit &nbsp;·&nbsp; Drag handle to connect &nbsp;·&nbsp; Scroll to zoom
+        <header className="app-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={() => navigate('/dashboard')}
+              title="Back to Dashboard"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </button>
+            <div className="tb-divider" style={{ height: 24, margin: 0 }} />
+            <div className="header-brand">
+            <span className="header-emblem">🏛️</span>
+              <div>
+                <div className="header-title-kh">{chartName}</div>
+                <div className="header-title-en">GDT Org Chart Editor</div>
+              </div>
             </div>
-          </Panel>
-          )}
-        </ReactFlow>
+          </div>
 
-        {/* ── Properties Panel ───────────────────────────── */}
-        {(selectedNode || selectedEdge) && (
+          <div className="header-toolbar">
+            {/* Edit group */}
+            <button className="tb-btn tb-btn--primary" onClick={addRootNode} title="Add Node">
+              <Plus size={14} /> Add Node
+            </button>
+            <button className="tb-btn tb-btn--icon" onClick={autoLayout} title="Auto Layout">
+              <LayoutGrid size={15} />
+            </button>
+            <button className="tb-btn tb-btn--icon" onClick={toggleLayout} title={layoutDir === "TB" ? "Vertical Layout" : "Horizontal Layout"}>
+              {layoutDir === "TB" ? <ArrowDownUp size={15} /> : <ArrowLeftRight size={15} />}
+            </button>
+
+            <div className="tb-divider" />
+
+            {/* History group */}
+            <button className="tb-btn tb-btn--icon" onClick={undo} disabled={past.length === 0} title="Undo (Ctrl+Z)">
+              <Undo2 size={15} />
+            </button>
+            <button className="tb-btn tb-btn--icon" onClick={redo} disabled={future.length === 0} title="Redo (Ctrl+Y)">
+              <Redo2 size={15} />
+            </button>
+
+            <div className="tb-divider" />
+
+            {/* Utility group */}
+            <button className="tb-btn tb-btn--icon" onClick={() => setShowSearch(true)} title="Search (Ctrl+F)">
+              <SearchIcon size={15} />
+            </button>
+            <button className="tb-btn tb-btn--icon" onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)">
+              <Keyboard size={15} />
+            </button>
+
+            <div className="tb-divider" />
+
+            {isOwner && (
+              <button
+                className="tb-btn tb-btn--primary"
+                style={{ background: '#7c3aed' }}
+                onClick={() => setShowShare(true)}
+                title="Share chart"
+              >
+                <Share2 size={14} /> Share
+              </button>
+            )}
+            <button
+              className="tb-btn tb-btn--primary"
+              style={{ background: "#0ea5e9" }}
+              onClick={() => { setPreviewMode(true); setSelectedNode(null); }}
+              title="Preview mode"
+            >
+              <Eye size={14} /> Preview
+            </button>
+            <button className="tb-btn tb-btn--danger tb-btn--icon" onClick={resetToDefault} title="Reset to default GDT chart">
+              <RotateCcw size={15} />
+            </button>
+          </div>
+
+          {/* Save badge */}
+          <div className={`save-badge ${saveStatus === "saving" ? "save-badge--saving" : saveStatus === "saved" ? "save-badge--saved" : ""}`}>
+            {saveStatus === "saving" && <Loader2 size={12} className="save-spin" />}
+            {saveStatus === "saved" && <CheckCircle2 size={12} />}
+            <span>{saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : ""}</span>
+          </div>
+        </header>
+      )}
+
+      {/* ── Preview Controls ─────────────────────────────── */}
+      {previewMode && (
+        <>
+          {/* Back button for Viewers */}
+          {!canEdit && (
+            <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10 }}>
+              <button 
+                className="tb-btn" 
+                onClick={() => navigate('/')}
+                style={{ 
+                  background: 'rgba(15, 32, 68, 0.85)', 
+                  color: 'white', 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  backdropFilter: 'blur(12px)'
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to Home
+              </button>
+            </div>
+          )}
+          
+          <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10, display: "flex", gap: 10 }}>
+            {/* Show read-only badge if they lack edit access */}
+            {!canEdit && (
+              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px 12px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+                <Eye size={14} style={{ marginRight: 6 }} /> Read Only
+              </div>
+            )}
+            <button className="tb-btn tb-btn--primary" onClick={downloadImage}>
+              <Download size={14} /> Download PNG
+            </button>
+            {canEdit && (
+              <button className="tb-btn tb-btn--danger" onClick={() => setPreviewMode(false)}>
+                <EyeOff size={14} /> Exit Preview
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── Main Content Area ────────────────────────────── */}
+      <div className="main-content" style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div className={`canvas-wrapper ${panelOpen ? "panel-open" : ""}`}>
+          {loading ? (
+            <div className="loading-screen">
+              <div className="loading-spinner" />
+              <span>Loading from cloud...</span>
+            </div>
+          ) : (
+            <>
+              <ReactFlow
+                nodes={visibleNodes}
+                edges={visibleEdges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDragStop={onNodeDragStop}
+                onConnect={onConnect}
+                onReconnect={onReconnect}
+                onNodeClick={onNodeClick}
+                onEdgeClick={onEdgeClick}
+                onPaneClick={onPaneClick}
+                onEdgeDoubleClick={onEdgeDoubleClick}
+                onNodeContextMenu={onNodeContextMenu}
+                nodeTypes={nodeTypes}
+                defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+                connectionMode={ConnectionMode.Loose}
+                reconnectRadius={shiftHeld ? 150 : 20}
+                nodesDraggable={canEdit && !previewMode}
+                nodesConnectable={canEdit && !previewMode}
+                elementsSelectable={canEdit || previewMode}
+                edgesFocusable={canEdit && !previewMode}
+                fitView
+                fitViewOptions={{ padding: 0.15 }}
+                minZoom={0.05}
+                maxZoom={2.5}
+                proOptions={{ hideAttribution: true }}
+              >
+                {!previewMode && <Background color="#ffffff18" gap={24} size={1.5} />}
+                {!previewMode && (
+                  <Controls style={{ background: "rgba(15,32,68,.85)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }} />
+                )}
+                {!previewMode && (
+                  <MiniMap
+                    nodeColor={(n) => n.data?.color || "#1e5799"}
+                    maskColor="rgba(0,0,0,0.65)"
+                    style={{ background: "rgba(15,32,68,.85)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }}
+                  />
+                )}
+                {!previewMode && canEdit && (
+                  <Panel position="top-right" style={{ pointerEvents: "none" }}>
+                    <div className="hint-chip">
+                      Right-click node for menu &nbsp;·&nbsp; Ctrl+F to search &nbsp;·&nbsp; ? for shortcuts
+                    </div>
+                  </Panel>
+                )}
+              </ReactFlow>
+
+              {/* Status Bar */}
+              {!previewMode && (
+                <StatusBar
+                  nodeCount={nodes.length}
+                  edgeCount={edges.length}
+                  zoom={viewport.zoom}
+                  saveStatus={saveStatus}
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Properties Panel (Outside canvas-wrapper) */}
+        {(selectedNode || selectedEdge) && !previewMode && (
           <PropertiesPanel
             node={selectedNode}
             edge={selectedEdge}
             onUpdateNode={updateNode}
             onUpdateEdge={updateEdgeProperties}
-            onDeleteNode={deleteNode}
-            onDeleteEdge={(id) => { takeSnapshot(); setEdges((eds) => eds.filter((e) => e.id !== id)); setSelectedEdge(null); }}
+            onDeleteNode={(id) => {
+              showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(id); setConfirmModal(null); }, true);
+            }}
+            onDeleteEdge={(id) => {
+              takeSnapshot();
+              setEdges((eds) => eds.filter((e) => e.id !== id));
+              setSelectedEdge(null);
+            }}
             onAddChild={addChildNode}
+            onDuplicate={duplicateNode}
             onClose={() => { setSelectedNode(null); setSelectedEdge(null); }}
           />
         )}
-          </>
-        )}
       </div>
+
+      {/* ── Context Menu ─────────────────────────────────── */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          node={nodes.find((n) => n.id === contextMenu.nodeId)}
+          isCollapsed={collapsedNodes.has(contextMenu.nodeId)}
+          onEdit={() => {
+            const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
+            if (n) setSelectedNode(n);
+          }}
+          onAddChild={() => addChildNode(contextMenu.nodeId, "office")}
+          onDuplicate={() => duplicateNode(contextMenu.nodeId)}
+          onToggleCollapse={() => toggleCollapse(contextMenu.nodeId)}
+          onDelete={() => {
+            showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(contextMenu.nodeId); setConfirmModal(null); }, true);
+          }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* ── Search Bar ───────────────────────────────────── */}
+      {showSearch && (
+        <SearchBar
+          nodes={nodes}
+          onFlyTo={handleFlyTo}
+          onHighlight={setSearchHighlights}
+          onClose={() => { setShowSearch(false); setSearchHighlights([]); }}
+        />
+      )}
+
+      {/* ── Share Modal ──────────────────────────────── */}
+      {showShare && (
+        <ShareModal
+          chartId={chartId}
+          chartName={chartName}
+          isPublic={chartIsPublic}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {/* ── Shortcuts Modal ──────────────────────────── */}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+
+      {/* ── Confirm Modal ────────────────────────────────── */}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+          danger={confirmModal.danger}
+        />
+      )}
     </div>
   );
 }
 
+/** Route guard — redirects to /login if not authenticated */
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a1628' }}>
+        <div className="loading-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      </div>
+    );
+  }
+  return user ? children : <Navigate to="/login" replace />;
+}
+
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <FlowApp />
-    </ReactFlowProvider>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
+
+          {/* Chart editor — loads by ID */}
+          <Route path="/chart/:chartId" element={
+            <ProtectedRoute>
+              <ReactFlowProvider>
+                <FlowApp />
+              </ReactFlowProvider>
+            </ProtectedRoute>
+          } />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
