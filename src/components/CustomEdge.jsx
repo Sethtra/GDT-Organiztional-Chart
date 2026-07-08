@@ -1,7 +1,7 @@
 import { memo, useCallback, useRef, useState } from 'react';
 import { useReactFlow, Position } from '@xyflow/react';
 
-// ── Arrowhead options exposed for PropertiesPanel ─────────────────────────────
+// ── Arrowhead options ─────────────────────────────────────────────────────────
 export const ARROWHEAD_OPTIONS = [
   { id: 'closed',       label: 'Arrow',        preview: '▶' },
   { id: 'open',         label: 'Open Arrow',   preview: '▷' },
@@ -15,200 +15,154 @@ export const ARROWHEAD_OPTIONS = [
   { id: 'none',         label: 'None',         preview: '—' },
 ];
 
-// ── Draw an arrowhead at (tx, ty) pointing in direction `angle` ───────────────
+const SNAP_GRID = 15; // px to snap to when Shift is held
+const MIN_CLEARANCE = 28; // min distance crossbar from source/target
+
+// ── Arrowhead renderer ────────────────────────────────────────────────────────
 function Arrowhead({ type, tx, ty, angle, color, sw }) {
   if (type === 'none') return null;
   const sz = Math.max(9, sw * 4);
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  const rot = (px, py) => {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const r = (px, py) => {
     const dx = px - tx, dy = py - ty;
-    return [tx + dx * cos - dy * sin, ty + dx * sin + dy * cos];
+    return [tx + dx * c - dy * s, ty + dx * s + dy * c];
   };
-  const fill = { fill: color };
-  const stroke = { fill: 'none', stroke: color, strokeWidth: sw, strokeLinejoin: 'round' };
+  const F = { fill: color };
+  const O = { fill: 'none', stroke: color, strokeWidth: sw, strokeLinejoin: 'round', strokeLinecap: 'round' };
   switch (type) {
-    case 'closed': {
-      const [x1, y1] = rot(tx - sz, ty - sz * 0.4);
-      const [x2, y2] = rot(tx - sz, ty + sz * 0.4);
-      return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2}`} {...fill} />;
-    }
-    case 'open': {
-      const [x1, y1] = rot(tx - sz, ty - sz * 0.5);
-      const [x2, y2] = rot(tx - sz, ty + sz * 0.5);
-      return <polyline points={`${x1},${y1} ${tx},${ty} ${x2},${y2}`} {...stroke} strokeLinecap="round" />;
-    }
-    case 'circle': {
-      const r = sz * 0.45;
-      const [cx, cy] = rot(tx - r, ty);
-      return <circle cx={cx} cy={cy} r={r} {...fill} />;
-    }
-    case 'ring': {
-      const r = sz * 0.45;
-      const [cx, cy] = rot(tx - r, ty);
-      return <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={sw} />;
-    }
-    case 'diamond': {
-      const [x1, y1] = rot(tx - sz * 0.5, ty - sz * 0.35);
-      const [x2, y2] = rot(tx - sz, ty);
-      const [x3, y3] = rot(tx - sz * 0.5, ty + sz * 0.35);
-      return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2} ${x3},${y3}`} {...fill} />;
-    }
-    case 'diamond-open': {
-      const [x1, y1] = rot(tx - sz * 0.5, ty - sz * 0.35);
-      const [x2, y2] = rot(tx - sz, ty);
-      const [x3, y3] = rot(tx - sz * 0.5, ty + sz * 0.35);
-      return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2} ${x3},${y3}`} {...stroke} />;
-    }
-    case 'square': {
-      const [x1, y1] = rot(tx - sz, ty - sz * 0.4);
-      const [x2, y2] = rot(tx,      ty - sz * 0.4);
-      const [x3, y3] = rot(tx,      ty + sz * 0.4);
-      const [x4, y4] = rot(tx - sz, ty + sz * 0.4);
-      return <polygon points={`${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`} {...fill} />;
-    }
-    case 'double': {
-      const [a1, a2] = rot(tx - sz * 0.5, ty - sz * 0.4);
-      const [b1, b2] = rot(tx - sz * 0.5, ty + sz * 0.4);
-      const [c1, c2] = rot(tx - sz * 0.5, ty);
-      const [d1, d2] = rot(tx - sz,       ty - sz * 0.4);
-      const [e1, e2] = rot(tx - sz,       ty + sz * 0.4);
-      return (
-        <g>
-          <polygon points={`${tx},${ty} ${a1},${a2} ${b1},${b2}`} {...fill} />
-          <polygon points={`${c1},${c2} ${d1},${d2} ${e1},${e2}`} {...fill} />
-        </g>
-      );
-    }
-    case 'chevron': {
-      const [x1, y1] = rot(tx - sz,       ty - sz * 0.5);
-      const [xm, ym] = rot(tx - sz * 0.4, ty);
-      const [x2, y2] = rot(tx - sz,       ty + sz * 0.5);
-      return <polyline points={`${x1},${y1} ${xm},${ym} ${x2},${y2}`} {...stroke} strokeLinecap="round" strokeWidth={sw + 1} />;
-    }
+    case 'closed': { const [x1,y1]=r(tx-sz,ty-sz*.4); const [x2,y2]=r(tx-sz,ty+sz*.4); return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2}`} {...F}/>; }
+    case 'open':   { const [x1,y1]=r(tx-sz,ty-sz*.5); const [x2,y2]=r(tx-sz,ty+sz*.5); return <polyline points={`${x1},${y1} ${tx},${ty} ${x2},${y2}`} {...O}/>; }
+    case 'circle': { const rv=sz*.45; const [cx,cy]=r(tx-rv,ty); return <circle cx={cx} cy={cy} r={rv} {...F}/>; }
+    case 'ring':   { const rv=sz*.45; const [cx,cy]=r(tx-rv,ty); return <circle cx={cx} cy={cy} r={rv} fill="none" stroke={color} strokeWidth={sw}/>; }
+    case 'diamond':      { const [x1,y1]=r(tx-sz*.5,ty-sz*.35); const [x2,y2]=r(tx-sz,ty); const [x3,y3]=r(tx-sz*.5,ty+sz*.35); return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2} ${x3},${y3}`} {...F}/>; }
+    case 'diamond-open': { const [x1,y1]=r(tx-sz*.5,ty-sz*.35); const [x2,y2]=r(tx-sz,ty); const [x3,y3]=r(tx-sz*.5,ty+sz*.35); return <polygon points={`${tx},${ty} ${x1},${y1} ${x2},${y2} ${x3},${y3}`} {...O}/>; }
+    case 'square': { const [x1,y1]=r(tx-sz,ty-sz*.4); const [x2,y2]=r(tx,ty-sz*.4); const [x3,y3]=r(tx,ty+sz*.4); const [x4,y4]=r(tx-sz,ty+sz*.4); return <polygon points={`${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}`} {...F}/>; }
+    case 'double': { const [a1,a2]=r(tx-sz*.5,ty-sz*.4); const [b1,b2]=r(tx-sz*.5,ty+sz*.4); const [c1,c2]=r(tx-sz*.5,ty); const [d1,d2]=r(tx-sz,ty-sz*.4); const [e1,e2]=r(tx-sz,ty+sz*.4); return <g><polygon points={`${tx},${ty} ${a1},${a2} ${b1},${b2}`} {...F}/><polygon points={`${c1},${c2} ${d1},${d2} ${e1},${e2}`} {...F}/></g>; }
+    case 'chevron': { const [x1,y1]=r(tx-sz,ty-sz*.5); const [xm,ym]=r(tx-sz*.4,ty); const [x2,y2]=r(tx-sz,ty+sz*.5); return <polyline points={`${x1},${y1} ${xm},${ym} ${x2},${y2}`} {...O} strokeWidth={sw+1}/>; }
     default: return null;
   }
 }
 
-// ── Build a Visio-style orthogonal path (3 segments, rounded corners) ─────────
-// Returns { d: svgPathString, handleX, handleY, arrowAngle }
-function buildElbowPath(sx, sy, sp, tx, ty, tp, offset, R = 10) {
-  // Determine routing axis from source position
+// ── Build Visio-style orthogonal (elbow) path ─────────────────────────────────
+// Returns full path data AND the moveable segment endpoints for drag area
+function buildElbow(sx, sy, sp, tx, ty, tp, offsetY, offsetX, R = 10) {
   const verticalPrimary =
-    sp === Position.Bottom || sp === Position.Top ||
-    sp === 'bottom' || sp === 'top';
+    sp === Position.Bottom || sp === Position.Top || sp === 'bottom' || sp === 'top';
 
   if (verticalPrimary) {
-    // 3-segment: |vertical| → horizontal → |vertical|
-    // mid_y is the y-level of the horizontal crossbar
-    const rawMidY = (sy + ty) / 2;
-    const my = rawMidY + (offset?.y || 0);
+    const natural = (sy + ty) / 2;
+    // Clamp so crossbar never overlaps source or target node
+    const minY = sy + MIN_CLEARANCE;
+    const maxY = ty - MIN_CLEARANCE;
+    let my = natural + offsetY;
+    // Only clamp if there's room
+    if (minY < maxY) {
+      my = Math.max(minY, Math.min(maxY, my));
+    } else {
+      my = natural;
+    }
 
     const xDist = tx - sx;
     const xDir  = xDist >= 0 ? 1 : -1;
-    const y1Dir = my >= sy ? 1 : -1; // source to crossbar
-    const y2Dir = ty >= my ? 1 : -1; // crossbar to target
+    const y1Dir = my >= sy ? 1 : -1;
+    const y2Dir = ty >= my ? 1 : -1;
 
-    // Corner radii clamped so they don't exceed half the segment lengths
-    const r1 = Math.min(R, Math.abs(my - sy) * 0.9, Math.abs(xDist) * 0.45);
-    const r2 = Math.min(R, Math.abs(ty - my) * 0.9, Math.abs(xDist) * 0.45);
+    const r1 = Math.min(R, Math.abs(my - sy) * 0.45, Math.abs(xDist) * 0.45);
+    const r2 = Math.min(R, Math.abs(ty - my) * 0.45, Math.abs(xDist) * 0.45);
 
     let d;
-    if (Math.abs(xDist) < 2) {
-      // Straight vertical (source directly above/below target)
+    if (Math.abs(xDist) < 1) {
+      // Straight vertical
       d = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else if (r1 < 1 || r2 < 1) {
-      // No room for rounding
-      d = `M ${sx} ${sy} L ${sx} ${my} L ${tx} ${my} L ${tx} ${ty}`;
     } else {
-      d = [
-        `M ${sx} ${sy}`,
-        `L ${sx} ${my - r1 * y1Dir}`,
-        `Q ${sx} ${my} ${sx + r1 * xDir} ${my}`,
-        `L ${tx - r2 * xDir} ${my}`,
-        `Q ${tx} ${my} ${tx} ${my + r2 * y2Dir}`,
-        `L ${tx} ${ty}`,
-      ].join(' ');
+      const seg = [];
+      seg.push(`M ${sx} ${sy}`);
+      if (r1 > 1) { seg.push(`L ${sx} ${my - r1 * y1Dir}`); seg.push(`Q ${sx} ${my} ${sx + r1 * xDir} ${my}`); }
+      else { seg.push(`L ${sx} ${my}`); }
+      if (r2 > 1) { seg.push(`L ${tx - r2 * xDir} ${my}`); seg.push(`Q ${tx} ${my} ${tx} ${my + r2 * y2Dir}`); }
+      else { seg.push(`L ${tx} ${my}`); }
+      seg.push(`L ${tx} ${ty}`);
+      d = seg.join(' ');
     }
 
     return {
       d,
-      // Handle at midpoint of the horizontal crossbar
-      handleX: (sx + tx) / 2,
-      handleY: my,
-      // Dragging this handle moves it vertically
-      dragAxis: 'y',
-      // Arrow points straight down or up (last segment direction)
+      dragType: 'vertical-primary',
+      // Middle segment: from sx to tx at y=my (for drag hit area)
+      segX1: Math.min(sx, tx), segY1: my,
+      segX2: Math.max(sx, tx), segY2: my,
+      midX: (sx + tx) / 2, midY: my,
       arrowAngle: ty >= my ? Math.PI / 2 : -Math.PI / 2,
       arrowStartAngle: sy >= my ? Math.PI / 2 : -Math.PI / 2,
     };
   } else {
-    // 3-segment: horizontal → |vertical| → horizontal
-    const rawMidX = (sx + tx) / 2;
-    const mx = rawMidX + (offset?.x || 0);
+    const natural = (sx + tx) / 2;
+    const minX = sx + MIN_CLEARANCE;
+    const maxX = tx - MIN_CLEARANCE;
+    let mx = natural + offsetX;
+    if (minX < maxX) {
+      mx = Math.max(minX, Math.min(maxX, mx));
+    } else {
+      mx = natural;
+    }
 
     const yDist = ty - sy;
     const yDir  = yDist >= 0 ? 1 : -1;
     const x1Dir = mx >= sx ? 1 : -1;
     const x2Dir = tx >= mx ? 1 : -1;
 
-    const r1 = Math.min(R, Math.abs(mx - sx) * 0.9, Math.abs(yDist) * 0.45);
-    const r2 = Math.min(R, Math.abs(tx - mx) * 0.9, Math.abs(yDist) * 0.45);
+    const r1 = Math.min(R, Math.abs(mx - sx) * 0.45, Math.abs(yDist) * 0.45);
+    const r2 = Math.min(R, Math.abs(tx - mx) * 0.45, Math.abs(yDist) * 0.45);
 
     let d;
-    if (Math.abs(yDist) < 2) {
+    if (Math.abs(yDist) < 1) {
       d = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else if (r1 < 1 || r2 < 1) {
-      d = `M ${sx} ${sy} L ${mx} ${sy} L ${mx} ${ty} L ${tx} ${ty}`;
     } else {
-      d = [
-        `M ${sx} ${sy}`,
-        `L ${mx - r1 * x1Dir} ${sy}`,
-        `Q ${mx} ${sy} ${mx} ${sy + r1 * yDir}`,
-        `L ${mx} ${ty - r2 * yDir}`,
-        `Q ${mx} ${ty} ${mx + r2 * x2Dir} ${ty}`,
-        `L ${tx} ${ty}`,
-      ].join(' ');
+      const seg = [];
+      seg.push(`M ${sx} ${sy}`);
+      if (r1 > 1) { seg.push(`L ${mx - r1 * x1Dir} ${sy}`); seg.push(`Q ${mx} ${sy} ${mx} ${sy + r1 * yDir}`); }
+      else { seg.push(`L ${mx} ${sy}`); }
+      if (r2 > 1) { seg.push(`L ${mx} ${ty - r2 * yDir}`); seg.push(`Q ${mx} ${ty} ${mx + r2 * x2Dir} ${ty}`); }
+      else { seg.push(`L ${mx} ${ty}`); }
+      seg.push(`L ${tx} ${ty}`);
+      d = seg.join(' ');
     }
 
     return {
       d,
-      handleX: mx,
-      handleY: (sy + ty) / 2,
-      dragAxis: 'x',
+      dragType: 'horizontal-primary',
+      segX1: mx, segY1: Math.min(sy, ty),
+      segX2: mx, segY2: Math.max(sy, ty),
+      midX: mx, midY: (sy + ty) / 2,
       arrowAngle: tx >= mx ? 0 : Math.PI,
       arrowStartAngle: sx >= mx ? 0 : Math.PI,
     };
   }
 }
 
-// ── Build a smooth bezier path (with drag control point) ─────────────────────
-function buildBezierPath(sx, sy, tx, ty, offset) {
-  const cpX = (sx + tx) / 2 + (offset?.x || 0);
-  const cpY = (sy + ty) / 2 + (offset?.y || 0);
+function buildBezier(sx, sy, tx, ty, ox, oy) {
+  const cpX = (sx + tx) / 2 + ox;
+  const cpY = (sy + ty) / 2 + oy;
   return {
     d: `M ${sx} ${sy} Q ${cpX} ${cpY} ${tx} ${ty}`,
-    handleX: cpX,
-    handleY: cpY,
-    dragAxis: 'both',
+    dragType: 'bezier',
+    midX: cpX, midY: cpY,
     arrowAngle: Math.atan2(ty - cpY, tx - cpX),
     arrowStartAngle: Math.atan2(sy - cpY, sx - cpX),
   };
 }
 
-// ── Build a straight line ─────────────────────────────────────────────────────
-function buildStraightPath(sx, sy, tx, ty) {
+function buildStraight(sx, sy, tx, ty) {
   return {
     d: `M ${sx} ${sy} L ${tx} ${ty}`,
-    handleX: (sx + tx) / 2,
-    handleY: (sy + ty) / 2,
-    dragAxis: 'none',
+    dragType: 'straight',
+    midX: (sx + tx) / 2, midY: (sy + ty) / 2,
     arrowAngle: Math.atan2(ty - sy, tx - sx),
     arrowStartAngle: Math.atan2(sy - ty, sx - tx),
   };
 }
 
-// ── Main CustomEdge ───────────────────────────────────────────────────────────
+// ── Main edge component ───────────────────────────────────────────────────────
 const CustomEdge = memo(({
   id,
   sourceX, sourceY, sourcePosition,
@@ -217,103 +171,216 @@ const CustomEdge = memo(({
   selected,
 }) => {
   const { setEdges, screenToFlowPosition } = useReactFlow();
-  const isDraggingRef = useRef(false);
-  const startFlowRef  = useRef({ x: 0, y: 0 });
-  const offsetStartRef = useRef({ x: 0, y: 0 });
+  const isDragging  = useRef(false);
+  const startFlow   = useRef({ x: 0, y: 0 });
+  const startOffset = useRef({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState(false);
 
-  const strokeColor = data.strokeColor || '#4b8fd4';
-  const strokeWidth = data.strokeWidth || 2;
-  const arrowType   = data.arrowType   || 'closed';
-  const arrowStart  = data.arrowStart  || 'none';
-  const animated    = data.animated    || false;
-  const label       = data.label       || '';
-  const lineStyle   = data.lineStyle   || 'elbow'; // 'elbow' | 'bezier' | 'straight'
-  const offset      = data.offset      || { x: 0, y: 0 };
+  const strokeColor  = data.strokeColor  || '#4b8fd4';
+  const strokeWidth  = data.strokeWidth  || 2;
+  const arrowType    = data.arrowType    || 'closed';
+  const arrowStart   = data.arrowStart   || 'none';
+  const animated     = data.animated     || false;
+  const label        = data.label        || '';
+  const lineStyle    = data.lineStyle    || 'elbow';
   const cornerRadius = data.cornerRadius ?? 10;
+  const offset       = data.offset       || { x: 0, y: 0 };
 
-  // ── Compute path based on style ──────────────────────────────
-  const pathData = (() => {
+  // ── Compute path ───────────────────────────────────────────────────────────
+  const path = (() => {
     switch (lineStyle) {
-      case 'bezier':
-        return buildBezierPath(sourceX, sourceY, targetX, targetY, offset);
-      case 'straight':
-        return buildStraightPath(sourceX, sourceY, targetX, targetY);
-      case 'elbow':
-      default:
-        return buildElbowPath(
-          sourceX, sourceY, sourcePosition,
-          targetX, targetY, targetPosition,
-          offset, cornerRadius
-        );
+      case 'bezier':   return buildBezier(sourceX, sourceY, targetX, targetY, offset.x, offset.y);
+      case 'straight': return buildStraight(sourceX, sourceY, targetX, targetY);
+      default:         return buildElbow(sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, offset.y, offset.x, cornerRadius);
     }
   })();
 
-  const { d, handleX, handleY, dragAxis, arrowAngle, arrowStartAngle } = pathData;
+  const { d, dragType, midX, midY, segX1, segY1, segX2, segY2, arrowAngle, arrowStartAngle } = path;
 
-  // ── Drag the midpoint handle ─────────────────────────────────
-  const onHandleMouseDown = useCallback((e) => {
-    if (dragAxis === 'none') return;
+  // ── Drag handler ───────────────────────────────────────────────────────────
+  const onSegmentMouseDown = useCallback((e) => {
+    if (lineStyle === 'straight') return;
     e.stopPropagation();
     e.preventDefault();
-    isDraggingRef.current = true;
-    startFlowRef.current = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    offsetStartRef.current = { ...offset };
+    isDragging.current = true;
+    startFlow.current = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    startOffset.current = { ...offset };
 
     const onMove = (ev) => {
-      if (!isDraggingRef.current) return;
+      if (!isDragging.current) return;
       const cur = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-      const dx = cur.x - startFlowRef.current.x;
-      const dy = cur.y - startFlowRef.current.y;
+      let dx = cur.x - startFlow.current.x;
+      let dy = cur.y - startFlow.current.y;
+
+      // Shift = snap to grid
+      if (ev.shiftKey) {
+        dx = Math.round((startOffset.current.x + dx) / SNAP_GRID) * SNAP_GRID - startOffset.current.x;
+        dy = Math.round((startOffset.current.y + dy) / SNAP_GRID) * SNAP_GRID - startOffset.current.y;
+      }
+
+      let newOffset;
+      if (dragType === 'vertical-primary') {
+        newOffset = { x: 0, y: startOffset.current.y + dy };
+      } else if (dragType === 'horizontal-primary') {
+        newOffset = { x: startOffset.current.x + dx, y: 0 };
+      } else {
+        // bezier: both axes
+        newOffset = { x: startOffset.current.x + dx, y: startOffset.current.y + dy };
+      }
+
       setEdges((eds) =>
-        eds.map((edge) => {
-          if (edge.id !== id) return edge;
-          const newOffset = {
-            x: dragAxis === 'y' ? 0 : offsetStartRef.current.x + dx,
-            y: dragAxis === 'x' ? 0 : offsetStartRef.current.y + dy,
-          };
-          return { ...edge, data: { ...edge.data, offset: newOffset } };
-        })
+        eds.map((edge) =>
+          edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: newOffset } }
+        )
       );
     };
 
     const onUp = () => {
-      isDraggingRef.current = false;
+      isDragging.current = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [id, offset, dragAxis, setEdges, screenToFlowPosition]);
+  }, [id, offset, lineStyle, dragType, setEdges, screenToFlowPosition]);
+
+  // Double-click segment: reset to natural center
+  const onSegmentDoubleClick = useCallback((e) => {
+    e.stopPropagation();
+    setEdges((eds) =>
+      eds.map((edge) =>
+        edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: { x: 0, y: 0 } } }
+      )
+    );
+  }, [id, setEdges]);
 
   const dashArray = animated ? '10 5' : undefined;
+  const showInteractive = selected || hovered;
+
+  // ── Determine drag cursor ─────────────────────────────────────────────────
+  const dragCursor =
+    lineStyle === 'straight' ? 'default' :
+    dragType === 'vertical-primary' ? 'row-resize' :
+    dragType === 'horizontal-primary' ? 'col-resize' : 'crosshair';
+
+  // ── Segment hit area (wide transparent rect over middle segment) ───────────
+  const segHitArea = () => {
+    if (lineStyle === 'straight' || !selected) return null;
+    const PAD = 10; // hit area padding around the segment
+
+    if (dragType === 'vertical-primary' && segX1 !== undefined) {
+      // Horizontal crossbar — hit rect above/below it
+      const x = Math.min(segX1, segX2);
+      const w = Math.abs(segX2 - segX1);
+      return (
+        <rect
+          x={x} y={segY1 - PAD}
+          width={w} height={PAD * 2}
+          fill="transparent"
+          style={{ cursor: dragCursor }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onMouseDown={onSegmentMouseDown}
+          onDoubleClick={onSegmentDoubleClick}
+        />
+      );
+    }
+
+    if (dragType === 'horizontal-primary' && segX1 !== undefined) {
+      // Vertical crossbar — hit rect left/right of it
+      const y = Math.min(segY1, segY2);
+      const h = Math.abs(segY2 - segY1);
+      return (
+        <rect
+          x={segX1 - PAD} y={y}
+          width={PAD * 2} height={h}
+          fill="transparent"
+          style={{ cursor: dragCursor }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onMouseDown={onSegmentMouseDown}
+          onDoubleClick={onSegmentDoubleClick}
+        />
+      );
+    }
+
+    // Bezier — circular handle at control point
+    return (
+      <circle
+        cx={midX} cy={midY} r={16}
+        fill="transparent"
+        style={{ cursor: dragCursor }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onMouseDown={onSegmentMouseDown}
+        onDoubleClick={onSegmentDoubleClick}
+      />
+    );
+  };
+
+  // ── Segment highlight when hovered/selected ───────────────────────────────
+  const segHighlight = () => {
+    if (!selected && !hovered) return null;
+    const opacity = hovered ? 0.5 : 0.25;
+
+    if (dragType === 'vertical-primary' && segX1 !== undefined) {
+      return (
+        <line
+          x1={segX1} y1={segY1} x2={segX2} y2={segY2}
+          stroke={strokeColor}
+          strokeWidth={hovered ? 8 : 4}
+          strokeOpacity={opacity}
+          strokeLinecap="round"
+          style={{ pointerEvents: 'none' }}
+        />
+      );
+    }
+    if (dragType === 'horizontal-primary' && segX1 !== undefined) {
+      return (
+        <line
+          x1={segX1} y1={segY1} x2={segX2} y2={segY2}
+          stroke={strokeColor}
+          strokeWidth={hovered ? 8 : 4}
+          strokeOpacity={opacity}
+          strokeLinecap="round"
+          style={{ pointerEvents: 'none' }}
+        />
+      );
+    }
+    // Bezier: show a small control point dot
+    return (
+      <circle
+        cx={midX} cy={midY} r={5}
+        fill="#0f2044"
+        stroke={strokeColor}
+        strokeWidth={2}
+        style={{ pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+      />
+    );
+  };
 
   return (
     <g>
-      {/* ── Wide invisible click area ─── */}
+      {/* ── Wide invisible click area ──────────────────── */}
       <path
         d={d}
         fill="none"
         stroke="transparent"
         strokeWidth={20}
         className="react-flow__edge-interaction"
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: dragCursor }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       />
 
-      {/* ── Glow when selected ─────────── */}
+      {/* ── Selection glow ─────────────────────────────── */}
       {selected && (
-        <path
-          d={d}
-          fill="none"
-          stroke={strokeColor}
-          strokeWidth={strokeWidth + 6}
-          strokeOpacity={0.18}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <path d={d} fill="none" stroke={strokeColor} strokeWidth={strokeWidth + 8}
+          strokeOpacity={0.12} strokeLinecap="round" strokeLinejoin="round" />
       )}
 
-      {/* ── Main path ──────────────────── */}
+      {/* ── Main path ──────────────────────────────────── */}
       <path
         id={id}
         d={d}
@@ -326,78 +393,63 @@ const CustomEdge = memo(({
         className="react-flow__edge-path"
       />
 
-      {/* ── Arrowheads ─────────────────── */}
-      <Arrowhead type={arrowType} tx={targetX} ty={targetY} angle={arrowAngle} color={strokeColor} sw={strokeWidth} />
+      {/* ── Segment highlight overlay ───────────────────── */}
+      {segHighlight()}
+
+      {/* ── Arrowheads ─────────────────────────────────── */}
+      <Arrowhead type={arrowType}  tx={targetX} ty={targetY} angle={arrowAngle}      color={strokeColor} sw={strokeWidth} />
       {arrowStart !== 'none' && (
         <Arrowhead type={arrowStart} tx={sourceX} ty={sourceY} angle={arrowStartAngle} color={strokeColor} sw={strokeWidth} />
       )}
 
-      {/* ── Label ──────────────────────── */}
+      {/* ── Label ──────────────────────────────────────── */}
       {label && (
         <foreignObject
-          x={handleX - 60}
-          y={handleY - 14}
-          width={120}
-          height={28}
+          x={midX - 60} y={midY - 14}
+          width={120} height={28}
           style={{ overflow: 'visible', pointerEvents: 'none' }}
         >
-          <div
-            xmlns="http://www.w3.org/1999/xhtml"
-            style={{
-              background: 'rgba(10,18,40,0.92)',
-              color: strokeColor,
-              fontSize: 11,
-              fontWeight: 600,
-              padding: '3px 10px',
-              borderRadius: 5,
-              border: `1px solid ${strokeColor}50`,
-              whiteSpace: 'nowrap',
-              textAlign: 'center',
-              backdropFilter: 'blur(4px)',
-              letterSpacing: 0.4,
-            }}
-          >
+          <div xmlns="http://www.w3.org/1999/xhtml" style={{
+            background: 'rgba(10,18,40,0.92)', color: strokeColor,
+            fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 5,
+            border: `1px solid ${strokeColor}50`, whiteSpace: 'nowrap',
+            textAlign: 'center', backdropFilter: 'blur(4px)', letterSpacing: 0.4,
+          }}>
             {label}
           </div>
         </foreignObject>
       )}
 
-      {/* ── Drag handle (visible on select) ── */}
-      {selected && dragAxis !== 'none' && (
-        <g onMouseDown={onHandleMouseDown} style={{ cursor: dragAxis === 'y' ? 'row-resize' : dragAxis === 'x' ? 'col-resize' : 'crosshair' }}>
-          {/* Larger invisible hit target */}
-          <circle cx={handleX} cy={handleY} r={14} fill="transparent" />
-          {/* Visual handle */}
-          <circle
-            cx={handleX}
-            cy={handleY}
-            r={6}
-            fill="#0f2044"
-            stroke={strokeColor}
-            strokeWidth={2.5}
-            style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.6))' }}
+      {/* ── Drag hit area (full segment, on top) ───────── */}
+      {segHitArea()}
+
+      {/* ── Drag hint arrow indicator (when selected, on elbow) ── */}
+      {selected && dragType === 'vertical-primary' && segX1 !== undefined && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Up arrow */}
+          <polygon
+            points={`${midX},${segY1 - 12} ${midX - 5},${segY1 - 7} ${midX + 5},${segY1 - 7}`}
+            fill={strokeColor} fillOpacity={0.6}
           />
-          {/* Directional arrows on the handle */}
-          {dragAxis === 'y' && (
-            <>
-              <polygon points={`${handleX},${handleY - 10} ${handleX - 4},${handleY - 6} ${handleX + 4},${handleY - 6}`} fill={strokeColor} />
-              <polygon points={`${handleX},${handleY + 10} ${handleX - 4},${handleY + 6} ${handleX + 4},${handleY + 6}`} fill={strokeColor} />
-            </>
-          )}
-          {dragAxis === 'x' && (
-            <>
-              <polygon points={`${handleX - 10},${handleY} ${handleX - 6},${handleY - 4} ${handleX - 6},${handleY + 4}`} fill={strokeColor} />
-              <polygon points={`${handleX + 10},${handleY} ${handleX + 6},${handleY - 4} ${handleX + 6},${handleY + 4}`} fill={strokeColor} />
-            </>
-          )}
-          {dragAxis === 'both' && (
-            <>
-              <line x1={handleX - 9} y1={handleY} x2={handleX - 6} y2={handleY} stroke={strokeColor} strokeWidth={1.5} />
-              <line x1={handleX + 6} y1={handleY} x2={handleX + 9} y2={handleY} stroke={strokeColor} strokeWidth={1.5} />
-              <line x1={handleX} y1={handleY - 9} x2={handleX} y2={handleY - 6} stroke={strokeColor} strokeWidth={1.5} />
-              <line x1={handleX} y1={handleY + 6} x2={handleX} y2={handleY + 9} stroke={strokeColor} strokeWidth={1.5} />
-            </>
-          )}
+          {/* Down arrow */}
+          <polygon
+            points={`${midX},${segY1 + 12} ${midX - 5},${segY1 + 7} ${midX + 5},${segY1 + 7}`}
+            fill={strokeColor} fillOpacity={0.6}
+          />
+        </g>
+      )}
+      {selected && dragType === 'horizontal-primary' && segX1 !== undefined && (
+        <g style={{ pointerEvents: 'none' }}>
+          {/* Left arrow */}
+          <polygon
+            points={`${midX - 12},${midY} ${midX - 7},${midY - 5} ${midX - 7},${midY + 5}`}
+            fill={strokeColor} fillOpacity={0.6}
+          />
+          {/* Right arrow */}
+          <polygon
+            points={`${midX + 12},${midY} ${midX + 7},${midY - 5} ${midX + 7},${midY + 5}`}
+            fill={strokeColor} fillOpacity={0.6}
+          />
         </g>
       )}
     </g>
