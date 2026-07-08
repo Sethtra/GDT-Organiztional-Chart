@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { useReactFlow, Position } from '@xyflow/react';
+import { useReactFlow, Position, getSmoothStepPath, getBezierPath, getStraightPath } from '@xyflow/react';
 
 // ── Arrowhead options ─────────────────────────────────────────────────────────
 export const ARROWHEAD_OPTIONS = [
@@ -16,7 +16,6 @@ export const ARROWHEAD_OPTIONS = [
 ];
 
 const SNAP_GRID = 15; // px to snap to when Shift is held
-const MIN_CLEARANCE = 28; // min distance crossbar from source/target
 
 // ── Arrowhead renderer ────────────────────────────────────────────────────────
 function Arrowhead({ type, tx, ty, angle, color, sw }) {
@@ -43,123 +42,15 @@ function Arrowhead({ type, tx, ty, angle, color, sw }) {
   }
 }
 
-// ── Build Visio-style orthogonal (elbow) path ─────────────────────────────────
-// Returns full path data AND the moveable segment endpoints for drag area
-function buildElbow(sx, sy, sp, tx, ty, tp, offsetY, offsetX, R = 10) {
-  const verticalPrimary =
-    sp === Position.Bottom || sp === Position.Top || sp === 'bottom' || sp === 'top';
-
-  if (verticalPrimary) {
-    const natural = (sy + ty) / 2;
-    // Clamp so crossbar never overlaps source or target node
-    const minY = sy + MIN_CLEARANCE;
-    const maxY = ty - MIN_CLEARANCE;
-    let my = natural + offsetY;
-    // Only clamp if there's room
-    if (minY < maxY) {
-      my = Math.max(minY, Math.min(maxY, my));
-    } else {
-      my = natural;
-    }
-
-    const xDist = tx - sx;
-    const xDir  = xDist >= 0 ? 1 : -1;
-    const y1Dir = my >= sy ? 1 : -1;
-    const y2Dir = ty >= my ? 1 : -1;
-
-    const r1 = Math.min(R, Math.abs(my - sy) * 0.45, Math.abs(xDist) * 0.45);
-    const r2 = Math.min(R, Math.abs(ty - my) * 0.45, Math.abs(xDist) * 0.45);
-
-    let d;
-    if (Math.abs(xDist) < 1) {
-      // Straight vertical
-      d = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else {
-      const seg = [];
-      seg.push(`M ${sx} ${sy}`);
-      if (r1 > 1) { seg.push(`L ${sx} ${my - r1 * y1Dir}`); seg.push(`Q ${sx} ${my} ${sx + r1 * xDir} ${my}`); }
-      else { seg.push(`L ${sx} ${my}`); }
-      if (r2 > 1) { seg.push(`L ${tx - r2 * xDir} ${my}`); seg.push(`Q ${tx} ${my} ${tx} ${my + r2 * y2Dir}`); }
-      else { seg.push(`L ${tx} ${my}`); }
-      seg.push(`L ${tx} ${ty}`);
-      d = seg.join(' ');
-    }
-
-    return {
-      d,
-      dragType: 'vertical-primary',
-      // Middle segment: from sx to tx at y=my (for drag hit area)
-      segX1: Math.min(sx, tx), segY1: my,
-      segX2: Math.max(sx, tx), segY2: my,
-      midX: (sx + tx) / 2, midY: my,
-      arrowAngle: ty >= my ? Math.PI / 2 : -Math.PI / 2,
-      arrowStartAngle: sy >= my ? Math.PI / 2 : -Math.PI / 2,
-    };
-  } else {
-    const natural = (sx + tx) / 2;
-    const minX = sx + MIN_CLEARANCE;
-    const maxX = tx - MIN_CLEARANCE;
-    let mx = natural + offsetX;
-    if (minX < maxX) {
-      mx = Math.max(minX, Math.min(maxX, mx));
-    } else {
-      mx = natural;
-    }
-
-    const yDist = ty - sy;
-    const yDir  = yDist >= 0 ? 1 : -1;
-    const x1Dir = mx >= sx ? 1 : -1;
-    const x2Dir = tx >= mx ? 1 : -1;
-
-    const r1 = Math.min(R, Math.abs(mx - sx) * 0.45, Math.abs(yDist) * 0.45);
-    const r2 = Math.min(R, Math.abs(tx - mx) * 0.45, Math.abs(yDist) * 0.45);
-
-    let d;
-    if (Math.abs(yDist) < 1) {
-      d = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else {
-      const seg = [];
-      seg.push(`M ${sx} ${sy}`);
-      if (r1 > 1) { seg.push(`L ${mx - r1 * x1Dir} ${sy}`); seg.push(`Q ${mx} ${sy} ${mx} ${sy + r1 * yDir}`); }
-      else { seg.push(`L ${mx} ${sy}`); }
-      if (r2 > 1) { seg.push(`L ${mx} ${ty - r2 * yDir}`); seg.push(`Q ${mx} ${ty} ${mx + r2 * x2Dir} ${ty}`); }
-      else { seg.push(`L ${mx} ${ty}`); }
-      seg.push(`L ${tx} ${ty}`);
-      d = seg.join(' ');
-    }
-
-    return {
-      d,
-      dragType: 'horizontal-primary',
-      segX1: mx, segY1: Math.min(sy, ty),
-      segX2: mx, segY2: Math.max(sy, ty),
-      midX: mx, midY: (sy + ty) / 2,
-      arrowAngle: tx >= mx ? 0 : Math.PI,
-      arrowStartAngle: sx >= mx ? 0 : Math.PI,
-    };
+// Helper to determine arrow angle based purely on handle position
+function getAngleFromPosition(pos, isTarget) {
+  switch (pos) {
+    case Position.Top:    return isTarget ? Math.PI / 2 : -Math.PI / 2; // points DOWN at target, UP at source
+    case Position.Bottom: return isTarget ? -Math.PI / 2 : Math.PI / 2; // points UP at target, DOWN at source
+    case Position.Left:   return isTarget ? 0 : Math.PI;               // points RIGHT at target, LEFT at source
+    case Position.Right:  return isTarget ? Math.PI : 0;               // points LEFT at target, RIGHT at source
+    default: return 0;
   }
-}
-
-function buildBezier(sx, sy, tx, ty, ox, oy) {
-  const cpX = (sx + tx) / 2 + ox;
-  const cpY = (sy + ty) / 2 + oy;
-  return {
-    d: `M ${sx} ${sy} Q ${cpX} ${cpY} ${tx} ${ty}`,
-    dragType: 'bezier',
-    midX: cpX, midY: cpY,
-    arrowAngle: Math.atan2(ty - cpY, tx - cpX),
-    arrowStartAngle: Math.atan2(sy - cpY, sx - cpX),
-  };
-}
-
-function buildStraight(sx, sy, tx, ty) {
-  return {
-    d: `M ${sx} ${sy} L ${tx} ${ty}`,
-    dragType: 'straight',
-    midX: (sx + tx) / 2, midY: (sy + ty) / 2,
-    arrowAngle: Math.atan2(ty - sy, tx - sx),
-    arrowStartAngle: Math.atan2(sy - ty, sx - tx),
-  };
 }
 
 // ── Main edge component ───────────────────────────────────────────────────────
@@ -186,19 +77,38 @@ const CustomEdge = memo(({
   const cornerRadius = data.cornerRadius ?? 10;
   const offset       = data.offset       || { x: 0, y: 0 };
 
-  // ── Compute path ───────────────────────────────────────────────────────────
-  const path = (() => {
-    switch (lineStyle) {
-      case 'bezier':   return buildBezier(sourceX, sourceY, targetX, targetY, offset.x, offset.y);
-      case 'straight': return buildStraight(sourceX, sourceY, targetX, targetY);
-      default:         return buildElbow(sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, offset.y, offset.x, cornerRadius);
-    }
-  })();
+  // ── Compute path using standard XYFlow routers ──────────────────────────────
+  let d, labelX, labelY, arrowAngle, arrowStartAngle;
 
-  const { d, dragType, midX, midY, segX1, segY1, segX2, segY2, arrowAngle, arrowStartAngle } = path;
+  if (lineStyle === 'straight') {
+    [d, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+    arrowAngle = Math.atan2(targetY - sourceY, targetX - sourceX);
+    arrowStartAngle = Math.atan2(sourceY - targetY, sourceX - targetX);
+  } else if (lineStyle === 'bezier') {
+    // Custom bezier with drag control point
+    labelX = (sourceX + targetX) / 2 + offset.x;
+    labelY = (sourceY + targetY) / 2 + offset.y;
+    d = `M ${sourceX} ${sourceY} Q ${labelX} ${labelY} ${targetX} ${targetY}`;
+    arrowAngle = Math.atan2(targetY - labelY, targetX - labelX);
+    arrowStartAngle = Math.atan2(sourceY - labelY, sourceX - labelX);
+  } else {
+    // Elbow (SmoothStep) using standard router but injecting centerX/centerY
+    const defaultCenterX = (sourceX + targetX) / 2;
+    const defaultCenterY = (sourceY + targetY) / 2;
+    [d, labelX, labelY] = getSmoothStepPath({
+      sourceX, sourceY, sourcePosition,
+      targetX, targetY, targetPosition,
+      borderRadius: cornerRadius,
+      centerX: defaultCenterX + offset.x,
+      centerY: defaultCenterY + offset.y,
+    });
+    // Orthogonal arrows strictly follow handle positions
+    arrowAngle = getAngleFromPosition(targetPosition, true);
+    arrowStartAngle = getAngleFromPosition(sourcePosition, false);
+  }
 
-  // ── Drag handler ───────────────────────────────────────────────────────────
-  const onSegmentMouseDown = useCallback((e) => {
+  // ── Drag handler applied to the whole path ──────────────────────────────────
+  const onEdgeMouseDown = useCallback((e) => {
     if (lineStyle === 'straight') return;
     e.stopPropagation();
     e.preventDefault();
@@ -218,19 +128,18 @@ const CustomEdge = memo(({
         dy = Math.round((startOffset.current.y + dy) / SNAP_GRID) * SNAP_GRID - startOffset.current.y;
       }
 
-      let newOffset;
-      if (dragType === 'vertical-primary') {
-        newOffset = { x: 0, y: startOffset.current.y + dy };
-      } else if (dragType === 'horizontal-primary') {
-        newOffset = { x: startOffset.current.x + dx, y: 0 };
-      } else {
-        // bezier: both axes
-        newOffset = { x: startOffset.current.x + dx, y: startOffset.current.y + dy };
-      }
-
       setEdges((eds) =>
         eds.map((edge) =>
-          edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: newOffset } }
+          edge.id !== id ? edge : { 
+            ...edge, 
+            data: { 
+              ...edge.data, 
+              offset: { 
+                x: startOffset.current.x + dx, 
+                y: startOffset.current.y + dy 
+              } 
+            } 
+          }
         )
       );
     };
@@ -243,144 +152,41 @@ const CustomEdge = memo(({
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [id, offset, lineStyle, dragType, setEdges, screenToFlowPosition]);
+  }, [id, offset, lineStyle, setEdges, screenToFlowPosition]);
 
-  // Double-click segment: reset to natural center
-  const onSegmentDoubleClick = useCallback((e) => {
+  const onEdgeDoubleClick = useCallback((e) => {
     e.stopPropagation();
-    setEdges((eds) =>
-      eds.map((edge) =>
-        edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: { x: 0, y: 0 } } }
-      )
-    );
+    setEdges((eds) => eds.map((edge) => edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: { x: 0, y: 0 } } }));
   }, [id, setEdges]);
 
   const dashArray = animated ? '10 5' : undefined;
   const showInteractive = selected || hovered;
-
-  // ── Determine drag cursor ─────────────────────────────────────────────────
-  const dragCursor =
-    lineStyle === 'straight' ? 'default' :
-    dragType === 'vertical-primary' ? 'row-resize' :
-    dragType === 'horizontal-primary' ? 'col-resize' : 'crosshair';
-
-  // ── Segment hit area (wide transparent rect over middle segment) ───────────
-  const segHitArea = () => {
-    if (lineStyle === 'straight' || !selected) return null;
-    const PAD = 10; // hit area padding around the segment
-
-    if (dragType === 'vertical-primary' && segX1 !== undefined) {
-      // Horizontal crossbar — hit rect above/below it
-      const x = Math.min(segX1, segX2);
-      const w = Math.abs(segX2 - segX1);
-      return (
-        <rect
-          x={x} y={segY1 - PAD}
-          width={w} height={PAD * 2}
-          fill="transparent"
-          style={{ cursor: dragCursor }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          onMouseDown={onSegmentMouseDown}
-          onDoubleClick={onSegmentDoubleClick}
-        />
-      );
-    }
-
-    if (dragType === 'horizontal-primary' && segX1 !== undefined) {
-      // Vertical crossbar — hit rect left/right of it
-      const y = Math.min(segY1, segY2);
-      const h = Math.abs(segY2 - segY1);
-      return (
-        <rect
-          x={segX1 - PAD} y={y}
-          width={PAD * 2} height={h}
-          fill="transparent"
-          style={{ cursor: dragCursor }}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          onMouseDown={onSegmentMouseDown}
-          onDoubleClick={onSegmentDoubleClick}
-        />
-      );
-    }
-
-    // Bezier — circular handle at control point
-    return (
-      <circle
-        cx={midX} cy={midY} r={16}
-        fill="transparent"
-        style={{ cursor: dragCursor }}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        onMouseDown={onSegmentMouseDown}
-        onDoubleClick={onSegmentDoubleClick}
-      />
-    );
-  };
-
-  // ── Segment highlight when hovered/selected ───────────────────────────────
-  const segHighlight = () => {
-    if (!selected && !hovered) return null;
-    const opacity = hovered ? 0.5 : 0.25;
-
-    if (dragType === 'vertical-primary' && segX1 !== undefined) {
-      return (
-        <line
-          x1={segX1} y1={segY1} x2={segX2} y2={segY2}
-          stroke={strokeColor}
-          strokeWidth={hovered ? 8 : 4}
-          strokeOpacity={opacity}
-          strokeLinecap="round"
-          style={{ pointerEvents: 'none' }}
-        />
-      );
-    }
-    if (dragType === 'horizontal-primary' && segX1 !== undefined) {
-      return (
-        <line
-          x1={segX1} y1={segY1} x2={segX2} y2={segY2}
-          stroke={strokeColor}
-          strokeWidth={hovered ? 8 : 4}
-          strokeOpacity={opacity}
-          strokeLinecap="round"
-          style={{ pointerEvents: 'none' }}
-        />
-      );
-    }
-    // Bezier: show a small control point dot
-    return (
-      <circle
-        cx={midX} cy={midY} r={5}
-        fill="#0f2044"
-        stroke={strokeColor}
-        strokeWidth={2}
-        style={{ pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
-      />
-    );
-  };
+  const dragCursor = lineStyle === 'straight' ? 'default' : 'move';
 
   return (
     <g>
-      {/* ── Wide invisible click area ──────────────────── */}
+      {/* ── Wide invisible click area spanning the whole edge ────────────────── */}
       <path
         d={d}
         fill="none"
         stroke="transparent"
-        strokeWidth={20}
+        strokeWidth={30}
         className="react-flow__edge-interaction"
         style={{ cursor: dragCursor }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onMouseDown={onEdgeMouseDown}
+        onDoubleClick={onEdgeDoubleClick}
       />
 
-      {/* ── Selection glow ─────────────────────────────── */}
-      {selected && (
+      {/* ── Selection glow spanning the whole edge ───────────────────────────── */}
+      {showInteractive && (
         <path d={d} fill="none" stroke={strokeColor} strokeWidth={strokeWidth + 8}
-          strokeOpacity={0.12} strokeLinecap="round" strokeLinejoin="round" />
+          strokeOpacity={hovered && !selected ? 0.3 : 0.15} strokeLinecap="round" strokeLinejoin="round" 
+          style={{ pointerEvents: 'none' }} />
       )}
 
-      {/* ── Main path ──────────────────────────────────── */}
+      {/* ── Main path ────────────────────────────────────────────────────────── */}
       <path
         id={id}
         d={d}
@@ -391,21 +197,19 @@ const CustomEdge = memo(({
         strokeLinecap="round"
         strokeLinejoin="round"
         className="react-flow__edge-path"
+        style={{ pointerEvents: 'none' }}
       />
 
-      {/* ── Segment highlight overlay ───────────────────── */}
-      {segHighlight()}
-
-      {/* ── Arrowheads ─────────────────────────────────── */}
+      {/* ── Arrowheads ───────────────────────────────────────────────────────── */}
       <Arrowhead type={arrowType}  tx={targetX} ty={targetY} angle={arrowAngle}      color={strokeColor} sw={strokeWidth} />
       {arrowStart !== 'none' && (
         <Arrowhead type={arrowStart} tx={sourceX} ty={sourceY} angle={arrowStartAngle} color={strokeColor} sw={strokeWidth} />
       )}
 
-      {/* ── Label ──────────────────────────────────────── */}
+      {/* ── Label ────────────────────────────────────────────────────────────── */}
       {label && (
         <foreignObject
-          x={midX - 60} y={midY - 14}
+          x={labelX - 60} y={labelY - 14}
           width={120} height={28}
           style={{ overflow: 'visible', pointerEvents: 'none' }}
         >
@@ -420,37 +224,13 @@ const CustomEdge = memo(({
         </foreignObject>
       )}
 
-      {/* ── Drag hit area (full segment, on top) ───────── */}
-      {segHitArea()}
-
-      {/* ── Drag hint arrow indicator (when selected, on elbow) ── */}
-      {selected && dragType === 'vertical-primary' && segX1 !== undefined && (
-        <g style={{ pointerEvents: 'none' }}>
-          {/* Up arrow */}
-          <polygon
-            points={`${midX},${segY1 - 12} ${midX - 5},${segY1 - 7} ${midX + 5},${segY1 - 7}`}
-            fill={strokeColor} fillOpacity={0.6}
-          />
-          {/* Down arrow */}
-          <polygon
-            points={`${midX},${segY1 + 12} ${midX - 5},${segY1 + 7} ${midX + 5},${segY1 + 7}`}
-            fill={strokeColor} fillOpacity={0.6}
-          />
-        </g>
-      )}
-      {selected && dragType === 'horizontal-primary' && segX1 !== undefined && (
-        <g style={{ pointerEvents: 'none' }}>
-          {/* Left arrow */}
-          <polygon
-            points={`${midX - 12},${midY} ${midX - 7},${midY - 5} ${midX - 7},${midY + 5}`}
-            fill={strokeColor} fillOpacity={0.6}
-          />
-          {/* Right arrow */}
-          <polygon
-            points={`${midX + 12},${midY} ${midX + 7},${midY - 5} ${midX + 7},${midY + 5}`}
-            fill={strokeColor} fillOpacity={0.6}
-          />
-        </g>
+      {/* ── Drag hint indicator at center (when selected) ────────────────────── */}
+      {selected && lineStyle !== 'straight' && (
+        <circle
+          cx={labelX} cy={labelY} r={5}
+          fill="#0f2044" stroke={strokeColor} strokeWidth={2}
+          style={{ pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+        />
       )}
     </g>
   );
