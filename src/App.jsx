@@ -10,7 +10,6 @@ import {
   addEdge,
   useNodesState,
   useEdgesState,
-  MarkerType,
   Panel,
   ConnectionMode,
   useReactFlow,
@@ -25,10 +24,11 @@ import "@xyflow/react/dist/style.css";
 import {
   Plus, LayoutGrid, ArrowDownUp, ArrowLeftRight,
   Undo2, Redo2, Eye, EyeOff, RotateCcw, Download,
-  Search as SearchIcon, Keyboard, CheckCircle2, Loader2, Share2,
+  Search as SearchIcon, Keyboard, CheckCircle2, Loader2, Share2, X,
 } from "lucide-react";
 
 import OrgNode from "./components/OrgNode";
+import CustomEdge from "./components/CustomEdge";
 import PropertiesPanel from "./components/PropertiesPanel";
 import ConfirmModal from "./components/ConfirmModal";
 import ShareModal from "./components/ShareModal";
@@ -52,12 +52,12 @@ import DashboardPage from "./pages/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 const nodeTypes = { orgNode: OrgNode };
+const edgeTypes = { custom: CustomEdge };
 
 const DEFAULT_EDGE_OPTIONS = {
-  type: "smoothstep",
+  type: "custom",
   animated: false,
-  style: { stroke: "#4b8fd4", strokeWidth: 2 },
-  markerEnd: { type: MarkerType.ArrowClosed, color: "#4b8fd4" },
+  data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", waypoint: { x: 0, y: 0 }, label: "" },
 };
 
 function FlowApp() {
@@ -90,6 +90,7 @@ function FlowApp() {
   const [chartIsPublic, setChartIsPublic] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [linkedChartPopup, setLinkedChartPopup] = useState(null); // { node, x, y }
 
   const lastSyncData = useRef({ nodes: "[]", edges: "[]" });
   const channelRef = useRef(null);
@@ -345,10 +346,16 @@ function FlowApp() {
     setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
   }, [setEdges, takeSnapshot]);
 
-  const onNodeClick = useCallback((_evt, node) => {
+  const onNodeClick = useCallback((evt, node) => {
     setSelectedNode(node);
     setSelectedEdge(null);
     setContextMenu(null);
+    // If node has a linked chart, show the popup
+    if (node.data.linkedChartId) {
+      setLinkedChartPopup({ node, x: evt.clientX, y: evt.clientY });
+    } else {
+      setLinkedChartPopup(null);
+    }
   }, []);
 
   const onEdgeClick = useCallback((_evt, edge) => {
@@ -529,10 +536,10 @@ function FlowApp() {
             </button>
             <div className="tb-divider" style={{ height: 24, margin: 0 }} />
             <div className="header-brand">
-            <span className="header-emblem">🏛️</span>
+            <img src="/gdt-logo.png" alt="GDT Logo" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: '50%', background: 'white', padding: 2 }} />
               <div>
                 <div className="header-title-kh">{chartName}</div>
-                <div className="header-title-en">GDT Org Chart Editor</div>
+                <div className="header-title-en">អគ្គនាយកដ្ឋានពន្ធដារ</div>
               </div>
             </div>
           </div>
@@ -673,6 +680,7 @@ function FlowApp() {
                 onEdgeDoubleClick={onEdgeDoubleClick}
                 onNodeContextMenu={onNodeContextMenu}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
                 connectionMode={ConnectionMode.Loose}
                 reconnectRadius={shiftHeld ? 150 : 20}
@@ -794,6 +802,61 @@ function FlowApp() {
           onCancel={() => setConfirmModal(null)}
           danger={confirmModal.danger}
         />
+      )}
+      {/* ── Linked Chart Popup ───────────────────────────── */}
+      {linkedChartPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            left: linkedChartPopup.x + 12,
+            top: linkedChartPopup.y - 20,
+            zIndex: 1000,
+            background: 'rgba(10, 18, 40, 0.97)',
+            border: '1px solid rgba(14, 125, 110, 0.4)',
+            borderRadius: 12,
+            padding: '14px 18px',
+            minWidth: 220,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(14,125,110,0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ background: 'rgba(14,125,110,0.2)', padding: 6, borderRadius: 8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0e7d6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div>
+              <div style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Chart</div>
+              <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{linkedChartPopup.node.data.nameEn || linkedChartPopup.node.data.name}</div>
+            </div>
+            <button
+              onClick={() => setLinkedChartPopup(null)}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: 2 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <button
+            onClick={() => { navigate(`/chart/${linkedChartPopup.node.data.linkedChartId}`); setLinkedChartPopup(null); }}
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #0e7d6e, #0a5c50)',
+              border: 'none',
+              borderRadius: 8,
+              color: 'white',
+              padding: '9px 14px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open Chart
+          </button>
+        </div>
       )}
     </div>
   );

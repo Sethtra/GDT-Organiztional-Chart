@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus } from "lucide-react";
+import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink } from "lucide-react";
+import { supabase } from "../supabaseClient";
+import { useAuth } from "../hooks/useAuth";
+import { ARROWHEAD_OPTIONS } from "./CustomEdge";
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
@@ -25,65 +28,92 @@ const TYPE_META = {
   office:     { accent: "#6ee7b7" },
 };
 
+// ── Arrow preview SVG ─────────────────────────────────────────────────────────
+function ArrowPreview({ type, color, selected }) {
+  const previews = {
+    'closed':       <polygon points="28,10 18,6 18,14" fill={color} />,
+    'open':         <polyline points="18,6 28,10 18,14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />,
+    'circle':       <circle cx="24" cy="10" r="4" fill={color} />,
+    'ring':         <circle cx="24" cy="10" r="4" fill="none" stroke={color} strokeWidth={1.5} />,
+    'diamond':      <polygon points="28,10 23,6 18,10 23,14" fill={color} />,
+    'diamond-open': <polygon points="28,10 23,6 18,10 23,14" fill="none" stroke={color} strokeWidth={1.5} />,
+    'square':       <rect x="18" y="6" width="9" height="9" fill={color} />,
+    'double':       <g><polygon points="28,10 22,6 22,14" fill={color} /><polygon points="22,10 16,6 16,14" fill={color} /></g>,
+    'chevron':      <polyline points="18,6 23,10 18,14" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />,
+    'none':         null,
+  };
+
+  return (
+    <svg width="38" height="20" viewBox="0 0 38 20">
+      <line x1="4" y1="10" x2="26" y2="10" stroke={color} strokeWidth={1.5} strokeDasharray={type === 'none' ? 'none' : undefined} />
+      {previews[type]}
+    </svg>
+  );
+}
+
 // ── Edge Panel ────────────────────────────────────────────────────────────────
 function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
-  const [strokeColor, setStrokeColor] = useState(edge.style?.stroke || "#4b8fd4");
-  const [strokeWidth, setStrokeWidth] = useState(edge.style?.strokeWidth || 2);
-  const [edgeType, setEdgeType] = useState(edge.type || "smoothstep");
-  const [animated, setAnimated] = useState(edge.animated || false);
+  const d = edge.data || {};
+  const [strokeColor, setStrokeColor] = useState(d.strokeColor || "#4b8fd4");
+  const [strokeWidth, setStrokeWidth] = useState(d.strokeWidth || 2);
+  const [arrowType, setArrowType]     = useState(d.arrowType   || "closed");
+  const [arrowStart, setArrowStart]   = useState(d.arrowStart  || "none");
+  const [animated, setAnimated]       = useState(d.animated    || false);
+  const [label, setLabel]             = useState(d.label       || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    setStrokeColor(edge.style?.stroke || "#4b8fd4");
-    setStrokeWidth(edge.style?.strokeWidth || 2);
-    setEdgeType(edge.type || "smoothstep");
-    setAnimated(edge.animated || false);
+    const d2 = edge.data || {};
+    setStrokeColor(d2.strokeColor || "#4b8fd4");
+    setStrokeWidth(d2.strokeWidth || 2);
+    setArrowType(d2.arrowType   || "closed");
+    setArrowStart(d2.arrowStart || "none");
+    setAnimated(d2.animated    || false);
+    setLabel(d2.label          || "");
     setConfirmDelete(false);
   }, [edge.id]);
 
   useEffect(() => {
     const t = setTimeout(() => {
       onUpdate(edge.id, {
-        type: edgeType,
-        animated,
-        style: { ...edge.style, stroke: strokeColor, strokeWidth: parseInt(strokeWidth) },
+        data: {
+          ...edge.data,
+          strokeColor,
+          strokeWidth: Number(strokeWidth),
+          arrowType,
+          arrowStart,
+          animated,
+          label,
+        },
       });
-    }, 250);
+    }, 200);
     return () => clearTimeout(t);
-  }, [strokeColor, strokeWidth, edgeType, animated]);
+  }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label]);
 
   return (
     <div className="properties-panel">
       <div className="pp-header">
         <div className="pp-header-left">
-          <div className="pp-dot" style={{ background: strokeColor, borderRadius: 0, height: 4, width: 16 }} />
+          <div className="pp-dot" style={{ background: strokeColor, borderRadius: 0, height: 3, width: 18 }} />
           <span className="pp-title">Connection</span>
         </div>
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
 
       <div className="pp-body">
+
+        {/* Label */}
         <div className="pp-section">
-          <div className="pp-section-label"><Minus size={11} /> Line Style</div>
-          <div className="pp-type-grid" style={{ marginBottom: 8 }}>
-            {["smoothstep", "straight", "step"].map((t) => (
-              <button key={t} className={`pp-type-btn ${edgeType === t ? "active" : ""}`} onClick={() => setEdgeType(t)}>
-                {t}
-              </button>
-            ))}
-          </div>
-          <label className="pp-label" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={animated} onChange={(e) => setAnimated(e.target.checked)} />
-            Animated flow
-          </label>
-          <label className="pp-label" style={{ marginTop: 4 }}>Thickness</label>
+          <div className="pp-section-label"><Minus size={11} /> Label</div>
           <input
-            type="range" min={1} max={6} value={strokeWidth}
-            onChange={(e) => setStrokeWidth(e.target.value)}
-            style={{ width: "100%", accentColor: strokeColor }}
+            className="pp-input"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Optional label..."
           />
         </div>
 
+        {/* Line color */}
         <div className="pp-section">
           <div className="pp-section-label"><Palette size={11} /> Line Color</div>
           <div className="pp-colors">
@@ -91,19 +121,106 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
               <button key={c.value} className={`pp-swatch ${strokeColor === c.value ? "active" : ""}`}
                 style={{ background: c.value }} onClick={() => setStrokeColor(c.value)} title={c.label} />
             ))}
-            <label className="pp-swatch pp-swatch--custom" title="Custom color">
+            <label className="pp-swatch pp-swatch--custom" title="Custom">
               <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)}
                 style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} />
               <span style={{ fontSize: 14 }}>🎨</span>
             </label>
           </div>
-          <div className="pp-color-preview" style={{ background: strokeColor }}>
-            <span>{strokeColor}</span>
+          <div className="pp-color-preview" style={{ background: strokeColor }}><span>{strokeColor}</span></div>
+        </div>
+
+        {/* Thickness + animated */}
+        <div className="pp-section">
+          <div className="pp-section-label"><Minus size={11} /> Thickness & Style</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <input
+              type="range" min={1} max={8} value={strokeWidth}
+              onChange={(e) => setStrokeWidth(e.target.value)}
+              style={{ flex: 1, accentColor: strokeColor }}
+            />
+            <span style={{ color: '#94a3b8', fontSize: 12, minWidth: 20, textAlign: 'right' }}>{strokeWidth}px</span>
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: '#94a3b8', fontSize: 12 }}>
+            <input type="checkbox" checked={animated} onChange={(e) => setAnimated(e.target.checked)} />
+            Animated flow
+          </label>
+        </div>
+
+        {/* End arrowhead */}
+        <div className="pp-section">
+          <div className="pp-section-label" style={{ marginBottom: 10 }}>Arrow — End</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {ARROWHEAD_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setArrowType(opt.id)}
+                title={opt.label}
+                style={{
+                  background: arrowType === opt.id ? `${strokeColor}22` : 'rgba(255,255,255,0.04)',
+                  border: arrowType === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 7,
+                  padding: '5px 2px 2px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3,
+                  transition: 'all .15s',
+                }}
+              >
+                <ArrowPreview type={opt.id} color={arrowType === opt.id ? strokeColor : '#64748b'} />
+                <span style={{ fontSize: 9, color: arrowType === opt.id ? strokeColor : '#64748b', fontWeight: 600, letterSpacing: 0.2 }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Start arrowhead */}
+        <div className="pp-section">
+          <div className="pp-section-label" style={{ marginBottom: 10 }}>Arrow — Start</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+            {ARROWHEAD_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setArrowStart(opt.id)}
+                title={opt.label}
+                style={{
+                  background: arrowStart === opt.id ? `${strokeColor}22` : 'rgba(255,255,255,0.04)',
+                  border: arrowStart === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 7,
+                  padding: '5px 2px 2px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 3,
+                  transition: 'all .15s',
+                }}
+              >
+                <ArrowPreview type={opt.id} color={arrowStart === opt.id ? strokeColor : '#64748b'} />
+                <span style={{ fontSize: 9, color: arrowStart === opt.id ? strokeColor : '#64748b', fontWeight: 600, letterSpacing: 0.2 }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Waypoint hint */}
+        <div className="pp-section">
+          <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.2)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.5 }}>
+              💡 <strong style={{ color: '#cbd5e1' }}>Drag the handle</strong> on the selected line to reshape its curve
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      {/* Sticky footer */}
+      {/* Footer */}
       <div className="pp-sticky-footer">
         {confirmDelete ? (
           <div className="pp-delete-confirm">
@@ -131,17 +248,31 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
     return <EdgePropertiesPanel edge={edge} onUpdate={onUpdateEdge} onDelete={onDeleteEdge} onClose={onClose} />;
   }
 
+  const { user } = useAuth();
   const [name, setName]               = useState(node.data.name || "");
   const [nameEn, setNameEn]           = useState(node.data.nameEn || "");
   const [description, setDescription] = useState(node.data.description || "");
   const [orgType, setOrgType]         = useState(node.data.orgType || "office");
   const [color, setColor]             = useState(node.data.color || "#1e5799");
   const [textColor, setTextColor]     = useState(node.data.textColor || "#ffffff");
+  const [linkedChartId, setLinkedChartId] = useState(node.data.linkedChartId || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addChildType, setAddChildType]   = useState("office");
   const [showAddChild, setShowAddChild]   = useState(false);
+  const [charts, setCharts]               = useState([]);
 
   const meta = TYPE_META[orgType] || TYPE_META.office;
+
+  // Fetch user's charts for chart linking
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('charts')
+      .select('id, name')
+      .eq('owner_id', user.id)
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => setCharts(data || []));
+  }, [user]);
 
   useEffect(() => {
     setName(node.data.name || "");
@@ -150,6 +281,7 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
     setOrgType(node.data.orgType || "office");
     setColor(node.data.color || "#1e5799");
     setTextColor(node.data.textColor || "#ffffff");
+    setLinkedChartId(node.data.linkedChartId || "");
     setConfirmDelete(false);
     setShowAddChild(false);
   }, [node.id]);
@@ -157,10 +289,12 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
   // Auto-save (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdateNode(node.id, { name, nameEn, description, orgType, color, textColor });
+      onUpdateNode(node.id, { name, nameEn, description, orgType, color, textColor, linkedChartId });
     }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor]);
+  }, [name, nameEn, description, orgType, color, textColor, linkedChartId]);
+
+  const linkedChart = charts.find(c => c.id === linkedChartId);
 
   return (
     <div className="properties-panel">
@@ -249,6 +383,38 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
               <span style={{ fontSize: 14 }}>🎨</span>
             </label>
           </div>
+        </div>
+
+        {/* Chart Link */}
+        <div className="pp-section">
+          <div className="pp-section-label"><LinkIcon size={11} /> Link to Chart</div>
+          <p style={{ color: '#64748b', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
+            Link this node to another chart. Viewers can click the node to open it.
+          </p>
+          <select
+            className="pp-input"
+            value={linkedChartId}
+            onChange={(e) => setLinkedChartId(e.target.value)}
+            style={{ cursor: 'pointer' }}
+          >
+            <option value="">— No link —</option>
+            {charts.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          {linkedChart && (
+            <div style={{ marginTop: 8, background: 'rgba(14, 125, 110, 0.1)', border: '1px solid rgba(14, 125, 110, 0.3)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ExternalLink size={12} style={{ color: '#0e7d6e', flexShrink: 0 }} />
+              <span style={{ color: '#0e7d6e', fontSize: 12, fontWeight: 600 }}>{linkedChart.name}</span>
+              <button
+                onClick={() => setLinkedChartId("")}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 2 }}
+                title="Remove link"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

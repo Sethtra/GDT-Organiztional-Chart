@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { Handle, Position, NodeResizer } from "@xyflow/react";
-import { Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, ChevronDown, ChevronRight, Link as LinkIcon } from "lucide-react";
 
 const TYPE_META = {
   ministry:   { label: "MINISTRY",   accent: "#d4af37" },
@@ -57,6 +57,11 @@ const OrgNode = memo(({ data, selected }) => {
           {hovered && !isCollapsed && (
             <span className="org-node__edit-hint">
               <Pencil size={11} /> edit
+            </span>
+          )}
+          {data.linkedChartId && (
+            <span title="Linked to another chart" style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 5px', background: 'rgba(14,125,110,0.25)', borderRadius: 4, border: '1px solid rgba(14,125,110,0.5)', marginLeft: 2 }}>
+              <LinkIcon size={9} style={{ color: '#0e7d6e' }} />
             </span>
           )}
         </div>
