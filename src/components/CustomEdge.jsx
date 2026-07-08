@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { useReactFlow, Position, getSmoothStepPath, getBezierPath, getStraightPath } from '@xyflow/react';
+import { useReactFlow, Position, getBezierPath, getStraightPath } from '@xyflow/react';
 
 // ── Arrowhead options ─────────────────────────────────────────────────────────
 export const ARROWHEAD_OPTIONS = [
@@ -42,16 +42,99 @@ function Arrowhead({ type, tx, ty, angle, color, sw }) {
   }
 }
 
-// Helper to determine arrow angle based purely on handle position
-function getAngleFromPosition(pos, isTarget) {
-  switch (pos) {
-    case Position.Top:    return isTarget ? Math.PI / 2 : -Math.PI / 2; // points DOWN at target, UP at source
-    case Position.Bottom: return isTarget ? -Math.PI / 2 : Math.PI / 2; // points UP at target, DOWN at source
-    case Position.Left:   return isTarget ? 0 : Math.PI;               // points RIGHT at target, LEFT at source
-    case Position.Right:  return isTarget ? Math.PI : 0;               // points LEFT at target, RIGHT at source
-    default: return 0;
+// ── Robust Orthogonal (Visio) Router ──────────────────────────────────────────
+function buildRobustElbow(sx, sy, sp, tx, ty, tp, offsetX, offsetY, R = 10) {
+  const getDir = (p) => {
+    if (p === 'top' || p === Position.Top) return [0, -1];
+    if (p === 'bottom' || p === Position.Bottom) return [0, 1];
+    if (p === 'left' || p === Position.Left) return [-1, 0];
+    if (p === 'right' || p === Position.Right) return [1, 0];
+    return [0, 0];
+  };
+
+  const [sdx, sdy] = getDir(sp);
+  const [tdx, tdy] = getDir(tp);
+
+  const CLEAR = 20;
+  const s1x = sx + sdx * CLEAR;
+  const s1y = sy + sdy * CLEAR;
+  const t1x = tx + tdx * CLEAR;
+  const t1y = ty + tdy * CLEAR;
+
+  const isSourceV = sdy !== 0;
+  const isTargetV = tdy !== 0;
+
+  let crossbarType = 'horizontal';
+  if (isSourceV && isTargetV) crossbarType = 'horizontal';
+  else if (!isSourceV && !isTargetV) crossbarType = 'vertical';
+  else {
+    // mixed
+    crossbarType = Math.abs(s1x - t1x) > Math.abs(s1y - t1y) ? 'vertical' : 'horizontal';
   }
+
+  const pts = [[sx, sy]];
+
+  if (crossbarType === 'vertical') {
+    const mx = (s1x + t1x) / 2 + offsetX;
+    pts.push([s1x, s1y], [mx, s1y], [mx, t1y], [t1x, t1y]);
+  } else {
+    const my = (s1y + t1y) / 2 + offsetY;
+    pts.push([s1x, s1y], [s1x, my], [t1x, my], [t1x, t1y]);
+  }
+  pts.push([tx, ty]);
+
+  // Clean collinear and dupes
+  const clean = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const curr = pts[i];
+    const prev = clean[clean.length - 1];
+    if (Math.abs(prev[0] - curr[0]) < 1 && Math.abs(prev[1] - curr[1]) < 1) continue;
+    
+    if (clean.length >= 2) {
+      const p1 = clean[clean.length - 2];
+      const p2 = clean[clean.length - 1];
+      const isX = Math.abs(p1[0] - p2[0]) < 1 && Math.abs(p2[0] - curr[0]) < 1;
+      const isY = Math.abs(p1[1] - p2[1]) < 1 && Math.abs(p2[1] - curr[1]) < 1;
+      if (isX || isY) clean.pop();
+    }
+    clean.push(curr);
+  }
+
+  // Draw Path with rounded corners
+  let d = `M ${clean[0][0]} ${clean[0][1]}`;
+  for (let i = 1; i < clean.length - 1; i++) {
+    const p0 = clean[i - 1];
+    const p1 = clean[i];
+    const p2 = clean[i + 1];
+    
+    const d01 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    const d12 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const r = Math.min(R, d01 / 2.1, d12 / 2.1);
+
+    if (r < 1) {
+      d += ` L ${p1[0]} ${p1[1]}`;
+    } else {
+      const pStart = [p1[0] + ((p0[0] - p1[0]) / d01) * r, p1[1] + ((p0[1] - p1[1]) / d01) * r];
+      const pEnd = [p1[0] + ((p2[0] - p1[0]) / d12) * r, p1[1] + ((p2[1] - p1[1]) / d12) * r];
+      d += ` L ${pStart[0]} ${pStart[1]} Q ${p1[0]} ${p1[1]} ${pEnd[0]} ${pEnd[1]}`;
+    }
+  }
+  const last = clean[clean.length - 1];
+  d += ` L ${last[0]} ${last[1]}`;
+
+  // Find midpoint for label and hit area
+  let labelX, labelY;
+  const midIdx = Math.floor((clean.length - 1) / 2);
+  labelX = (clean[midIdx][0] + clean[midIdx + 1][0]) / 2;
+  labelY = (clean[midIdx][1] + clean[midIdx + 1][1]) / 2;
+
+  // Accurate arrow angles from actual path segments
+  const arrowStartAngle = Math.atan2(clean[0][1] - clean[1][1], clean[0][0] - clean[1][0]);
+  const arrowAngle = Math.atan2(clean[clean.length - 1][1] - clean[clean.length - 2][1], clean[clean.length - 1][0] - clean[clean.length - 2][0]);
+
+  return { d, labelX, labelY, arrowStartAngle, arrowAngle };
 }
+
 
 // ── Main edge component ───────────────────────────────────────────────────────
 const CustomEdge = memo(({
@@ -77,7 +160,7 @@ const CustomEdge = memo(({
   const cornerRadius = data.cornerRadius ?? 10;
   const offset       = data.offset       || { x: 0, y: 0 };
 
-  // ── Compute path using standard XYFlow routers ──────────────────────────────
+  // ── Compute path ────────────────────────────────────────────────────────────
   let d, labelX, labelY, arrowAngle, arrowStartAngle;
 
   if (lineStyle === 'straight') {
@@ -85,26 +168,19 @@ const CustomEdge = memo(({
     arrowAngle = Math.atan2(targetY - sourceY, targetX - sourceX);
     arrowStartAngle = Math.atan2(sourceY - targetY, sourceX - targetX);
   } else if (lineStyle === 'bezier') {
-    // Custom bezier with drag control point
     labelX = (sourceX + targetX) / 2 + offset.x;
     labelY = (sourceY + targetY) / 2 + offset.y;
     d = `M ${sourceX} ${sourceY} Q ${labelX} ${labelY} ${targetX} ${targetY}`;
     arrowAngle = Math.atan2(targetY - labelY, targetX - labelX);
     arrowStartAngle = Math.atan2(sourceY - labelY, sourceX - labelX);
   } else {
-    // Elbow (SmoothStep) using standard router but injecting centerX/centerY
-    const defaultCenterX = (sourceX + targetX) / 2;
-    const defaultCenterY = (sourceY + targetY) / 2;
-    [d, labelX, labelY] = getSmoothStepPath({
-      sourceX, sourceY, sourcePosition,
-      targetX, targetY, targetPosition,
-      borderRadius: cornerRadius,
-      centerX: defaultCenterX + offset.x,
-      centerY: defaultCenterY + offset.y,
-    });
-    // Orthogonal arrows strictly follow handle positions
-    arrowAngle = getAngleFromPosition(targetPosition, true);
-    arrowStartAngle = getAngleFromPosition(sourcePosition, false);
+    // Our robust custom orthogonal router
+    const res = buildRobustElbow(sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, offset.x, offset.y, cornerRadius);
+    d = res.d;
+    labelX = res.labelX;
+    labelY = res.labelY;
+    arrowAngle = res.arrowAngle;
+    arrowStartAngle = res.arrowStartAngle;
   }
 
   // ── Drag handler applied to the whole path ──────────────────────────────────
@@ -122,7 +198,6 @@ const CustomEdge = memo(({
       let dx = cur.x - startFlow.current.x;
       let dy = cur.y - startFlow.current.y;
 
-      // Shift = snap to grid
       if (ev.shiftKey) {
         dx = Math.round((startOffset.current.x + dx) / SNAP_GRID) * SNAP_GRID - startOffset.current.x;
         dy = Math.round((startOffset.current.y + dy) / SNAP_GRID) * SNAP_GRID - startOffset.current.y;
@@ -159,7 +234,6 @@ const CustomEdge = memo(({
     setEdges((eds) => eds.map((edge) => edge.id !== id ? edge : { ...edge, data: { ...edge.data, offset: { x: 0, y: 0 } } }));
   }, [id, setEdges]);
 
-  const dashArray = animated ? '10 5' : undefined;
   const showInteractive = selected || hovered;
   const dragCursor = lineStyle === 'straight' ? 'default' : 'move';
 
@@ -193,7 +267,7 @@ const CustomEdge = memo(({
         fill="none"
         stroke={strokeColor}
         strokeWidth={strokeWidth}
-        strokeDasharray={dashArray}
+        strokeDasharray={animated ? '10 5' : undefined}
         strokeLinecap="round"
         strokeLinejoin="round"
         className="react-flow__edge-path"
