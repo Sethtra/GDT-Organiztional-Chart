@@ -60,6 +60,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
   const [arrowStart, setArrowStart]   = useState(d.arrowStart  || "none");
   const [animated, setAnimated]       = useState(d.animated    || false);
   const [label, setLabel]             = useState(d.label       || "");
+  const [lineStyle, setLineStyle]     = useState(d.lineStyle   || "elbow");
+  const [cornerRadius, setCornerRadius] = useState(d.cornerRadius ?? 10);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -70,6 +72,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
     setArrowStart(d2.arrowStart || "none");
     setAnimated(d2.animated    || false);
     setLabel(d2.label          || "");
+    setLineStyle(d2.lineStyle  || "elbow");
+    setCornerRadius(d2.cornerRadius ?? 10);
     setConfirmDelete(false);
   }, [edge.id]);
 
@@ -84,11 +88,14 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
           arrowStart,
           animated,
           label,
+          lineStyle,
+          cornerRadius: Number(cornerRadius),
+          // Reset offset when style changes so path re-routes cleanly
         },
       });
     }, 200);
     return () => clearTimeout(t);
-  }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label]);
+  }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label, lineStyle, cornerRadius]);
 
   return (
     <div className="properties-panel">
@@ -101,6 +108,77 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
       </div>
 
       <div className="pp-body">
+
+        {/* Line Style */}
+        <div className="pp-section">
+          <div className="pp-section-label"><Minus size={11} /> Line Style</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            {[
+              {
+                id: 'elbow',
+                label: 'Elbow',
+                icon: (
+                  <svg width="44" height="24" viewBox="0 0 44 24">
+                    <polyline points="4,20 4,8 40,8 40,20" fill="none" stroke={lineStyle === 'elbow' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+              },
+              {
+                id: 'bezier',
+                label: 'Curved',
+                icon: (
+                  <svg width="44" height="24" viewBox="0 0 44 24">
+                    <path d="M 4 20 Q 4 4 40 4" fill="none" stroke={lineStyle === 'bezier' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                ),
+              },
+              {
+                id: 'straight',
+                label: 'Straight',
+                icon: (
+                  <svg width="44" height="24" viewBox="0 0 44 24">
+                    <line x1="4" y1="20" x2="40" y2="4" stroke={lineStyle === 'straight' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                ),
+              },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setLineStyle(opt.id)}
+                style={{
+                  background: lineStyle === opt.id ? `${strokeColor}18` : 'rgba(255,255,255,0.03)',
+                  border: lineStyle === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  padding: '6px 4px 4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  transition: 'all .15s',
+                }}
+              >
+                {opt.icon}
+                <span style={{ fontSize: 9, color: lineStyle === opt.id ? strokeColor : '#64748b', fontWeight: 600 }}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+          {lineStyle === 'elbow' && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ color: '#64748b', fontSize: 11 }}>Corner Rounding</span>
+                <span style={{ color: '#94a3b8', fontSize: 11 }}>{cornerRadius}px</span>
+              </div>
+              <input
+                type="range" min={0} max={30} value={cornerRadius}
+                onChange={(e) => setCornerRadius(e.target.value)}
+                style={{ width: '100%', accentColor: strokeColor }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Label */}
         <div className="pp-section">
@@ -209,11 +287,11 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
           </div>
         </div>
 
-        {/* Waypoint hint */}
+        {/* Drag hint */}
         <div className="pp-section">
-          <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.2)', borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.5 }}>
-              💡 <strong style={{ color: '#cbd5e1' }}>Drag the handle</strong> on the selected line to reshape its curve
+          <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.18)', borderRadius: 8, padding: '10px 12px' }}>
+            <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>
+              💡 <strong style={{ color: '#cbd5e1' }}>Drag the handle</strong> on the selected line to reposition the connector segment — up/down for elbow, free-form for curved
             </div>
           </div>
         </div>
