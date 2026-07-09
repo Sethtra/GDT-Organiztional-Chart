@@ -7,6 +7,8 @@ const SHORTCUTS = [
   { key: "Ctrl + Y",             desc: "Redo (alternate)" },
   { key: "Ctrl + F",             desc: "Search nodes" },
   { key: "Ctrl + D",             desc: "Duplicate selected node" },
+  { key: "Ctrl + C",             desc: "Copy selected node" },
+  { key: "Ctrl + V",             desc: "Paste node" },
   { key: "Delete / Backspace",   desc: "Delete selected node or edge" },
   { key: "Escape",               desc: "Close panel / modal / search" },
   { key: "?",                    desc: "Show this shortcuts panel" },

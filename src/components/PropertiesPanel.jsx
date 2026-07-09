@@ -19,13 +19,14 @@ const COLOR_PRESETS = [
   { label: "Slate",  value: "#334155" },
 ];
 
-const TYPE_OPTIONS = ["ministry", "department", "division", "office"];
+const TYPE_OPTIONS = ["ministry", "department", "division", "office", "simple"];
 
 const TYPE_META = {
   ministry:   { accent: "#d4af37" },
   department: { accent: "#38bdf8" },
   division:   { accent: "#a78bfa" },
   office:     { accent: "#6ee7b7" },
+  simple:     { accent: "#94a3b8" },
 };
 
 // ── Arrow preview SVG ─────────────────────────────────────────────────────────
@@ -334,6 +335,9 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
   const [color, setColor]             = useState(node.data.color || "#1e5799");
   const [textColor, setTextColor]     = useState(node.data.textColor || "#ffffff");
   const [linkedChartId, setLinkedChartId] = useState(node.data.linkedChartId || "");
+  const [fontSize, setFontSize]           = useState(node.data.fontSize || 13);
+  const [textAlign, setTextAlign]         = useState(node.data.textAlign || "center");
+  const [textVerticalAlign, setTextVerticalAlign] = useState(node.data.textVerticalAlign || "center");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addChildType, setAddChildType]   = useState("office");
   const [showAddChild, setShowAddChild]   = useState(false);
@@ -360,6 +364,9 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
     setColor(node.data.color || "#1e5799");
     setTextColor(node.data.textColor || "#ffffff");
     setLinkedChartId(node.data.linkedChartId || "");
+    setFontSize(node.data.fontSize || 13);
+    setTextAlign(node.data.textAlign || "center");
+    setTextVerticalAlign(node.data.textVerticalAlign || "center");
     setConfirmDelete(false);
     setShowAddChild(false);
   }, [node.id]);
@@ -367,10 +374,10 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
   // Auto-save (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdateNode(node.id, { name, nameEn, description, orgType, color, textColor, linkedChartId });
+      onUpdateNode(node.id, { name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
     }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, linkedChartId]);
+  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign]);
 
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
@@ -405,9 +412,9 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
         <div className="pp-section">
           <div className="pp-section-label"><User size={11} /> Identity</div>
           <label className="pp-label">Khmer Name</label>
-          <input className="pp-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" />
+          <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
           <label className="pp-label">English Name</label>
-          <input className="pp-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." />
+          <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
           <label className="pp-label">Description</label>
           <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
         </div>
@@ -460,6 +467,80 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
                 style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} />
               <span style={{ fontSize: 14 }}>🎨</span>
             </label>
+          </div>
+        </div>
+
+        {/* Text Formatting */}
+        <div className="pp-section">
+          <div className="pp-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+            Text Formatting
+          </div>
+
+          {/* Font Size */}
+          <label className="pp-label">Font Size — <strong style={{ color: '#e2e8f0' }}>{fontSize}px</strong></label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <button
+              className="pp-btn pp-btn--ghost"
+              style={{ padding: '2px 8px', fontSize: 16, lineHeight: 1 }}
+              onClick={() => setFontSize(s => Math.max(8, s - 1))}
+            >−</button>
+            <input
+              type="range" min={8} max={32} value={fontSize}
+              onChange={e => setFontSize(Number(e.target.value))}
+              style={{ flex: 1, accentColor: '#4b8fd4' }}
+            />
+            <button
+              className="pp-btn pp-btn--ghost"
+              style={{ padding: '2px 8px', fontSize: 16, lineHeight: 1 }}
+              onClick={() => setFontSize(s => Math.min(32, s + 1))}
+            >+</button>
+          </div>
+
+          {/* Horizontal Align */}
+          <label className="pp-label">Horizontal Align</label>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+            {[
+              { v: 'left',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>,   label: 'Left' },
+              { v: 'center', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>,   label: 'Center' },
+              { v: 'right',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>,   label: 'Right' },
+            ].map(({ v, icon, label }) => (
+              <button key={v} title={label}
+                className="pp-align-btn"
+                style={{
+                  flex: 1, padding: '5px 0', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  borderRadius: 5, border: '1px solid',
+                  borderColor: textAlign === v ? '#4b8fd4' : 'rgba(255,255,255,.12)',
+                  background: textAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(255,255,255,.04)',
+                  color: textAlign === v ? '#4b8fd4' : '#94a3b8',
+                  cursor: 'pointer', transition: 'all .15s',
+                }}
+                onClick={() => setTextAlign(v)}
+              >{icon}</button>
+            ))}
+          </div>
+
+          {/* Vertical Align */}
+          <label className="pp-label">Vertical Align</label>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[
+              { v: 'flex-start', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="3" x2="21" y2="3"/><line x1="9" y1="7" x2="9" y2="21"/><line x1="15" y1="7" x2="15" y2="21"/><line x1="9" y1="7" x2="15" y2="7"/></svg>, label: 'Top' },
+              { v: 'center',     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="9" y1="4" x2="9" y2="20"/><line x1="15" y1="4" x2="15" y2="20"/><line x1="9" y1="4" x2="15" y2="4"/><line x1="9" y1="20" x2="15" y2="20"/></svg>, label: 'Middle' },
+              { v: 'flex-end',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="21" x2="21" y2="21"/><line x1="9" y1="3" x2="9" y2="17"/><line x1="15" y1="3" x2="15" y2="17"/><line x1="9" y1="17" x2="15" y2="17"/></svg>, label: 'Bottom' },
+            ].map(({ v, icon, label }) => (
+              <button key={v} title={label}
+                className="pp-align-btn"
+                style={{
+                  flex: 1, padding: '5px 0', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  borderRadius: 5, border: '1px solid',
+                  borderColor: textVerticalAlign === v ? '#4b8fd4' : 'rgba(255,255,255,.12)',
+                  background: textVerticalAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(255,255,255,.04)',
+                  color: textVerticalAlign === v ? '#4b8fd4' : '#94a3b8',
+                  cursor: 'pointer', transition: 'all .15s',
+                }}
+                onClick={() => setTextVerticalAlign(v)}
+              >{icon}</button>
+            ))}
           </div>
         </div>
 

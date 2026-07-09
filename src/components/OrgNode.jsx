@@ -7,6 +7,7 @@ const TYPE_META = {
   department: { label: "DEPARTMENT", accent: "#38bdf8" },
   division:   { label: "DIVISION",   accent: "#a78bfa" },
   office:     { label: "OFFICE",     accent: "#6ee7b7" },
+  simple:     { label: "",           accent: "#94a3b8" },
 };
 
 const OrgNode = memo(({ data, selected }) => {
@@ -16,6 +17,9 @@ const OrgNode = memo(({ data, selected }) => {
   const textColor = data.textColor || "#ffffff";
   const isCollapsed = data.collapsed || false;
   const childCount = data.childCount || 0;
+  const fontSize = data.fontSize || 13;
+  const textAlign = data.textAlign || "center";
+  const textVerticalAlign = data.textVerticalAlign || "center";
 
   return (
     <div
@@ -42,12 +46,14 @@ const OrgNode = memo(({ data, selected }) => {
       {/* Colored top accent bar */}
       <div className="org-node__bar" />
 
-      {/* Header: type badge + hints */}
+      {/* Header: type badge + hints — hidden for 'simple' type */}
       <div className="org-node__header">
-        <span className="org-node__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
-          {meta.label}
-        </span>
-        <div className="org-node__header-right">
+        {data.orgType !== 'simple' && (
+          <span className="org-node__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
+            {meta.label}
+          </span>
+        )}
+        <div className="org-node__header-right" style={data.orgType === 'simple' ? { marginLeft: 'auto' } : {}}>
           {childCount > 0 && (
             <span className="org-node__child-count" style={{ color: meta.accent }}>
               {isCollapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
@@ -68,13 +74,22 @@ const OrgNode = memo(({ data, selected }) => {
       </div>
 
       {/* Body: names */}
-      <div className="org-node__body">
-        <div className="org-node__name">{data.name || "ឈ្មោះ"}</div>
+      <div
+        className="org-node__body"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: textVerticalAlign,
+          textAlign: textAlign,
+          flex: 1,
+        }}
+      >
+        <div className="org-node__name" style={{ fontSize: `${fontSize}px` }}>{data.name || "ឈ្មោះ"}</div>
         {data.nameEn && (
-          <div className="org-node__name-en">{data.nameEn}</div>
+          <div className="org-node__name-en" style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}>{data.nameEn}</div>
         )}
         {data.description && (
-          <div className="org-node__desc">{data.description}</div>
+          <div className="org-node__desc" style={{ fontSize: `${Math.max(8, fontSize - 4)}px` }}>{data.description}</div>
         )}
         {isCollapsed && childCount > 0 && (
           <div className="org-node__collapsed-badge">

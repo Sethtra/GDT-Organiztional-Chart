@@ -58,11 +58,11 @@ export default function LoginPage() {
         {/* Header */}
         <div className="auth-card__header">
           <Link to="/" className="auth-card__brand">
-            <span className="auth-card__emblem">🏛️</span>
-            <div>
-              <div className="auth-card__brand-kh">ក្រសួងសេដ្ឋកិច្ច និងហិរញ្ញវត្ថុ</div>
-              <div className="auth-card__brand-en">Ministry of Economy and Finance</div>
-            </div>
+            <img
+              src="/GDT Logo (Soft).png"
+              alt="GDT - General Department of Taxation"
+              style={{ height: 48, objectFit: 'contain' }}
+            />
           </Link>
           <h1 className="auth-card__title">Welcome Back</h1>
           <p className="auth-card__sub">Sign in to your GDT Org Chart account</p>

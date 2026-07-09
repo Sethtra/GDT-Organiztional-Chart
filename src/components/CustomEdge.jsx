@@ -260,25 +260,89 @@ const CustomEdge = memo(({
           style={{ pointerEvents: 'none' }} />
       )}
 
-      {/* ── Main path ────────────────────────────────────────────────────────── */}
-      <path
-        id={id}
-        d={d}
-        fill="none"
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-        strokeDasharray={animated ? '10 5' : undefined}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="react-flow__edge-path"
-        style={{ pointerEvents: 'none' }}
-      />
-
       {/* ── Arrowheads ───────────────────────────────────────────────────────── */}
-      <Arrowhead type={arrowType}  tx={targetX} ty={targetY} angle={arrowAngle}      color={strokeColor} sw={strokeWidth} />
-      {arrowStart !== 'none' && (
-        <Arrowhead type={arrowStart} tx={sourceX} ty={sourceY} angle={arrowStartAngle} color={strokeColor} sw={strokeWidth} />
-      )}
+      {(() => {
+        // Shorten the path end so the line stops exactly at the arrowhead base (not tip).
+        // sz = arrowhead size, matches Arrowhead component: Math.max(9, sw*4)
+        const sw = strokeWidth;
+        const sz = Math.max(9, sw * 4);
+
+        // Trim target end: move the final point back by sz along the last segment direction
+        const trimPath = (pathD, tx, ty, angle, trim) => {
+          if (trim <= 0) return pathD;
+          // Replace the last "L tx ty" with "L (tx - cos*trim) (ty - sin*trim)"
+          const newTx = tx - Math.cos(angle) * trim;
+          const newTy = ty - Math.sin(angle) * trim;
+          // The path ends with "L <tx> <ty>" — replace just those last coordinates
+          return pathD.replace(
+            new RegExp(`L\\s+${tx.toFixed(4)}\\s+${ty.toFixed(4)}$`),
+            `L ${newTx} ${newTy}`
+          ).replace(
+            /L\s+([\d.eE+-]+)\s+([\d.eE+-]+)$/,
+            (_, lx, ly) => {
+              // fallback: trim the last segment geometrically
+              const ox = parseFloat(lx), oy = parseFloat(ly);
+              const len = Math.hypot(tx - ox, ty - oy);
+              if (len < 1) return `L ${ox} ${oy}`;
+              const t = Math.max(0, (len - trim) / len);
+              return `L ${ox + (tx - ox) * t} ${oy + (ty - oy) * t}`;
+            }
+          );
+        };
+
+        // Calculate trim amounts per arrow type
+        const endTrim   = arrowType  !== 'none' && arrowType  !== 'open' && arrowType  !== 'chevron' ? sz : 0;
+        const startTrim = arrowStart !== 'none' && arrowStart !== 'open' && arrowStart !== 'chevron' ? sz : 0;
+
+        // Build trimmed path: trim target end first, then source start
+        let trimmedD = d;
+
+        // Trim target end — shorten by walking from the last L point
+        if (endTrim > 0) {
+          // Find last segment: from second-to-last point toward targetX,targetY
+          const cos = Math.cos(arrowAngle), sin = Math.sin(arrowAngle);
+          const newTx = targetX - cos * endTrim;
+          const newTy = targetY - sin * endTrim;
+          // Replace only the final coordinate pair in the path
+          trimmedD = trimmedD.replace(
+            /L\s+([\d.\-eE]+)\s+([\d.\-eE]+)\s*$/,
+            `L ${newTx} ${newTy}`
+          );
+        }
+
+        // Trim source start — adjust M point
+        if (startTrim > 0) {
+          const cos = Math.cos(arrowStartAngle), sin = Math.sin(arrowStartAngle);
+          const newSx = sourceX - cos * startTrim;
+          const newSy = sourceY - sin * startTrim;
+          trimmedD = trimmedD.replace(
+            /^M\s+([\d.\-eE]+)\s+([\d.\-eE]+)/,
+            `M ${newSx} ${newSy}`
+          );
+        }
+
+        return (
+          <>
+            {/* Render main stroke on trimmed path */}
+            <path
+              id={id}
+              d={trimmedD}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+              strokeDasharray={animated ? '10 5' : undefined}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="react-flow__edge-path"
+              style={{ pointerEvents: 'none' }}
+            />
+            <Arrowhead type={arrowType}  tx={targetX} ty={targetY} angle={arrowAngle}      color={strokeColor} sw={strokeWidth} />
+            {arrowStart !== 'none' && (
+              <Arrowhead type={arrowStart} tx={sourceX} ty={sourceY} angle={arrowStartAngle} color={strokeColor} sw={strokeWidth} />
+            )}
+          </>
+        );
+      })()}
 
       {/* ── Label ────────────────────────────────────────────────────────────── */}
       {label && (

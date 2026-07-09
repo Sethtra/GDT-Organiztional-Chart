@@ -30,11 +30,11 @@ export default function Navbar() {
       <div className="navbar__inner">
         {/* Brand */}
         <Link to="/" className="navbar__brand">
-          <img src="/gdt-logo.png" alt="GDT" style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: '50%', background: 'white', padding: 2, flexShrink: 0 }} />
-          <div>
-            <div className="navbar__brand-kh">អគ្គនាយកដ្ឋានពន្ធដារ</div>
-            <div className="navbar__brand-en">GDT Org Chart</div>
-          </div>
+          <img
+            src="/GDT Logo (Soft).png"
+            alt="GDT - General Department of Taxation"
+            style={{ height: 36, objectFit: 'contain' }}
+          />
         </Link>
 
         {/* Right side */}

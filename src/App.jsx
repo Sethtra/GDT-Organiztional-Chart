@@ -5,6 +5,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
+  BackgroundVariant,
   Controls,
   MiniMap,
   addEdge,
@@ -100,6 +101,9 @@ function FlowApp() {
   const [past, setPast] = useState([]);
   const [future, setFuture] = useState([]);
 
+  // ── Clipboard ─────────────────────────────────────────────────
+  const [clipboard, setClipboard] = useState(null);
+
   const takeSnapshot = useCallback(() => {
     setPast((p) => [...p.slice(-30), { nodes, edges }]);
     setFuture([]);
@@ -123,57 +127,29 @@ function FlowApp() {
     setEdges(next.edges);
   }, [future, nodes, edges, setNodes, setEdges]);
 
-  // ── Keyboard shortcuts ────────────────────────────────────────
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Shift") setShiftHeld(true);
-      const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA";
+  // ── Copy/Paste ────────────────────────────────────────────────
+  const copyNode = useCallback(() => {
+    if (selectedNode) {
+      setClipboard(selectedNode);
+    }
+  }, [selectedNode]);
 
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === "z") {
-          e.preventDefault();
-          if (e.shiftKey) redo(); else undo();
-        } else if (e.key === "y") {
-          e.preventDefault();
-          redo();
-        } else if (e.key === "f") {
-          e.preventDefault();
-          setShowSearch((v) => !v);
-        } else if (e.key === "d") {
-          e.preventDefault();
-          if (selectedNode) duplicateNode(selectedNode.id);
-        }
-        return;
-      }
-
-      if (inInput) return;
-
-      if (e.key === "?" || e.key === "/") setShowShortcuts((v) => !v);
-      if (e.key === "Escape") {
-        setShowSearch(false);
-        setShowShortcuts(false);
-        setContextMenu(null);
-        setSelectedNode(null);
-        setSelectedEdge(null);
-      }
-      if ((e.key === "Delete" || e.key === "Backspace") && !inInput) {
-        if (selectedNode) {
-          showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(selectedNode.id); setConfirmModal(null); }, true);
-        } else if (selectedEdge) {
-          takeSnapshot();
-          setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
-          setSelectedEdge(null);
-        }
-      }
+  const pasteNode = useCallback(() => {
+    if (!clipboard) return;
+    takeSnapshot();
+    const newId = `node-${Date.now()}`;
+    const newNode = {
+      ...clipboard,
+      id: newId,
+      position: { x: clipboard.position.x + 40, y: clipboard.position.y + 40 },
+      data: { ...clipboard.data },
+      selected: false,
     };
-    const handleKeyUp = (e) => { if (e.key === "Shift") setShiftHeld(false); };
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [undo, redo, selectedNode, selectedEdge]);
+    setNodes((nds) => [...nds, newNode]);
+    setSelectedNode(newNode);
+    setClipboard(newNode); // Update clipboard so repeated pastes cascade down
+  }, [clipboard, setNodes, takeSnapshot]);
+
 
   // ── Save status helper ────────────────────────────────────────
   const triggerSave = useCallback(() => {
@@ -347,6 +323,10 @@ function FlowApp() {
   }, [setEdges, takeSnapshot]);
 
   const onNodeClick = useCallback((evt, node) => {
+    // Blur any active inputs to return keyboard focus to the canvas
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+      document.activeElement.blur();
+    }
     setSelectedNode(node);
     setSelectedEdge(null);
     setContextMenu(null);
@@ -359,17 +339,29 @@ function FlowApp() {
   }, []);
 
   const onEdgeClick = useCallback((_evt, edge) => {
+    // Blur any active inputs to return keyboard focus to the canvas
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+      document.activeElement.blur();
+    }
     setSelectedEdge(edge);
     setSelectedNode(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
+    // Blur any active inputs to return keyboard focus to the canvas
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+      document.activeElement.blur();
+    }
     setSelectedNode(null);
     setSelectedEdge(null);
     setContextMenu(null);
   }, []);
 
   const onNodeContextMenu = useCallback((evt, node) => {
+    // Blur any active inputs to return keyboard focus to the canvas
+    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+      document.activeElement.blur();
+    }
     evt.preventDefault();
     setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
     setSelectedNode(node);
@@ -408,6 +400,87 @@ function FlowApp() {
     setNodes((nds) => [...nds, newNode]);
     setSelectedNode(newNode);
   }, [nodes, setNodes, takeSnapshot]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────
+  const handleKeyDownRef = useRef();
+  
+  // Update the ref to the latest closure on every render
+  useEffect(() => {
+    handleKeyDownRef.current = (e) => {
+      if (e.key === "Shift") setShiftHeld(true);
+      const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable;
+
+      // Ignore all diagram shortcuts if typing in a text field
+      if (inInput) {
+        if (e.key === "Escape") {
+          setShowSearch(false);
+          setShowShortcuts(false);
+          setContextMenu(null);
+          if (document.activeElement) document.activeElement.blur();
+        }
+        return;
+      }
+
+      const key = e.key ? e.key.toLowerCase() : "";
+      const code = e.code || "";
+
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "z" || code === "KeyZ") {
+          e.preventDefault();
+          if (e.shiftKey) redo(); else undo();
+        } else if (key === "y" || code === "KeyY") {
+          e.preventDefault();
+          redo();
+        } else if (key === "f" || code === "KeyF") {
+          e.preventDefault();
+          setShowSearch((v) => !v);
+        } else if (key === "d" || code === "KeyD") {
+          e.preventDefault();
+          if (selectedNode) duplicateNode(selectedNode.id);
+        } else if (key === "c" || code === "KeyC") {
+          e.preventDefault();
+          copyNode();
+        } else if (key === "v" || code === "KeyV") {
+          e.preventDefault();
+          pasteNode();
+        }
+        return;
+      }
+
+      if (e.key === "?" || e.key === "/") {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+      }
+      if (e.key === "Escape") {
+        setShowSearch(false);
+        setShowShortcuts(false);
+        setContextMenu(null);
+        setSelectedNode(null);
+        setSelectedEdge(null);
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedNode) {
+          showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(selectedNode.id); setConfirmModal(null); }, true);
+        } else if (selectedEdge) {
+          takeSnapshot();
+          setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
+          setSelectedEdge(null);
+        }
+      }
+    };
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (e) => handleKeyDownRef.current?.(e);
+    const handleKeyUp = (e) => { if (e.key === "Shift") setShiftHeld(false); };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
 
   const addChildNode = useCallback((parentId, orgType) => {
     takeSnapshot();
@@ -536,11 +609,11 @@ function FlowApp() {
             </button>
             <div className="tb-divider" style={{ height: 24, margin: 0 }} />
             <div className="header-brand">
-            <img src="/gdt-logo.png" alt="GDT Logo" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: '50%', background: 'white', padding: 2 }} />
-              <div>
-                <div className="header-title-kh">{chartName}</div>
-                <div className="header-title-en">អគ្គនាយកដ្ឋានពន្ធដារ</div>
-              </div>
+              <img
+                src="/GDT Logo (Soft).png"
+                alt="GDT - General Department of Taxation"
+                style={{ height: 36, objectFit: 'contain' }}
+              />
             </div>
           </div>
 
@@ -690,11 +763,13 @@ function FlowApp() {
                 edgesFocusable={canEdit && !previewMode}
                 fitView
                 fitViewOptions={{ padding: 0.15 }}
+                snapToGrid
+                snapGrid={[20, 20]}
                 minZoom={0.05}
                 maxZoom={2.5}
                 proOptions={{ hideAttribution: true }}
               >
-                {!previewMode && <Background color="#ffffff18" gap={24} size={1.5} />}
+                {!previewMode && <Background variant={BackgroundVariant.Dots} color="#ffffff22" gap={20} size={1.5} />}
                 {!previewMode && (
                   <Controls style={{ background: "rgba(15,32,68,.85)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }} />
                 )}

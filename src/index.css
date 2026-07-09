@@ -241,6 +241,8 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   backdrop-filter: blur(4px);
   transition: box-shadow .2s, border-color .2s;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .org-node:hover {
@@ -295,6 +297,9 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
 /* Body */
 .org-node__body {
   padding: 6px 10px 10px;
+  flex: 1;
+  overflow: visible;
+  min-height: 0;
 }
 
 .org-node__name {
@@ -304,6 +309,7 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   color: white;
   line-height: 1.5;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .org-node__name-en {
@@ -311,6 +317,8 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   color: rgba(255,255,255,.55);
   margin-top: 2px;
   line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .org-node__desc {
