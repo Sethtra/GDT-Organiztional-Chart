@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink } from "lucide-react";
+import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
 import { ARROWHEAD_OPTIONS } from "./CustomEdge";
@@ -288,14 +288,23 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
           </div>
         </div>
 
-        {/* Drag hint */}
-        <div className="pp-section">
-          <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.18)', borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>
-              💡 <strong style={{ color: '#cbd5e1' }}>Drag the handle</strong> on the selected line to reposition the connector segment — up/down for elbow, free-form for curved
+        {/* Segment routing controls — elbow mode only */}
+        {lineStyle === 'elbow' && (
+          <div className="pp-section">
+            <button
+              className="pp-btn pp-btn--ghost"
+              style={{ width: '100%', marginBottom: 8 }}
+              onClick={() => onUpdate(edge.id, { data: { ...edge.data, points: [] } })}
+            >
+              <RotateCcw size={13} /> Reset Routing
+            </button>
+            <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.18)', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>
+                💡 <strong style={{ color: '#cbd5e1' }}>Hover or select</strong> a connector to reveal handles. <strong style={{ color: '#cbd5e1' }}>Drag a faded handle</strong> to create a new waypoint. <strong style={{ color: '#cbd5e1' }}>Drag a solid handle</strong> to move it, or <strong style={{ color: '#cbd5e1' }}>Double-click</strong> it to delete it.
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
 
@@ -322,30 +331,36 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
 }
 
 // ── Node Panel ────────────────────────────────────────────────────────────────
-export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDeleteNodes, onDeleteEdge, onAddChild, onDuplicate, onClose }) {
+export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDelete, onAddChild, onDuplicate, onClose }) {
   if (edge) {
-    return <EdgePropertiesPanel edge={edge} onUpdate={onUpdateEdge} onDelete={onDeleteEdge} onClose={onClose} />;
+    return <EdgePropertiesPanel edge={edge} onUpdate={onUpdateEdge} onDelete={onDelete} onClose={onClose} />;
   }
+  if (nodes && nodes.length > 0) {
+    return <NodePropertiesPanel nodes={nodes} onUpdateNodes={onUpdateNodes} onDelete={onDelete} onAddChild={onAddChild} onDuplicate={onDuplicate} onClose={onClose} />;
+  }
+  return null;
+}
 
-  const primaryNode = nodes[0];
-  const isMultiSelect = nodes.length > 1;
+function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDuplicate, onClose }) {
   const { user } = useAuth();
-  const [name, setName]               = useState(primaryNode.data.name || "");
-  const [nameEn, setNameEn]           = useState(primaryNode.data.nameEn || "");
-  const [description, setDescription] = useState(primaryNode.data.description || "");
-  const [orgType, setOrgType]         = useState(primaryNode.data.orgType || "office");
-  const [color, setColor]             = useState(primaryNode.data.color || "#1e5799");
-  const [textColor, setTextColor]     = useState(primaryNode.data.textColor || "#ffffff");
-  const [linkedChartId, setLinkedChartId] = useState(primaryNode.data.linkedChartId || "");
-  const [fontSize, setFontSize]           = useState(primaryNode.data.fontSize || 13);
-  const [textAlign, setTextAlign]         = useState(primaryNode.data.textAlign || "center");
-  const [textVerticalAlign, setTextVerticalAlign] = useState(primaryNode.data.textVerticalAlign || "center");
+  const firstNode = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
+  const [name, setName]               = useState(firstNode.data.name || "");
+  const [nameEn, setNameEn]           = useState(firstNode.data.nameEn || "");
+  const [description, setDescription] = useState(firstNode.data.description || "");
+  const [orgType, setOrgType]         = useState(firstNode.data.orgType || "office");
+  const [color, setColor]             = useState(firstNode.data.color || "#1e5799");
+  const [textColor, setTextColor]     = useState(firstNode.data.textColor || "#ffffff");
+  const [linkedChartId, setLinkedChartId] = useState(firstNode.data.linkedChartId || "");
+  const [fontSize, setFontSize]           = useState(firstNode.data.fontSize || 13);
+  const [textAlign, setTextAlign]         = useState(firstNode.data.textAlign || "center");
+  const [textVerticalAlign, setTextVerticalAlign] = useState(firstNode.data.textVerticalAlign || "center");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addChildType, setAddChildType]   = useState("office");
   const [showAddChild, setShowAddChild]   = useState(false);
   const [charts, setCharts]               = useState([]);
 
   const meta = TYPE_META[orgType] || TYPE_META.office;
+  const isMultiSelect = nodes && nodes.length > 1;
 
   // Fetch user's charts for chart linking
   useEffect(() => {
@@ -359,19 +374,20 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
   }, [user]);
 
   useEffect(() => {
-    setName(primaryNode.data.name || "");
-    setNameEn(primaryNode.data.nameEn || "");
-    setDescription(primaryNode.data.description || "");
-    setOrgType(primaryNode.data.orgType || "office");
-    setColor(primaryNode.data.color || "#1e5799");
-    setTextColor(primaryNode.data.textColor || "#ffffff");
-    setLinkedChartId(primaryNode.data.linkedChartId || "");
-    setFontSize(primaryNode.data.fontSize || 13);
-    setTextAlign(primaryNode.data.textAlign || "center");
-    setTextVerticalAlign(primaryNode.data.textVerticalAlign || "center");
+    const fresh = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
+    setName(fresh.data.name || "");
+    setNameEn(fresh.data.nameEn || "");
+    setDescription(fresh.data.description || "");
+    setOrgType(fresh.data.orgType || "office");
+    setColor(fresh.data.color || "#1e5799");
+    setTextColor(fresh.data.textColor || "#ffffff");
+    setLinkedChartId(fresh.data.linkedChartId || "");
+    setFontSize(fresh.data.fontSize || 13);
+    setTextAlign(fresh.data.textAlign || "center");
+    setTextVerticalAlign(fresh.data.textVerticalAlign || "center");
     setConfirmDelete(false);
     setShowAddChild(false);
-  }, [primaryNode.id]);
+  }, [nodes?.map(n => n.id).join(",")]);
 
   // Auto-save (debounced)
   useEffect(() => {
@@ -379,7 +395,7 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
       onUpdateNodes({ name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
     }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign]);
+  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign, onUpdateNodes]);
 
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
@@ -389,43 +405,39 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
       <div className="pp-header">
         <div className="pp-header-left">
           <div className="pp-dot" style={{ background: color }} />
-          <span className="pp-title">{isMultiSelect ? `Multiple Nodes Selected (${nodes.length})` : "Properties"}</span>
-          {!isMultiSelect && (
-            <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
-              {orgType}
-            </span>
-          )}
+          <span className="pp-title">{isMultiSelect ? `Multiple Nodes (${nodes.length})` : "Properties"}</span>
+          <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
+            {orgType}
+          </span>
         </div>
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
 
       {/* Live node preview */}
-      {!isMultiSelect && (
-        <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
-          <div className="pp-preview__bar" />
-          <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
-            {orgType.toUpperCase()}
-          </div>
-          <div className="pp-preview__name" style={{ color: textColor }}>{name || "ឈ្មោះ"}</div>
-          {nameEn && <div className="pp-preview__name-en">{nameEn}</div>}
+      <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
+        <div className="pp-preview__bar" />
+        <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
+          {orgType.toUpperCase()}
         </div>
-      )}
+        <div className="pp-preview__name" style={{ color: textColor }}>
+          {isMultiSelect ? "(Multiple Selected)" : (name || "ឈ្មោះ")}
+        </div>
+        {!isMultiSelect && nameEn && <div className="pp-preview__name-en">{nameEn}</div>}
+      </div>
 
       {/* Scrollable body */}
       <div className="pp-body">
 
         {/* Identity */}
-        {!isMultiSelect && (
-          <div className="pp-section">
-            <div className="pp-section-label"><User size={11} /> Identity</div>
-            <label className="pp-label">Khmer Name</label>
-            <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
-            <label className="pp-label">English Name</label>
-            <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
-            <label className="pp-label">Description</label>
-            <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
-          </div>
-        )}
+        <div className="pp-section" style={{ opacity: isMultiSelect ? 0.5 : 1, pointerEvents: isMultiSelect ? 'none' : 'auto' }}>
+          <div className="pp-section-label"><User size={11} /> Identity {isMultiSelect && "(Disabled)"}</div>
+          <label className="pp-label">Khmer Name</label>
+          <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
+          <label className="pp-label">English Name</label>
+          <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
+          <label className="pp-label">Description</label>
+          <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
+        </div>
 
         {/* Type */}
         <div className="pp-section">
@@ -553,7 +565,7 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
         </div>
 
         {/* Chart Link */}
-        <div className="pp-section">
+        <div className="pp-section" style={{ opacity: isMultiSelect ? 0.5 : 1, pointerEvents: isMultiSelect ? 'none' : 'auto' }}>
           <div className="pp-section-label"><LinkIcon size={11} /> Link to Chart</div>
           <p style={{ color: '#64748b', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
             Link this node to another chart. Viewers can click the node to open it.
@@ -585,18 +597,14 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
         </div>
 
         {/* Actions */}
-        <div className="pp-section">
-          <div className="pp-section-label"><Zap size={11} /> Actions</div>
+        {!isMultiSelect && (
+          <div className="pp-section">
+            <div className="pp-section-label"><Zap size={11} /> Actions</div>
 
-          {/* Duplicate */}
-          {!isMultiSelect && (
-            <button className="pp-btn pp-btn--ghost" onClick={() => onDuplicate?.(primaryNode.id)}>
+            <button className="pp-btn pp-btn--ghost" onClick={() => onDuplicate?.()}>
               <Copy size={13} /> Duplicate Node
             </button>
-          )}
 
-          {/* Add Child */}
-          {!isMultiSelect && (
             <div className="pp-action-group">
               <button className="pp-btn pp-btn--add" onClick={() => setShowAddChild((v) => !v)}>
                 <Plus size={14} /> Add Child Node
@@ -612,31 +620,31 @@ export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEd
                     ))}
                   </div>
                   <button className="pp-btn pp-btn--confirm-add"
-                    onClick={() => { onAddChild(primaryNode.id, addChildType); setShowAddChild(false); }}>
+                    onClick={() => { onAddChild(addChildType); setShowAddChild(false); }}>
                     <Plus size={13} /> Create {addChildType} node
                   </button>
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Sticky footer — Delete */}
       <div className="pp-sticky-footer">
         {confirmDelete ? (
           <div className="pp-delete-confirm">
-            <p>{isMultiSelect ? `Delete these ${nodes.length} nodes and their connections?` : "Delete this node and all its connections?"}</p>
+            <p>Delete {isMultiSelect ? "these nodes" : "this node"} and connections?</p>
             <div className="pp-delete-btns">
               <button className="pp-btn pp-btn--ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button className="pp-btn pp-btn--delete" onClick={onDeleteNodes}>
+              <button className="pp-btn pp-btn--delete" onClick={() => onDelete()}>
                 <Trash2 size={13} /> Delete
               </button>
             </div>
           </div>
         ) : (
           <button className="pp-btn pp-btn--delete-ghost" style={{ width: "100%" }} onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={14} /> {isMultiSelect ? "Delete Nodes" : "Delete Node"}
+            <Trash2 size={14} /> {isMultiSelect ? `Delete ${nodes.length} Nodes` : "Delete Node"}
           </button>
         )}
       </div>

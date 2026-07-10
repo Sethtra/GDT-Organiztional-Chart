@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo, createContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -58,8 +58,10 @@ const edgeTypes = { custom: CustomEdge };
 const DEFAULT_EDGE_OPTIONS = {
   type: "custom",
   animated: false,
-  data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", waypoint: { x: 0, y: 0 }, label: "" },
+  data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", label: "" },
 };
+
+export const ChartContext = createContext(null);
 
 function FlowApp() {
   const { chartId } = useParams();
@@ -103,7 +105,7 @@ function FlowApp() {
   const [future, setFuture] = useState([]);
 
   // ── Clipboard ─────────────────────────────────────────────────
-  const [clipboard, setClipboard] = useState({ nodes: [], edges: [] });
+  const [clipboard, setClipboard] = useState(null);
 
   const takeSnapshot = useCallback(() => {
     setPast((p) => [...p.slice(-30), { nodes, edges }]);
@@ -131,43 +133,47 @@ function FlowApp() {
   // ── Copy/Paste ────────────────────────────────────────────────
   const copyNode = useCallback(() => {
     if (selectedNodes.length > 0) {
-      const selectedIds = new Set(selectedNodes.map(n => n.id));
-      const internalEdges = edges.filter(e => selectedIds.has(e.source) && selectedIds.has(e.target));
-      setClipboard({ nodes: selectedNodes, edges: internalEdges });
+      setClipboard(selectedNodes);
     }
-  }, [selectedNodes, edges]);
+  }, [selectedNodes]);
 
   const pasteNode = useCallback(() => {
-    if (!clipboard.nodes || clipboard.nodes.length === 0) return;
+    if (!clipboard || clipboard.length === 0) return;
     takeSnapshot();
     
     const idMap = {};
-    const timestamp = Date.now();
-    
-    const newNodes = clipboard.nodes.map((n, i) => {
-      const newId = `node-${timestamp}-${i}`;
+    const newNodes = clipboard.map(n => {
+      const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       idMap[n.id] = newId;
       return {
         ...n,
         id: newId,
         position: { x: n.position.x + 40, y: n.position.y + 40 },
-        data: { ...n.data },
         selected: true,
       };
     });
-    
-    const newEdges = clipboard.edges.map((e, i) => ({
-      ...e,
-      id: `e-${timestamp}-${i}`,
-      source: idMap[e.source],
-      target: idMap[e.target],
-    }));
 
-    setNodes(nds => [...nds.map(n => ({ ...n, selected: false })), ...newNodes]);
-    setEdges(eds => [...eds, ...newEdges]);
+    const newEdges = [];
+    edges.forEach(e => {
+      if (idMap[e.source] && idMap[e.target]) {
+        newEdges.push({
+          ...e,
+          id: `e-${idMap[e.source]}-${idMap[e.target]}`,
+          source: idMap[e.source],
+          target: idMap[e.target],
+          selected: false,
+        });
+      }
+    });
+
+    setNodes((nds) => [
+      ...nds.map(n => ({ ...n, selected: false })),
+      ...newNodes
+    ]);
+    setEdges((eds) => [...eds, ...newEdges]);
     
-    setClipboard({ nodes: newNodes, edges: newEdges });
-  }, [clipboard, setNodes, setEdges, takeSnapshot]);
+    setClipboard(newNodes);
+  }, [clipboard, setNodes, setEdges, edges, takeSnapshot]);
 
 
   // ── Save status helper ────────────────────────────────────────
@@ -277,72 +283,44 @@ function FlowApp() {
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, loading, canEdit, chartId]);
 
-  // ── Sync selected node ────────────────────────────────────────
+  // ── Sync selected nodes ────────────────────────────────────────
   useEffect(() => {
     if (selectedNodes.length > 0) {
-      const freshNodes = nodes.filter(n => selectedNodes.some(sn => sn.id === n.id));
-      if (JSON.stringify(freshNodes) !== JSON.stringify(selectedNodes)) {
-        setSelectedNodes(freshNodes);
+      const ids = new Set(selectedNodes.map(n => n.id));
+      const freshNodes = nodes.filter(n => ids.has(n.id) && n.selected);
+      if (freshNodes.length !== selectedNodes.length) {
+         setSelectedNodes(freshNodes);
       }
     }
     if (selectedEdge) {
       const freshEdge = edges.find((e) => e.id === selectedEdge.id);
-      if (freshEdge && JSON.stringify(freshEdge) !== JSON.stringify(selectedEdge)) {
-        setSelectedEdge(freshEdge);
-      }
+      if (freshEdge) setSelectedEdge(freshEdge);
     }
-  }, [nodes, edges, selectedNodes, selectedEdge]);
+  }, [nodes, edges]);
 
   // ── Compute visible nodes/edges (collapse) ────────────────────
   const { visibleNodes, visibleEdges } = useMemo(() => {
-    if (collapsedNodes.size === 0) {
-      // Still annotate with childCount
-      const childCounts = {};
-      edges.forEach((e) => {
-        childCounts[e.source] = (childCounts[e.source] || 0) + 1;
-      });
-      const annotated = nodes.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          childCount: childCounts[n.id] || 0,
-          collapsed: false,
-          searchHighlight: searchHighlights.includes(n.id),
-        },
-      }));
-      return { visibleNodes: annotated, visibleEdges: edges };
-    }
-
-    // Collect all descendants of collapsed nodes
     const hidden = new Set();
-    function collectDescendants(nodeId) {
-      edges.filter((e) => e.source === nodeId).forEach((e) => {
-        if (!hidden.has(e.target)) {
-          hidden.add(e.target);
-          collectDescendants(e.target);
-        }
-      });
+    if (collapsedNodes.size > 0) {
+      function collectDescendants(nodeId) {
+        edges.filter((e) => e.source === nodeId).forEach((e) => {
+          if (!hidden.has(e.target)) {
+            hidden.add(e.target);
+            collectDescendants(e.target);
+          }
+        });
+      }
+      collapsedNodes.forEach((id) => collectDescendants(id));
     }
-    collapsedNodes.forEach((id) => collectDescendants(id));
 
-    const childCounts = {};
-    edges.forEach((e) => { childCounts[e.source] = (childCounts[e.source] || 0) + 1; });
+    const cCounts = {};
+    edges.forEach((e) => { cCounts[e.source] = (cCounts[e.source] || 0) + 1; });
 
-    const vNodes = nodes
-      .filter((n) => !hidden.has(n.id))
-      .map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          childCount: childCounts[n.id] || 0,
-          collapsed: collapsedNodes.has(n.id),
-          searchHighlight: searchHighlights.includes(n.id),
-        },
-      }));
-
+    const vNodes = nodes.filter((n) => !hidden.has(n.id));
     const vEdges = edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
-    return { visibleNodes: vNodes, visibleEdges: vEdges };
-  }, [nodes, edges, collapsedNodes, searchHighlights]);
+    
+    return { visibleNodes: vNodes, visibleEdges: vEdges, childCounts: cCounts };
+  }, [nodes, edges, collapsedNodes]);
 
   // ── Handlers ──────────────────────────────────────────────────
   const onNodeDragStart = useCallback(() => { isInteracting.current = true; takeSnapshot(); }, [takeSnapshot]);
@@ -357,6 +335,11 @@ function FlowApp() {
     takeSnapshot();
     setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
   }, [setEdges, takeSnapshot]);
+
+  const onSelectionChange = useCallback(({ nodes, edges }) => {
+    setSelectedNodes(nodes);
+    setSelectedEdge(edges.length === 1 ? edges[0] : null);
+  }, []);
 
   const onNodeClick = useCallback((evt, node) => {
     if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
@@ -389,16 +372,14 @@ function FlowApp() {
     }
     evt.preventDefault();
     setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
-    
-    setNodes(nds => nds.map(n => ({
-      ...n,
-      selected: n.id === node.id ? true : n.selected
-    })));
+    if (!node.selected) {
+      setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
+    }
   }, [setNodes]);
 
-  const updateNodesBulk = useCallback((ids, data) => {
+  const updateSelectedNodes = useCallback((data) => {
     takeSnapshot();
-    setNodes((nds) => nds.map((n) => (ids.includes(n.id) ? { ...n, data: { ...n.data, ...data } } : n)));
+    setNodes((nds) => nds.map((n) => (n.selected ? { ...n, data: { ...n.data, ...data } } : n)));
   }, [setNodes, takeSnapshot]);
 
   const updateEdgeProperties = useCallback((id, edgeData) => {
@@ -406,26 +387,48 @@ function FlowApp() {
     setEdges((eds) => eds.map((e) => (e.id === id ? { ...e, ...edgeData } : e)));
   }, [setEdges, takeSnapshot]);
 
-  const deleteNodesBulk = useCallback((ids) => {
+  const deleteNodes = useCallback(() => {
     takeSnapshot();
-    setNodes((nds) => nds.filter((n) => !ids.includes(n.id)));
-    setEdges((eds) => eds.filter((e) => !ids.includes(e.source) && !ids.includes(e.target)));
-  }, [setNodes, setEdges, takeSnapshot]);
+    const ids = new Set(selectedNodes.map(n => n.id));
+    setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
+    setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+  }, [selectedNodes, setNodes, setEdges, takeSnapshot]);
 
-  const duplicateNode = useCallback((id) => {
-    const original = nodes.find((n) => n.id === id);
-    if (!original) return;
+  const duplicateNodes = useCallback((nodesToDuplicate) => {
+    if (!nodesToDuplicate || nodesToDuplicate.length === 0) return;
     takeSnapshot();
-    const newId = `node-${Date.now()}`;
-    const newNode = {
-      ...original,
-      id: newId,
-      position: { x: original.position.x + 40, y: original.position.y + 40 },
-      data: { ...original.data },
-      selected: true,
-    };
-    setNodes((nds) => [...nds.map(n => ({...n, selected: false})), newNode]);
-  }, [nodes, setNodes, takeSnapshot]);
+    
+    const idMap = {};
+    const newNodes = nodesToDuplicate.map(n => {
+      const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      idMap[n.id] = newId;
+      return {
+        ...n,
+        id: newId,
+        position: { x: n.position.x + 40, y: n.position.y + 40 },
+        selected: true,
+      };
+    });
+
+    const newEdges = [];
+    edges.forEach(e => {
+      if (idMap[e.source] && idMap[e.target]) {
+        newEdges.push({
+          ...e,
+          id: `e-${idMap[e.source]}-${idMap[e.target]}`,
+          source: idMap[e.source],
+          target: idMap[e.target],
+          selected: false,
+        });
+      }
+    });
+
+    setNodes((nds) => [
+      ...nds.map(n => ({ ...n, selected: false })),
+      ...newNodes
+    ]);
+    setEdges((eds) => [...eds, ...newEdges]);
+  }, [edges, setNodes, setEdges, takeSnapshot]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDownRef = useRef();
@@ -462,10 +465,7 @@ function FlowApp() {
           setShowSearch((v) => !v);
         } else if (key === "d" || code === "KeyD") {
           e.preventDefault();
-          if (selectedNodes.length > 0) {
-            copyNode();
-            setTimeout(pasteNode, 50);
-          }
+          if (selectedNodes.length > 0) duplicateNodes(selectedNodes);
         } else if (key === "c" || code === "KeyC") {
           e.preventDefault();
           copyNode();
@@ -484,19 +484,16 @@ function FlowApp() {
         setShowSearch(false);
         setShowShortcuts(false);
         setContextMenu(null);
-        setNodes(nds => nds.map(n => ({...n, selected: false})));
-        setSelectedEdge(null);
       }
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedNodes.length > 0) {
-          showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and their connections?`, () => { 
-            deleteNodesBulk(selectedNodes.map(n => n.id)); 
+          showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and all connections?`, () => { 
+            deleteNodes(); 
             setConfirmModal(null); 
           }, true);
         } else if (selectedEdge) {
           takeSnapshot();
           setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
-          setSelectedEdge(null);
         }
       }
     };
@@ -543,8 +540,9 @@ function FlowApp() {
       id: newId, type: "orgNode",
       position: { x: Math.random() * 600 - 300, y: -200 },
       data: { name: "ថ្មី", nameEn: "New Node", orgType: "department", color: "#1e5799", description: "" },
+      selected: true
     };
-    setNodes((nds) => [...nds.map(n => ({...n, selected: false})), { ...newNode, selected: true }]);
+    setNodes((nds) => [...nds.map(n => ({...n, selected: false})), newNode]);
   }, [setNodes, takeSnapshot]);
 
   const autoLayout = useCallback(() => {
@@ -580,7 +578,7 @@ function FlowApp() {
       async () => {
         takeSnapshot();
         const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
-        setNodes(dn.map(n => ({...n, selected: false}))); setEdges(de);
+        setNodes(dn); setEdges(de);
         setLayoutDir("TB");
         setCollapsedNodes(new Set());
         await supabase.from("charts").update({ nodes: dn, edges: de, updated_at: new Date().toISOString() }).eq("id", chartId);
@@ -767,11 +765,14 @@ function FlowApp() {
             </div>
           ) : (
             <>
-              <ReactFlow
-                nodes={visibleNodes}
-                edges={visibleEdges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
+              <ChartContext.Provider value={{ childCounts, collapsedNodes, searchHighlights }}>
+                <ReactFlow
+                  nodes={visibleNodes}
+                  edges={visibleEdges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                onSelectionChange={onSelectionChange}
+                multiSelectionKeyCode="Shift"
                 onNodeDragStart={onNodeDragStart}
                 onNodeDragStop={onNodeDragStop}
                 onConnect={onConnect}
@@ -790,13 +791,6 @@ function FlowApp() {
                 nodesConnectable={canEdit && !previewMode}
                 elementsSelectable={canEdit || previewMode}
                 edgesFocusable={canEdit && !previewMode}
-                multiSelectionKeyCode="Shift"
-                selectionKeyCode={null}
-                onSelectionChange={({ nodes, edges }) => {
-                  setSelectedNodes(nodes);
-                  if (edges.length === 1 && nodes.length === 0) setSelectedEdge(edges[0]);
-                  else setSelectedEdge(null);
-                }}
                 fitView
                 fitViewOptions={{ padding: 0.15 }}
                 snapToGrid
@@ -824,6 +818,7 @@ function FlowApp() {
                   </Panel>
                 )}
               </ReactFlow>
+              </ChartContext.Provider>
 
               {/* Status Bar */}
               {!previewMode && (
@@ -843,19 +838,20 @@ function FlowApp() {
           <PropertiesPanel
             nodes={selectedNodes}
             edge={selectedEdge}
-            onUpdateNodes={(data) => updateNodesBulk(selectedNodes.map(n => n.id), data)}
+            onUpdateNodes={updateSelectedNodes}
             onUpdateEdge={updateEdgeProperties}
-            onDeleteNodes={() => {
-              showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and their connections?`, () => { deleteNodesBulk(selectedNodes.map(n => n.id)); setConfirmModal(null); }, true);
+            onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
+            onDelete={() => {
+              if (selectedNodes.length > 0) {
+                showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and all connections?`, () => { deleteNodes(); setConfirmModal(null); }, true);
+              } else if (selectedEdge) {
+                takeSnapshot();
+                setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
+                setSelectedEdge(null);
+              }
             }}
-            onDeleteEdge={(id) => {
-              takeSnapshot();
-              setEdges((eds) => eds.filter((e) => e.id !== id));
-              setSelectedEdge(null);
-            }}
-            onAddChild={addChildNode}
-            onDuplicate={duplicateNode}
-            onClose={() => { setNodes(nds => nds.map(n => ({...n, selected: false}))); setSelectedEdge(null); }}
+            onClose={() => { setSelectedNodes([]); setSelectedEdge(null); }}
+            charts={[]}
           />
         )}
       </div>
@@ -868,13 +864,14 @@ function FlowApp() {
           node={nodes.find((n) => n.id === contextMenu.nodeId)}
           isCollapsed={collapsedNodes.has(contextMenu.nodeId)}
           onEdit={() => {
-            setNodes(nds => nds.map(node => ({ ...node, selected: node.id === contextMenu.nodeId })));
+            const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
+            if (n) setSelectedNode(n);
           }}
           onAddChild={() => addChildNode(contextMenu.nodeId, "office")}
           onDuplicate={() => duplicateNode(contextMenu.nodeId)}
           onToggleCollapse={() => toggleCollapse(contextMenu.nodeId)}
           onDelete={() => {
-            showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNodesBulk([contextMenu.nodeId]); setConfirmModal(null); }, true);
+            showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(contextMenu.nodeId); setConfirmModal(null); }, true);
           }}
           onClose={() => setContextMenu(null)}
         />

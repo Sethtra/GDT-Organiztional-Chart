@@ -1,6 +1,7 @@
-import { memo, useState } from "react";
+import { memo, useState, useContext } from "react";
 import { Handle, Position, NodeResizer } from "@xyflow/react";
 import { Pencil, ChevronDown, ChevronRight, Link as LinkIcon } from "lucide-react";
+import { ChartContext } from "../App";
 
 const TYPE_META = {
   ministry:   { label: "MINISTRY",   accent: "#d4af37" },
@@ -10,20 +11,26 @@ const TYPE_META = {
   simple:     { label: "",           accent: "#94a3b8" },
 };
 
-const OrgNode = memo(({ data, selected }) => {
+const OrgNode = memo(({ id, data, selected }) => {
   const [hovered, setHovered] = useState(false);
+  const context = useContext(ChartContext);
+
   const meta = TYPE_META[data.orgType] || TYPE_META.office;
   const bgColor = data.color || "#1e5799";
   const textColor = data.textColor || "#ffffff";
-  const isCollapsed = data.collapsed || false;
-  const childCount = data.childCount || 0;
+  
+  // Dynamic properties from context
+  const isCollapsed = context?.collapsedNodes?.has(id) || false;
+  const isHighlighted = context?.searchHighlights?.includes(id) || false;
+  const childCount = context?.childCounts?.[id] || 0;
+
   const fontSize = data.fontSize || 13;
   const textAlign = data.textAlign || "center";
   const textVerticalAlign = data.textVerticalAlign || "center";
 
   return (
     <div
-      className={`org-node ${selected ? "org-node--selected" : ""} ${data.searchHighlight ? "org-node--highlighted" : ""}`}
+      className={`org-node ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
       style={{ "--node-bg": bgColor, "--node-accent": meta.accent, color: textColor }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
