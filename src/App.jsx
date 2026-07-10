@@ -299,7 +299,7 @@ function FlowApp() {
   }, [nodes, edges]);
 
   // ── Compute visible nodes/edges (collapse) ────────────────────
-  const { visibleNodes, visibleEdges } = useMemo(() => {
+  const { visibleNodes, visibleEdges, childCounts } = useMemo(() => {
     const hidden = new Set();
     if (collapsedNodes.size > 0) {
       function collectDescendants(nodeId) {
