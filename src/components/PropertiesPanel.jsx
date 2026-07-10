@@ -322,22 +322,24 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
 }
 
 // ── Node Panel ────────────────────────────────────────────────────────────────
-export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge, onDeleteNode, onDeleteEdge, onAddChild, onDuplicate, onClose }) {
+export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDeleteNodes, onDeleteEdge, onAddChild, onDuplicate, onClose }) {
   if (edge) {
     return <EdgePropertiesPanel edge={edge} onUpdate={onUpdateEdge} onDelete={onDeleteEdge} onClose={onClose} />;
   }
 
+  const primaryNode = nodes[0];
+  const isMultiSelect = nodes.length > 1;
   const { user } = useAuth();
-  const [name, setName]               = useState(node.data.name || "");
-  const [nameEn, setNameEn]           = useState(node.data.nameEn || "");
-  const [description, setDescription] = useState(node.data.description || "");
-  const [orgType, setOrgType]         = useState(node.data.orgType || "office");
-  const [color, setColor]             = useState(node.data.color || "#1e5799");
-  const [textColor, setTextColor]     = useState(node.data.textColor || "#ffffff");
-  const [linkedChartId, setLinkedChartId] = useState(node.data.linkedChartId || "");
-  const [fontSize, setFontSize]           = useState(node.data.fontSize || 13);
-  const [textAlign, setTextAlign]         = useState(node.data.textAlign || "center");
-  const [textVerticalAlign, setTextVerticalAlign] = useState(node.data.textVerticalAlign || "center");
+  const [name, setName]               = useState(primaryNode.data.name || "");
+  const [nameEn, setNameEn]           = useState(primaryNode.data.nameEn || "");
+  const [description, setDescription] = useState(primaryNode.data.description || "");
+  const [orgType, setOrgType]         = useState(primaryNode.data.orgType || "office");
+  const [color, setColor]             = useState(primaryNode.data.color || "#1e5799");
+  const [textColor, setTextColor]     = useState(primaryNode.data.textColor || "#ffffff");
+  const [linkedChartId, setLinkedChartId] = useState(primaryNode.data.linkedChartId || "");
+  const [fontSize, setFontSize]           = useState(primaryNode.data.fontSize || 13);
+  const [textAlign, setTextAlign]         = useState(primaryNode.data.textAlign || "center");
+  const [textVerticalAlign, setTextVerticalAlign] = useState(primaryNode.data.textVerticalAlign || "center");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addChildType, setAddChildType]   = useState("office");
   const [showAddChild, setShowAddChild]   = useState(false);
@@ -357,24 +359,24 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
   }, [user]);
 
   useEffect(() => {
-    setName(node.data.name || "");
-    setNameEn(node.data.nameEn || "");
-    setDescription(node.data.description || "");
-    setOrgType(node.data.orgType || "office");
-    setColor(node.data.color || "#1e5799");
-    setTextColor(node.data.textColor || "#ffffff");
-    setLinkedChartId(node.data.linkedChartId || "");
-    setFontSize(node.data.fontSize || 13);
-    setTextAlign(node.data.textAlign || "center");
-    setTextVerticalAlign(node.data.textVerticalAlign || "center");
+    setName(primaryNode.data.name || "");
+    setNameEn(primaryNode.data.nameEn || "");
+    setDescription(primaryNode.data.description || "");
+    setOrgType(primaryNode.data.orgType || "office");
+    setColor(primaryNode.data.color || "#1e5799");
+    setTextColor(primaryNode.data.textColor || "#ffffff");
+    setLinkedChartId(primaryNode.data.linkedChartId || "");
+    setFontSize(primaryNode.data.fontSize || 13);
+    setTextAlign(primaryNode.data.textAlign || "center");
+    setTextVerticalAlign(primaryNode.data.textVerticalAlign || "center");
     setConfirmDelete(false);
     setShowAddChild(false);
-  }, [node.id]);
+  }, [primaryNode.id]);
 
   // Auto-save (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdateNode(node.id, { name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
+      onUpdateNodes({ name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
     }, 250);
     return () => clearTimeout(t);
   }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign]);
@@ -387,37 +389,43 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
       <div className="pp-header">
         <div className="pp-header-left">
           <div className="pp-dot" style={{ background: color }} />
-          <span className="pp-title">Properties</span>
-          <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
-            {orgType}
-          </span>
+          <span className="pp-title">{isMultiSelect ? `Multiple Nodes Selected (${nodes.length})` : "Properties"}</span>
+          {!isMultiSelect && (
+            <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
+              {orgType}
+            </span>
+          )}
         </div>
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
 
       {/* Live node preview */}
-      <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
-        <div className="pp-preview__bar" />
-        <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
-          {orgType.toUpperCase()}
+      {!isMultiSelect && (
+        <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
+          <div className="pp-preview__bar" />
+          <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
+            {orgType.toUpperCase()}
+          </div>
+          <div className="pp-preview__name" style={{ color: textColor }}>{name || "ឈ្មោះ"}</div>
+          {nameEn && <div className="pp-preview__name-en">{nameEn}</div>}
         </div>
-        <div className="pp-preview__name" style={{ color: textColor }}>{name || "ឈ្មោះ"}</div>
-        {nameEn && <div className="pp-preview__name-en">{nameEn}</div>}
-      </div>
+      )}
 
       {/* Scrollable body */}
       <div className="pp-body">
 
         {/* Identity */}
-        <div className="pp-section">
-          <div className="pp-section-label"><User size={11} /> Identity</div>
-          <label className="pp-label">Khmer Name</label>
-          <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
-          <label className="pp-label">English Name</label>
-          <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
-          <label className="pp-label">Description</label>
-          <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
-        </div>
+        {!isMultiSelect && (
+          <div className="pp-section">
+            <div className="pp-section-label"><User size={11} /> Identity</div>
+            <label className="pp-label">Khmer Name</label>
+            <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
+            <label className="pp-label">English Name</label>
+            <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
+            <label className="pp-label">Description</label>
+            <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
+          </div>
+        )}
 
         {/* Type */}
         <div className="pp-section">
@@ -581,32 +589,36 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
           <div className="pp-section-label"><Zap size={11} /> Actions</div>
 
           {/* Duplicate */}
-          <button className="pp-btn pp-btn--ghost" onClick={() => onDuplicate?.(node.id)}>
-            <Copy size={13} /> Duplicate Node
-          </button>
+          {!isMultiSelect && (
+            <button className="pp-btn pp-btn--ghost" onClick={() => onDuplicate?.(primaryNode.id)}>
+              <Copy size={13} /> Duplicate Node
+            </button>
+          )}
 
           {/* Add Child */}
-          <div className="pp-action-group">
-            <button className="pp-btn pp-btn--add" onClick={() => setShowAddChild((v) => !v)}>
-              <Plus size={14} /> Add Child Node
-              <ChevronDown size={12} style={{ marginLeft: "auto", transform: showAddChild ? "rotate(180deg)" : "", transition: ".2s" }} />
-            </button>
-            {showAddChild && (
-              <div className="pp-add-child">
-                <div className="pp-type-grid" style={{ marginBottom: 8 }}>
-                  {TYPE_OPTIONS.map((t) => (
-                    <button key={t} className={`pp-type-btn ${addChildType === t ? "active" : ""}`} onClick={() => setAddChildType(t)}>
-                      {t}
-                    </button>
-                  ))}
+          {!isMultiSelect && (
+            <div className="pp-action-group">
+              <button className="pp-btn pp-btn--add" onClick={() => setShowAddChild((v) => !v)}>
+                <Plus size={14} /> Add Child Node
+                <ChevronDown size={12} style={{ marginLeft: "auto", transform: showAddChild ? "rotate(180deg)" : "", transition: ".2s" }} />
+              </button>
+              {showAddChild && (
+                <div className="pp-add-child">
+                  <div className="pp-type-grid" style={{ marginBottom: 8 }}>
+                    {TYPE_OPTIONS.map((t) => (
+                      <button key={t} className={`pp-type-btn ${addChildType === t ? "active" : ""}`} onClick={() => setAddChildType(t)}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="pp-btn pp-btn--confirm-add"
+                    onClick={() => { onAddChild(primaryNode.id, addChildType); setShowAddChild(false); }}>
+                    <Plus size={13} /> Create {addChildType} node
+                  </button>
                 </div>
-                <button className="pp-btn pp-btn--confirm-add"
-                  onClick={() => { onAddChild(node.id, addChildType); setShowAddChild(false); }}>
-                  <Plus size={13} /> Create {addChildType} node
-                </button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -614,17 +626,17 @@ export default function PropertiesPanel({ node, edge, onUpdateNode, onUpdateEdge
       <div className="pp-sticky-footer">
         {confirmDelete ? (
           <div className="pp-delete-confirm">
-            <p>Delete this node and all its connections?</p>
+            <p>{isMultiSelect ? `Delete these ${nodes.length} nodes and their connections?` : "Delete this node and all its connections?"}</p>
             <div className="pp-delete-btns">
               <button className="pp-btn pp-btn--ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-              <button className="pp-btn pp-btn--delete" onClick={() => onDeleteNode(node.id)}>
+              <button className="pp-btn pp-btn--delete" onClick={onDeleteNodes}>
                 <Trash2 size={13} /> Delete
               </button>
             </div>
           </div>
         ) : (
           <button className="pp-btn pp-btn--delete-ghost" style={{ width: "100%" }} onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={14} /> Delete Node
+            <Trash2 size={14} /> {isMultiSelect ? "Delete Nodes" : "Delete Node"}
           </button>
         )}
       </div>
