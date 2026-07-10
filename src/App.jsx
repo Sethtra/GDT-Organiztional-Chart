@@ -96,6 +96,7 @@ function FlowApp() {
   const lastSyncData = useRef({ nodes: "[]", edges: "[]" });
   const channelRef = useRef(null);
   const isInteracting = useRef(false);
+  const isDirty = useRef(false);
 
   // ── Undo/Redo ─────────────────────────────────────────────────
   const [past, setPast] = useState([]);
@@ -203,17 +204,25 @@ function FlowApp() {
     const channel = supabase
       .channel(`chart_room_${chartId}`)
       .on("broadcast", { event: "sync" }, (payload) => {
-        if (isInteracting.current) return;
+        if (isInteracting.current || isDirty.current) return;
         if (payload.payload?.nodes) {
-          lastSyncData.current = { nodes: JSON.stringify(payload.payload.nodes), edges: JSON.stringify(payload.payload.edges) };
+          const incomingNodesStr = JSON.stringify(payload.payload.nodes);
+          const incomingEdgesStr = JSON.stringify(payload.payload.edges);
+          if (incomingNodesStr === lastSyncData.current.nodes && incomingEdgesStr === lastSyncData.current.edges) return;
+          
+          lastSyncData.current = { nodes: incomingNodesStr, edges: incomingEdgesStr };
           setNodes(payload.payload.nodes);
           setEdges(payload.payload.edges);
         }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "charts", filter: `id=eq.${chartId}` }, (payload) => {
-        if (isInteracting.current) return;
+        if (isInteracting.current || isDirty.current) return;
         if (payload.new?.nodes) {
-          lastSyncData.current = { nodes: JSON.stringify(payload.new.nodes), edges: JSON.stringify(payload.new.edges) };
+          const incomingNodesStr = JSON.stringify(payload.new.nodes);
+          const incomingEdgesStr = JSON.stringify(payload.new.edges);
+          if (incomingNodesStr === lastSyncData.current.nodes && incomingEdgesStr === lastSyncData.current.edges) return;
+
+          lastSyncData.current = { nodes: incomingNodesStr, edges: incomingEdgesStr };
           setNodes(payload.new.nodes);
           setEdges(payload.new.edges);
         }
@@ -229,8 +238,12 @@ function FlowApp() {
     if (loading || !canEdit) return;
     const nodesStr = JSON.stringify(nodes);
     const edgesStr = JSON.stringify(edges);
-    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) return;
+    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
+      isDirty.current = false;
+      return;
+    }
 
+    isDirty.current = true;
     triggerSave();
 
     if (channelRef.current) {
@@ -240,6 +253,7 @@ function FlowApp() {
     const timeoutId = setTimeout(async () => {
       lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
       await supabase.from("charts").update({ nodes, edges, updated_at: new Date().toISOString() }).eq("id", chartId);
+      isDirty.current = false;
     }, 1000);
 
     return () => clearTimeout(timeoutId);
