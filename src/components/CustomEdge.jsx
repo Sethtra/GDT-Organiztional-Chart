@@ -1,5 +1,6 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { useReactFlow, Position, getStraightPath, EdgeLabelRenderer } from '@xyflow/react';
+import { useReactFlow, useInternalNode, Position, getStraightPath, EdgeLabelRenderer } from '@xyflow/react';
+import { getFloatingEdgeParams } from '../utils/floatingEdge';
 
 // ── Arrowhead options ─────────────────────────────────────────────────────────
 export const ARROWHEAD_OPTIONS = [
@@ -147,18 +148,41 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
       activeIdx = index;
     }
 
-    dragging.current = { activeIdx, startFlow, startPts };
+    // If this waypoint sits mid-way on a straight run (its neighbors on both
+    // sides line up on the same axis), dragging it carries the whole run along
+    // — same behavior as grabbing the blank line between dots. Corners (where
+    // the flanking segments differ in orientation) stay free-form.
+    let runOrientation = null;
+    if (type === 'real') {
+      const fullIdx = activeIdx + 1; // index within `pts` (pts[0] is the source anchor)
+      const before = pts[fullIdx - 1], here = pts[fullIdx], after = pts[fullIdx + 1];
+      const hBefore = Math.abs(before.y - here.y) < 1, vBefore = Math.abs(before.x - here.x) < 1;
+      const hAfter  = Math.abs(after.y  - here.y) < 1, vAfter  = Math.abs(after.x  - here.x) < 1;
+      if (hBefore && hAfter) runOrientation = 'h';
+      else if (vBefore && vAfter) runOrientation = 'v';
+    }
+
+    dragging.current = { activeIdx, startFlow, startPts, runOrientation };
 
     const onMove = (ev) => {
       if (!dragging.current) return;
-      const { activeIdx, startFlow, startPts } = dragging.current;
+      const { activeIdx, startFlow, startPts, runOrientation } = dragging.current;
       const cur = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-      
-      const newPts = startPts.map(p => ({ ...p }));
-      newPts[activeIdx] = {
-        x: startPts[activeIdx].x + (cur.x - startFlow.x),
-        y: startPts[activeIdx].y + (cur.y - startFlow.y)
-      };
+
+      let newPts;
+      if (runOrientation === 'h') {
+        const newY = startPts[activeIdx].y + (cur.y - startFlow.y);
+        newPts = startPts.map((p) => ({ x: p.x, y: newY }));
+      } else if (runOrientation === 'v') {
+        const newX = startPts[activeIdx].x + (cur.x - startFlow.x);
+        newPts = startPts.map((p) => ({ x: newX, y: p.y }));
+      } else {
+        newPts = startPts.map(p => ({ ...p }));
+        newPts[activeIdx] = {
+          x: startPts[activeIdx].x + (cur.x - startFlow.x),
+          y: startPts[activeIdx].y + (cur.y - startFlow.y)
+        };
+      }
 
       setEdges(eds => eds.map(edge =>
         edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: newPts } }
@@ -191,6 +215,56 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
     ));
   }, [id, pts, setEdges]);
 
+  // Grab-anywhere-on-the-line dragging (Visio-style): lets the user drag a segment
+  // directly instead of hunting for the small waypoint dots. Dragging a straight
+  // (h/v) segment pulls the whole aligned run of waypoints along with it — e.g.
+  // pulling the middle of a vertical trunk moves every point on that trunk, not
+  // just the two nearest the grab — so one drag straightens the whole connector.
+  // Diagonal ('free') segments only drag their own two endpoints.
+  const onSegmentMouseDown = useCallback((e, i1, i2, orientation) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const startPts = pts.slice(1, pts.length - 1).map(p => ({ ...p }));
+
+    const onMove = (ev) => {
+      const cur = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+      const dx = cur.x - startFlow.x, dy = cur.y - startFlow.y;
+      let newPts;
+      if (orientation === 'h') {
+        const newY = startPts[i1].y + dy;
+        newPts = startPts.map((p) => ({ x: p.x, y: newY }));
+      } else if (orientation === 'v') {
+        const newX = startPts[i1].x + dx;
+        newPts = startPts.map((p) => ({ x: newX, y: p.y }));
+      } else {
+        newPts = startPts.map((p, idx) =>
+          (idx === i1 || idx === i2) ? { x: p.x + dx, y: p.y + dy } : p
+        );
+      }
+      setEdges(eds => eds.map(edge =>
+        edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: newPts } }
+      ));
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [id, pts, setEdges, screenToFlowPosition]);
+
+  const interior = pts.slice(1, pts.length - 1);
+  const segmentHandles = [];
+  for (let k = 0; k < interior.length - 1; k++) {
+    const p1 = interior[k], p2 = interior[k + 1];
+    const isH = Math.abs(p1.y - p2.y) < 1;
+    const isV = Math.abs(p1.x - p2.x) < 1;
+    segmentHandles.push({ p1, p2, i1: k, i2: k + 1, orientation: isH ? 'h' : isV ? 'v' : 'free' });
+  }
+
   const realHandles = [];
   for (let i = 1; i < pts.length - 1; i++) {
     realHandles.push({ x: pts[i].x, y: pts[i].y, index: i - 1 });
@@ -206,13 +280,34 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
   }
 
   return (
-    <EdgeLabelRenderer>
+    <>
+      <g className="edge-segment-handles">
+        {segmentHandles.map((s, i) => (
+          <path
+            key={`seg-${i}`}
+            d={`M ${s.p1.x} ${s.p1.y} L ${s.p2.x} ${s.p2.y}`}
+            fill="none"
+            stroke="transparent"
+            strokeWidth={16}
+            strokeLinecap="round"
+            className="nodrag nopan"
+            style={{
+              cursor: s.orientation === 'h' ? 'ns-resize' : s.orientation === 'v' ? 'ew-resize' : 'move',
+              pointerEvents: 'stroke',
+            }}
+            onMouseDown={(e) => onSegmentMouseDown(e, s.i1, s.i2, s.orientation)}
+          />
+        ))}
+      </g>
+      <EdgeLabelRenderer>
       {ghostHandles.map((h, i) => (
         <div
           key={`g-${i}`}
           className="nodrag nopan"
           style={{
             position: 'absolute',
+            width: 16, height: 16,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             transform: `translate(-50%, -50%) translate(${h.x}px, ${h.y}px)`,
             pointerEvents: 'all',
             cursor: 'grab',
@@ -222,7 +317,7 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
           title="Drag to add waypoint"
         >
           <div style={{
-            width: 12, height: 12, borderRadius: '50%',
+            width: 6, height: 6, borderRadius: '50%',
             background: `${strokeColor}40`, border: `1px solid ${strokeColor}80`,
             backdropFilter: 'blur(2px)'
           }} />
@@ -234,6 +329,8 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
           className="nodrag nopan"
           style={{
             position: 'absolute',
+            width: 20, height: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             transform: `translate(-50%, -50%) translate(${h.x}px, ${h.y}px)`,
             pointerEvents: 'all',
             cursor: 'grab',
@@ -244,13 +341,14 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
           title="Drag to move · Double-click to remove"
         >
           <div style={{
-            width: 14, height: 14, borderRadius: '50%',
-            background: '#0a1228', border: `2px solid ${strokeColor}`,
-            boxShadow: `0 0 0 4px ${strokeColor}28, 0 2px 8px rgba(0,0,0,0.5)`,
+            width: 8, height: 8, borderRadius: '50%',
+            background: 'var(--bg-surface)', border: `1.5px solid ${strokeColor}`,
+            boxShadow: `0 0 0 2px ${strokeColor}28, 0 1px 4px rgba(0,0,0,0.5)`,
           }} />
         </div>
       ))}
-    </EdgeLabelRenderer>
+      </EdgeLabelRenderer>
+    </>
   );
 });
 ControlHandles.displayName = 'ControlHandles';
@@ -258,13 +356,34 @@ ControlHandles.displayName = 'ControlHandles';
 // ── Main edge component ───────────────────────────────────────────────────────
 const CustomEdge = memo(({
   id,
-  sourceX, sourceY, sourcePosition,
-  targetX, targetY, targetPosition,
+  source, target, sourceHandleId, targetHandleId,
+  sourceX: rawSourceX, sourceY: rawSourceY, sourcePosition: rawSourcePosition,
+  targetX: rawTargetX, targetY: rawTargetY, targetPosition: rawTargetPosition,
   data = {},
   selected,
 }) => {
   const { setEdges, screenToFlowPosition } = useReactFlow();
   const [hovered, setHovered] = useState(false);
+
+  // ── Dynamic glue (Visio-style) ─────────────────────────────────────────────
+  // An edge is dynamic by default when it wasn't drawn from one specific
+  // handle (e.g. edges created programmatically via "Add Child Node"). It can
+  // be forced either way via data.dynamic. Dynamic edges recompute their
+  // attachment point every render from the live node rectangles, so they
+  // "walk" to the nearest side as nodes move; locked edges keep the fixed
+  // handle-based coordinates React Flow already resolved.
+  const hasFixedHandle = !!sourceHandleId || !!targetHandleId;
+  const isDynamic = data.dynamic === true || (data.dynamic !== false && !hasFixedHandle);
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+  const floating = isDynamic ? getFloatingEdgeParams(sourceNode, targetNode) : null;
+
+  const sourceX = floating?.sx ?? rawSourceX;
+  const sourceY = floating?.sy ?? rawSourceY;
+  const sourcePosition = floating?.sourcePosition ?? rawSourcePosition;
+  const targetX = floating?.tx ?? rawTargetX;
+  const targetY = floating?.ty ?? rawTargetY;
+  const targetPosition = floating?.targetPosition ?? rawTargetPosition;
 
   // Read edge styling props
   const strokeColor  = data.strokeColor  || '#4b8fd4';
@@ -307,12 +426,6 @@ const CustomEdge = memo(({
     ({ d, labelX, labelY, arrowAngle, arrowStartAngle } = res);
     activePts = res.pts;
   }
-
-  const resetRouting = useCallback(() => {
-    setEdges(eds => eds.map(e =>
-      e.id !== id ? e : { ...e, data: { ...e.data, points: [] } }
-    ));
-  }, [id, setEdges]);
 
   // ── Bezier drag (legacy — whole-path nudge via offset) ────────────────────
   const bezierDragRef = useRef(null);
@@ -357,25 +470,37 @@ const CustomEdge = memo(({
   // Segment handles: only in elbow mode with a computed pts array
   const showHandles = showInteractive && lineStyle === 'elbow' && activePts !== null;
 
-  // ── Arrowhead trim (shorten path so line stops at arrowhead base) ─────────
+  // ── Arrowhead trim (shorten the VISIBLE stroke so it stops at the arrowhead base) ──
+  // Trims geometry directly (adjusting endpoint coordinates before rebuilding the path)
+  // rather than regexing the `d` string — the old regex only matched elbow-style "L x y"
+  // segments, so straight paths (comma-separated coords from getStraightPath) and bezier
+  // paths (ending in "Q x y") silently never got trimmed and arrowheads pierced the line.
   const sw = strokeWidth;
   const sz = Math.max(9, sw * 4);
   const endTrim   = arrowType  !== 'none' && arrowType  !== 'open' && arrowType  !== 'chevron' ? sz : 0;
   const startTrim = arrowStart !== 'none' && arrowStart !== 'open' && arrowStart !== 'chevron' ? sz : 0;
+
+  const trimPoint = (px, py, angle, trim) =>
+    trim > 0 ? { x: px - Math.cos(angle) * trim, y: py - Math.sin(angle) * trim } : { x: px, y: py };
+
   let trimmedD = d;
-  if (endTrim > 0) {
-    const cos = Math.cos(arrowAngle), sin = Math.sin(arrowAngle);
-    trimmedD = trimmedD.replace(
-      /L\s+([\d.\-eE]+)\s+([\d.\-eE]+)\s*$/,
-      `L ${targetX - cos * endTrim} ${targetY - sin * endTrim}`
-    );
-  }
-  if (startTrim > 0) {
-    const cos = Math.cos(arrowStartAngle), sin = Math.sin(arrowStartAngle);
-    trimmedD = trimmedD.replace(
-      /^M\s+([\d.\-eE]+)\s+([\d.\-eE]+)/,
-      `M ${sourceX - cos * startTrim} ${sourceY - sin * startTrim}`
-    );
+  if (endTrim > 0 || startTrim > 0) {
+    if (lineStyle === 'straight') {
+      const t = trimPoint(targetX, targetY, arrowAngle, endTrim);
+      const s = trimPoint(sourceX, sourceY, arrowStartAngle, startTrim);
+      [trimmedD] = getStraightPath({ sourceX: s.x, sourceY: s.y, targetX: t.x, targetY: t.y });
+    } else if (lineStyle === 'bezier') {
+      const t = trimPoint(targetX, targetY, arrowAngle, endTrim);
+      const s = trimPoint(sourceX, sourceY, arrowStartAngle, startTrim);
+      trimmedD = `M ${s.x} ${s.y} Q ${labelX} ${labelY} ${t.x} ${t.y}`;
+    } else if (activePts) {
+      const trimmedPts = activePts.map((p, i) => {
+        if (i === 0 && startTrim > 0) return trimPoint(p.x, p.y, arrowStartAngle, startTrim);
+        if (i === activePts.length - 1 && endTrim > 0) return trimPoint(p.x, p.y, arrowAngle, endTrim);
+        return p;
+      });
+      trimmedD = buildPathFromPts(trimmedPts, cornerRadius).d;
+    }
   }
 
   return (
@@ -450,7 +575,7 @@ const CustomEdge = memo(({
       {selected && lineStyle === 'bezier' && (
         <circle
           cx={labelX} cy={labelY} r={5}
-          fill="#0f2044" stroke={strokeColor} strokeWidth={2}
+          fill="var(--bg-surface)" stroke={strokeColor} strokeWidth={2}
           style={{ pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
         />
       )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
@@ -63,6 +63,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
   const [label, setLabel]             = useState(d.label       || "");
   const [lineStyle, setLineStyle]     = useState(d.lineStyle   || "elbow");
   const [cornerRadius, setCornerRadius] = useState(d.cornerRadius ?? 10);
+  const [dynamic, setDynamic] = useState(d.dynamic ?? !(edge.sourceHandle || edge.targetHandle));
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -75,6 +76,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
     setLabel(d2.label          || "");
     setLineStyle(d2.lineStyle  || "elbow");
     setCornerRadius(d2.cornerRadius ?? 10);
+    setDynamic(d2.dynamic ?? !(edge.sourceHandle || edge.targetHandle));
     setConfirmDelete(false);
   }, [edge.id]);
 
@@ -91,12 +93,13 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
           label,
           lineStyle,
           cornerRadius: Number(cornerRadius),
+          dynamic,
           // Reset offset when style changes so path re-routes cleanly
         },
       });
     }, 200);
     return () => clearTimeout(t);
-  }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label, lineStyle, cornerRadius]);
+  }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label, lineStyle, cornerRadius, dynamic]);
 
   return (
     <div className="properties-panel">
@@ -120,7 +123,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 label: 'Elbow',
                 icon: (
                   <svg width="44" height="24" viewBox="0 0 44 24">
-                    <polyline points="4,20 4,8 40,8 40,20" fill="none" stroke={lineStyle === 'elbow' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <polyline points="4,20 4,8 40,8 40,20" fill="none" stroke={lineStyle === 'elbow' ? strokeColor : 'var(--text-secondary)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ),
               },
@@ -129,7 +132,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 label: 'Curved',
                 icon: (
                   <svg width="44" height="24" viewBox="0 0 44 24">
-                    <path d="M 4 20 Q 4 4 40 4" fill="none" stroke={lineStyle === 'bezier' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" />
+                    <path d="M 4 20 Q 4 4 40 4" fill="none" stroke={lineStyle === 'bezier' ? strokeColor : 'var(--text-secondary)'} strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 ),
               },
@@ -138,7 +141,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 label: 'Straight',
                 icon: (
                   <svg width="44" height="24" viewBox="0 0 44 24">
-                    <line x1="4" y1="20" x2="40" y2="4" stroke={lineStyle === 'straight' ? strokeColor : '#475569'} strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4" y1="20" x2="40" y2="4" stroke={lineStyle === 'straight' ? strokeColor : 'var(--text-secondary)'} strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 ),
               },
@@ -147,8 +150,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 key={opt.id}
                 onClick={() => setLineStyle(opt.id)}
                 style={{
-                  background: lineStyle === opt.id ? `${strokeColor}18` : 'rgba(255,255,255,0.03)',
-                  border: lineStyle === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  background: lineStyle === opt.id ? `${strokeColor}18` : 'rgba(var(--surface-rgb),0.03)',
+                  border: lineStyle === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(var(--surface-rgb),0.08)',
                   borderRadius: 8,
                   padding: '6px 4px 4px',
                   cursor: 'pointer',
@@ -160,7 +163,7 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 }}
               >
                 {opt.icon}
-                <span style={{ fontSize: 9, color: lineStyle === opt.id ? strokeColor : '#64748b', fontWeight: 600 }}>
+                <span style={{ fontSize: 9, color: lineStyle === opt.id ? strokeColor : 'var(--text-muted)', fontWeight: 600 }}>
                   {opt.label}
                 </span>
               </button>
@@ -169,8 +172,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
           {lineStyle === 'elbow' && (
             <div style={{ marginTop: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ color: '#64748b', fontSize: 11 }}>Corner Rounding</span>
-                <span style={{ color: '#94a3b8', fontSize: 11 }}>{cornerRadius}px</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>Corner Rounding</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{cornerRadius}px</span>
               </div>
               <input
                 type="range" min={0} max={30} value={cornerRadius}
@@ -179,6 +182,19 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
               />
             </div>
           )}
+        </div>
+
+        {/* Dynamic glue */}
+        <div className="pp-section">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+            <input type="checkbox" checked={dynamic} onChange={(e) => setDynamic(e.target.checked)} />
+            Dynamic Connector
+          </label>
+          <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
+            {dynamic
+              ? "Glues to the nearest side of each box and re-routes automatically when either box moves."
+              : "Locked to its current fixed attachment points — won't re-route if you move the connected boxes."}
+          </div>
         </div>
 
         {/* Label */}
@@ -218,9 +234,9 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
               onChange={(e) => setStrokeWidth(e.target.value)}
               style={{ flex: 1, accentColor: strokeColor }}
             />
-            <span style={{ color: '#94a3b8', fontSize: 12, minWidth: 20, textAlign: 'right' }}>{strokeWidth}px</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: 12, minWidth: 20, textAlign: 'right' }}>{strokeWidth}px</span>
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: '#94a3b8', fontSize: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: 'var(--text-secondary)', fontSize: 12 }}>
             <input type="checkbox" checked={animated} onChange={(e) => setAnimated(e.target.checked)} />
             Animated flow
           </label>
@@ -236,8 +252,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 onClick={() => setArrowType(opt.id)}
                 title={opt.label}
                 style={{
-                  background: arrowType === opt.id ? `${strokeColor}22` : 'rgba(255,255,255,0.04)',
-                  border: arrowType === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  background: arrowType === opt.id ? `${strokeColor}22` : 'rgba(var(--surface-rgb),0.04)',
+                  border: arrowType === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(var(--surface-rgb),0.08)',
                   borderRadius: 7,
                   padding: '5px 2px 2px',
                   cursor: 'pointer',
@@ -248,8 +264,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                   transition: 'all .15s',
                 }}
               >
-                <ArrowPreview type={opt.id} color={arrowType === opt.id ? strokeColor : '#64748b'} />
-                <span style={{ fontSize: 9, color: arrowType === opt.id ? strokeColor : '#64748b', fontWeight: 600, letterSpacing: 0.2 }}>
+                <ArrowPreview type={opt.id} color={arrowType === opt.id ? strokeColor : 'var(--text-muted)'} />
+                <span style={{ fontSize: 9, color: arrowType === opt.id ? strokeColor : 'var(--text-muted)', fontWeight: 600, letterSpacing: 0.2 }}>
                   {opt.label}
                 </span>
               </button>
@@ -267,8 +283,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                 onClick={() => setArrowStart(opt.id)}
                 title={opt.label}
                 style={{
-                  background: arrowStart === opt.id ? `${strokeColor}22` : 'rgba(255,255,255,0.04)',
-                  border: arrowStart === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(255,255,255,0.08)',
+                  background: arrowStart === opt.id ? `${strokeColor}22` : 'rgba(var(--surface-rgb),0.04)',
+                  border: arrowStart === opt.id ? `1.5px solid ${strokeColor}` : '1.5px solid rgba(var(--surface-rgb),0.08)',
                   borderRadius: 7,
                   padding: '5px 2px 2px',
                   cursor: 'pointer',
@@ -279,8 +295,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
                   transition: 'all .15s',
                 }}
               >
-                <ArrowPreview type={opt.id} color={arrowStart === opt.id ? strokeColor : '#64748b'} />
-                <span style={{ fontSize: 9, color: arrowStart === opt.id ? strokeColor : '#64748b', fontWeight: 600, letterSpacing: 0.2 }}>
+                <ArrowPreview type={opt.id} color={arrowStart === opt.id ? strokeColor : 'var(--text-muted)'} />
+                <span style={{ fontSize: 9, color: arrowStart === opt.id ? strokeColor : 'var(--text-muted)', fontWeight: 600, letterSpacing: 0.2 }}>
                   {opt.label}
                 </span>
               </button>
@@ -299,8 +315,8 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
               <RotateCcw size={13} /> Reset Routing
             </button>
             <div style={{ background: 'rgba(75, 143, 212, 0.08)', border: '1px solid rgba(75, 143, 212, 0.18)', borderRadius: 8, padding: '10px 12px' }}>
-              <div style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.6 }}>
-                💡 <strong style={{ color: '#cbd5e1' }}>Hover or select</strong> a connector to reveal handles. <strong style={{ color: '#cbd5e1' }}>Drag a faded handle</strong> to create a new waypoint. <strong style={{ color: '#cbd5e1' }}>Drag a solid handle</strong> to move it, or <strong style={{ color: '#cbd5e1' }}>Double-click</strong> it to delete it.
+              <div style={{ color: 'var(--text-secondary)', fontSize: 11, lineHeight: 1.6 }}>
+                💡 <strong style={{ color: 'var(--text-secondary)' }}>Hover or select</strong> a connector to reveal handles. <strong style={{ color: 'var(--text-secondary)' }}>Drag a faded handle</strong> to create a new waypoint. <strong style={{ color: 'var(--text-secondary)' }}>Drag a solid handle</strong> to move it, or <strong style={{ color: 'var(--text-secondary)' }}>Double-click</strong> it to delete it.
               </div>
             </div>
           </div>
@@ -373,6 +389,19 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
       .then(({ data }) => setCharts(data || []));
   }, [user]);
 
+  // Guards the auto-save effect below from firing merely because the node-switch
+  // effect repopulated fields to match a newly selected node (no actual user edit).
+  const skipNextSave = useRef(true);
+
+  // onUpdateNodes's identity can change on renders unrelated to this panel
+  // (it's derived from broader app state). Reading it via a ref instead of
+  // listing it as an effect dependency means only real field edits below can
+  // trigger a save — an unrelated re-render can no longer resurrect
+  // "skipNextSave" timing and bulk-apply the currently-loaded node's values
+  // onto every other selected node.
+  const onUpdateNodesRef = useRef(onUpdateNodes);
+  onUpdateNodesRef.current = onUpdateNodes;
+
   useEffect(() => {
     const fresh = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
     setName(fresh.data.name || "");
@@ -387,15 +416,17 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setTextVerticalAlign(fresh.data.textVerticalAlign || "center");
     setConfirmDelete(false);
     setShowAddChild(false);
+    skipNextSave.current = true;
   }, [nodes?.map(n => n.id).join(",")]);
 
   // Auto-save (debounced)
   useEffect(() => {
+    if (skipNextSave.current) { skipNextSave.current = false; return; }
     const t = setTimeout(() => {
-      onUpdateNodes({ name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
+      onUpdateNodesRef.current({ name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
     }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign, onUpdateNodes]);
+  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign]);
 
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
@@ -479,7 +510,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
               { label: "Black",  value: "#000000" },
             ].map((c) => (
               <button key={c.value} className={`pp-swatch ${textColor === c.value ? "active" : ""}`}
-                style={{ background: c.value, border: c.value === "#ffffff" ? "1px solid rgba(255,255,255,.3)" : "none" }}
+                style={{ background: c.value, border: c.value === "#ffffff" ? "1px solid rgba(var(--surface-rgb),.3)" : "none" }}
                 onClick={() => setTextColor(c.value)} title={c.label} />
             ))}
             <label className="pp-swatch pp-swatch--custom" title="Custom text color">
@@ -498,7 +529,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           </div>
 
           {/* Font Size */}
-          <label className="pp-label">Font Size — <strong style={{ color: '#e2e8f0' }}>{fontSize}px</strong></label>
+          <label className="pp-label">Font Size — <strong style={{ color: 'var(--text-primary)' }}>{fontSize}px</strong></label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <button
               className="pp-btn pp-btn--ghost"
@@ -530,9 +561,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
                 style={{
                   flex: 1, padding: '5px 0', display: 'flex', justifyContent: 'center', alignItems: 'center',
                   borderRadius: 5, border: '1px solid',
-                  borderColor: textAlign === v ? '#4b8fd4' : 'rgba(255,255,255,.12)',
-                  background: textAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(255,255,255,.04)',
-                  color: textAlign === v ? '#4b8fd4' : '#94a3b8',
+                  borderColor: textAlign === v ? '#4b8fd4' : 'rgba(var(--surface-rgb),.12)',
+                  background: textAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(var(--surface-rgb),.04)',
+                  color: textAlign === v ? '#4b8fd4' : 'var(--text-secondary)',
                   cursor: 'pointer', transition: 'all .15s',
                 }}
                 onClick={() => setTextAlign(v)}
@@ -553,9 +584,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
                 style={{
                   flex: 1, padding: '5px 0', display: 'flex', justifyContent: 'center', alignItems: 'center',
                   borderRadius: 5, border: '1px solid',
-                  borderColor: textVerticalAlign === v ? '#4b8fd4' : 'rgba(255,255,255,.12)',
-                  background: textVerticalAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(255,255,255,.04)',
-                  color: textVerticalAlign === v ? '#4b8fd4' : '#94a3b8',
+                  borderColor: textVerticalAlign === v ? '#4b8fd4' : 'rgba(var(--surface-rgb),.12)',
+                  background: textVerticalAlign === v ? 'rgba(75,143,212,.2)' : 'rgba(var(--surface-rgb),.04)',
+                  color: textVerticalAlign === v ? '#4b8fd4' : 'var(--text-secondary)',
                   cursor: 'pointer', transition: 'all .15s',
                 }}
                 onClick={() => setTextVerticalAlign(v)}
@@ -567,7 +598,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
         {/* Chart Link */}
         <div className="pp-section" style={{ opacity: isMultiSelect ? 0.5 : 1, pointerEvents: isMultiSelect ? 'none' : 'auto' }}>
           <div className="pp-section-label"><LinkIcon size={11} /> Link to Chart</div>
-          <p style={{ color: '#64748b', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
             Link this node to another chart. Viewers can click the node to open it.
           </p>
           <select
@@ -587,7 +618,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
               <span style={{ color: '#0e7d6e', fontSize: 12, fontWeight: 600 }}>{linkedChart.name}</span>
               <button
                 onClick={() => setLinkedChartId("")}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 2 }}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
                 title="Remove link"
               >
                 <X size={12} />

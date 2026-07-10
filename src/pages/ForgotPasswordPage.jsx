@@ -45,8 +45,8 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div className="auth-success-block">
             <CheckCircle size={48} style={{ color: '#059669' }} />
-            <h3 style={{ marginTop: 16, color: '#ffffff', fontWeight: 700 }}>Reset Link Sent!</h3>
-            <p style={{ color: '#94a3b8', fontSize: 14, marginTop: 8 }}>
+            <h3 style={{ marginTop: 16, color: 'var(--text-primary)', fontWeight: 700 }}>Reset Link Sent!</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
               Check your inbox at <strong style={{ color: '#0ea5e9' }}>{email}</strong>.
               The link expires in 1 hour.
             </p>

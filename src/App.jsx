@@ -24,7 +24,7 @@ import "@xyflow/react/dist/style.css";
 
 import {
   Plus, LayoutGrid, ArrowDownUp, ArrowLeftRight,
-  Undo2, Redo2, Eye, EyeOff, RotateCcw, Download,
+  Undo2, Redo2, Eye, EyeOff, Download, Save, Sun, Moon,
   Search as SearchIcon, Keyboard, CheckCircle2, Loader2, Share2, X,
 } from "lucide-react";
 
@@ -37,10 +37,12 @@ import SearchBar from "./components/SearchBar";
 import ContextMenu from "./components/ContextMenu";
 import ShortcutsModal from "./components/ShortcutsModal";
 import StatusBar from "./components/StatusBar";
-import { initialNodes, initialEdges } from "./data/initialData";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import { supabase } from "./supabaseClient";
+import ErrorBoundary from "./components/ErrorBoundary";
+import VersionHistoryModal from "./components/VersionHistoryModal";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { ThemeProvider, useTheme } from "./hooks/useTheme";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -61,11 +63,24 @@ const DEFAULT_EDGE_OPTIONS = {
   data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", label: "" },
 };
 
+// Older/legacy charts (e.g. anything seeded before the GDT template edges
+// carried a `type`) can have edges missing `type: "custom"`. Without it,
+// React Flow silently falls back to its own built-in edge component, which
+// ignores every custom style/dynamic-glue field — the connector renders but
+// none of the Properties Panel controls do anything. Backfill on every load
+// so old charts self-heal instead of needing a manual data migration.
+function normalizeEdges(edges) {
+  return (edges || []).map((e) =>
+    e.type === "custom" ? e : { ...e, type: "custom", data: { ...DEFAULT_EDGE_OPTIONS.data, ...e.data } }
+  );
+}
+
 export const ChartContext = createContext(null);
 
 function FlowApp() {
   const { chartId } = useParams();
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { getNodes, fitView, setCenter } = useReactFlow();
   const viewport = useViewport();
@@ -80,7 +95,6 @@ function FlowApp() {
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [saveStatus, setSaveStatus] = useState("idle");
-  const saveTimerRef = useRef(null);
 
   // New feature states
   const [collapsedNodes, setCollapsedNodes] = useState(new Set());
@@ -94,11 +108,11 @@ function FlowApp() {
   const [canEdit, setCanEdit] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [linkedChartPopup, setLinkedChartPopup] = useState(null); // { node, x, y }
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 
+  // Tracks what's currently saved on the server so the persist effect can
+  // tell "nothing changed" from "needs saving" without re-sending identical data.
   const lastSyncData = useRef({ nodes: "[]", edges: "[]" });
-  const channelRef = useRef(null);
-  const isInteracting = useRef(false);
-  const isDirty = useRef(false);
 
   // ── Undo/Redo ─────────────────────────────────────────────────
   const [past, setPast] = useState([]);
@@ -107,10 +121,22 @@ function FlowApp() {
   // ── Clipboard ─────────────────────────────────────────────────
   const [clipboard, setClipboard] = useState(null);
 
+  // Mirrors of the latest nodes/edges so takeSnapshot can stay referentially
+  // stable ([] deps) instead of changing identity on every edit. Every
+  // callback that depends on takeSnapshot (updateSelectedNodes, onConnect,
+  // addChildNode, etc.) was getting a new identity on nearly every render as
+  // a result, which cascaded into consumers whose effects list those
+  // callbacks as a dependency — e.g. the Properties Panel's autosave effect,
+  // which could then fire from selection changes alone, not just real edits.
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
+
   const takeSnapshot = useCallback(() => {
-    setPast((p) => [...p.slice(-30), { nodes, edges }]);
+    setPast((p) => [...p.slice(-30), { nodes: nodesRef.current, edges: edgesRef.current }]);
     setFuture([]);
-  }, [nodes, edges]);
+  }, []);
 
   const undo = useCallback(() => {
     if (past.length === 0) return;
@@ -176,14 +202,49 @@ function FlowApp() {
   }, [clipboard, setNodes, setEdges, edges, takeSnapshot]);
 
 
-  // ── Save status helper ────────────────────────────────────────
-  const triggerSave = useCallback(() => {
-    setSaveStatus("saving");
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => setSaveStatus("saved"), 1200);
-  }, []);
+  // ── Save ─────────────────────────────────────────────────────
+  // Shared by the debounced autosave effect and the manual Save button, so
+  // both a passive edit and a deliberate click go through the same guarded
+  // path and report real (not simulated) save status.
+  const performSave = useCallback(async () => {
+    const nodesStr = JSON.stringify(nodes);
+    const edgesStr = JSON.stringify(edges);
+    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
+      setSaveStatus("saved");
+      return;
+    }
 
-  // ── Load data + realtime ──────────────────────────────────────
+    const prevNodes = JSON.parse(lastSyncData.current.nodes || "[]");
+    const prevNodeCount = prevNodes.length;
+    const currNodeCount = nodes.length;
+
+    // Guard against accidentally saving a near-empty chart over real data
+    // (e.g. a bulk-select-delete misfire).
+    if (prevNodeCount > 5 && (currNodeCount < 3 || currNodeCount < prevNodeCount * 0.3)) {
+      if (!window.confirm(`Warning: You are about to save a state with only ${currNodeCount} nodes (down from ${prevNodeCount}). This will overwrite your data in the database. Are you absolutely sure you want to proceed?`)) {
+        setNodes(prevNodes);
+        setEdges(JSON.parse(lastSyncData.current.edges || "[]"));
+        setSaveStatus("saved");
+        return;
+      }
+    }
+
+    setSaveStatus("saving");
+    lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
+    await supabase.from("charts").update({ nodes, edges, updated_at: new Date().toISOString() }).eq("id", chartId);
+
+    // Auto-save version history every 5 minutes
+    const lastVersionTimeStr = localStorage.getItem(`last_version_time_${chartId}`);
+    const lastVersionTime = lastVersionTimeStr ? parseInt(lastVersionTimeStr, 10) : 0;
+    if (Date.now() - lastVersionTime > 5 * 60 * 1000) {
+      await supabase.from("chart_versions").insert({ chart_id: chartId, nodes, edges });
+      localStorage.setItem(`last_version_time_${chartId}`, Date.now().toString());
+    }
+
+    setSaveStatus("saved");
+  }, [nodes, edges, chartId, setNodes, setEdges]);
+
+  // ── Load data ────────────────────────────────────────────────
   useEffect(() => {
     if (!chartId) { navigate('/dashboard'); return; }
 
@@ -213,9 +274,37 @@ function FlowApp() {
         if (!editAccess) setPreviewMode(true);
 
         // Respect empty arrays — don't fall back to GDT template for blank charts
+        // lastSyncData intentionally reflects the RAW saved data (pre-normalization)
+        // so the persist effect sees a diff and re-saves the normalized edges,
+        // permanently healing any chart saved before edges carried a `type`.
         setNodes(data.nodes || []);
-        setEdges(data.edges || []);
+        setEdges(normalizeEdges(data.edges));
         lastSyncData.current = { nodes: JSON.stringify(data.nodes || []), edges: JSON.stringify(data.edges || []) };
+
+        // Local-backup safety net: recover unsaved work if the browser closed
+        // (or refreshed) before the debounced save finished. Compares BOTH
+        // node and edge counts against the server version — an edge-only
+        // change (e.g. drawing one new connector, no new node) used to be
+        // invisible to this check and would silently vanish on reload.
+        try {
+          const localBackupStr = localStorage.getItem(`chart_backup_${chartId}`);
+          if (localBackupStr) {
+            const localBackup = JSON.parse(localBackupStr);
+            const serverIsNewer = data.updated_at && localBackup.timestamp
+              ? new Date(data.updated_at).getTime() >= localBackup.timestamp
+              : false;
+            const localHasMore =
+              (localBackup.nodes?.length || 0) > (data.nodes?.length || 0) ||
+              (localBackup.edges?.length || 0) > (data.edges?.length || 0);
+            if (!serverIsNewer && localHasMore) {
+              if (window.confirm("A local backup was found with unsaved changes not present on the server. Do you want to recover it?")) {
+                setNodes(localBackup.nodes);
+                setEdges(normalizeEdges(localBackup.edges));
+                lastSyncData.current = { nodes: "[]", edges: "[]" }; // Force a resync
+              }
+            }
+          }
+        } catch (e) { console.error("Error reading local backup", e); }
       } else {
         // Chart not found — go back to dashboard
         navigate('/dashboard');
@@ -224,37 +313,6 @@ function FlowApp() {
       setLoading(false);
     }
     loadData();
-
-    const channel = supabase
-      .channel(`chart_room_${chartId}`)
-      .on("broadcast", { event: "sync" }, (payload) => {
-        if (isInteracting.current || isDirty.current) return;
-        if (payload.payload?.nodes) {
-          const incomingNodesStr = JSON.stringify(payload.payload.nodes);
-          const incomingEdgesStr = JSON.stringify(payload.payload.edges);
-          if (incomingNodesStr === lastSyncData.current.nodes && incomingEdgesStr === lastSyncData.current.edges) return;
-          
-          lastSyncData.current = { nodes: incomingNodesStr, edges: incomingEdgesStr };
-          setNodes(payload.payload.nodes);
-          setEdges(payload.payload.edges);
-        }
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "charts", filter: `id=eq.${chartId}` }, (payload) => {
-        if (isInteracting.current || isDirty.current) return;
-        if (payload.new?.nodes) {
-          const incomingNodesStr = JSON.stringify(payload.new.nodes);
-          const incomingEdgesStr = JSON.stringify(payload.new.edges);
-          if (incomingNodesStr === lastSyncData.current.nodes && incomingEdgesStr === lastSyncData.current.edges) return;
-
-          lastSyncData.current = { nodes: incomingNodesStr, edges: incomingEdgesStr };
-          setNodes(payload.new.nodes);
-          setEdges(payload.new.edges);
-        }
-      })
-      .subscribe();
-
-    channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
   }, [chartId, navigate, setNodes, setEdges]);
 
   // ── Persist on change ─────────────────────────────────────────
@@ -262,26 +320,21 @@ function FlowApp() {
     if (loading || !canEdit) return;
     const nodesStr = JSON.stringify(nodes);
     const edgesStr = JSON.stringify(edges);
-    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
-      isDirty.current = false;
-      return;
+
+    // Save to local storage as a safety net — happens immediately (not
+    // debounced) so even an edit that hasn't reached the DB yet is
+    // recoverable via the load-time backup check.
+    try {
+      localStorage.setItem(`chart_backup_${chartId}`, JSON.stringify({ nodes, edges, timestamp: Date.now() }));
+    } catch (e) {
+      console.warn("Failed to save to localStorage", e);
     }
 
-    isDirty.current = true;
-    triggerSave();
+    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) return;
 
-    if (channelRef.current) {
-      channelRef.current.send({ type: "broadcast", event: "sync", payload: { nodes, edges } }).catch(() => {});
-    }
-
-    const timeoutId = setTimeout(async () => {
-      lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
-      await supabase.from("charts").update({ nodes, edges, updated_at: new Date().toISOString() }).eq("id", chartId);
-      isDirty.current = false;
-    }, 1000);
-
+    const timeoutId = setTimeout(() => { performSave(); }, 350);
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, loading, canEdit, chartId]);
+  }, [nodes, edges, loading, canEdit, chartId, performSave]);
 
   // ── Sync selected nodes ────────────────────────────────────────
   useEffect(() => {
@@ -323,8 +376,7 @@ function FlowApp() {
   }, [nodes, edges, collapsedNodes]);
 
   // ── Handlers ──────────────────────────────────────────────────
-  const onNodeDragStart = useCallback(() => { isInteracting.current = true; takeSnapshot(); }, [takeSnapshot]);
-  const onNodeDragStop  = useCallback(() => { isInteracting.current = false; }, []);
+  const onNodeDragStart = useCallback(() => { takeSnapshot(); }, [takeSnapshot]);
 
   const onConnect = useCallback((params) => {
     takeSnapshot();
@@ -460,6 +512,9 @@ function FlowApp() {
         } else if (key === "y" || code === "KeyY") {
           e.preventDefault();
           redo();
+        } else if (key === "s" || code === "KeyS") {
+          e.preventDefault();
+          performSave();
         } else if (key === "f" || code === "KeyF") {
           e.preventDefault();
           setShowSearch((v) => !v);
@@ -526,7 +581,11 @@ function FlowApp() {
       position: { x: parent.position.x + (Math.random() * 60 - 30), y: parent.position.y + 180 },
       data: { name: "ថ្មី", nameEn: "New Node", orgType, color: colorMap[orgType] || "#1e5799", description: "" },
     };
-    const newEdge = { id: `e-${parentId}-${newId}`, source: parentId, target: newId, ...DEFAULT_EDGE_OPTIONS };
+    const newEdge = {
+      id: `e-${parentId}-${newId}`, source: parentId, target: newId,
+      ...DEFAULT_EDGE_OPTIONS,
+      data: { ...DEFAULT_EDGE_OPTIONS.data, dynamic: true },
+    };
     setNodes((nds) => [...nds.map(n => ({...n, selected: false})), { ...newNode, selected: true }]);
     setEdges((eds) => [...eds, newEdge]);
     // Expand parent if collapsed
@@ -571,22 +630,6 @@ function FlowApp() {
     setConfirmModal({ title, message, onConfirm, danger });
   };
 
-  const resetToDefault = useCallback(() => {
-    showConfirm(
-      "Reset to Default",
-      "This will replace the entire chart with the default GDT structure. This cannot be undone.",
-      async () => {
-        takeSnapshot();
-        const { nodes: dn, edges: de } = getLayoutedElements(initialNodes, initialEdges, "TB");
-        setNodes(dn); setEdges(de);
-        setLayoutDir("TB");
-        setCollapsedNodes(new Set());
-        await supabase.from("charts").update({ nodes: dn, edges: de, updated_at: new Date().toISOString() }).eq("id", chartId);
-        setConfirmModal(null);
-      },
-      true
-    );
-  }, [setNodes, setEdges, takeSnapshot, chartId]);
 
   const onEdgeDoubleClick = useCallback((evt, edge) => {
     takeSnapshot();
@@ -602,7 +645,7 @@ function FlowApp() {
     const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.1, 2, 0.1);
     const el = document.querySelector(".react-flow__viewport");
     toPng(el, {
-      backgroundColor: "#0f2044",
+      backgroundColor: theme === 'dark' ? '#0f2044' : '#ffffff',
       width: imageWidth, height: imageHeight,
       style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` },
     }).then((dataUrl) => {
@@ -611,7 +654,7 @@ function FlowApp() {
       a.setAttribute("href", dataUrl);
       a.click();
     });
-  }, [getNodes]);
+  }, [getNodes, theme]);
 
   // Search fly-to
   const handleFlyTo = useCallback((node) => {
@@ -691,13 +734,24 @@ function FlowApp() {
             <button
               className="tb-btn tb-btn--primary"
               style={{ background: "#0ea5e9" }}
-              onClick={() => { setPreviewMode(true); setSelectedNode(null); }}
+              onClick={() => { setPreviewMode(true); setSelectedNodes([]); setSelectedEdge(null); }}
               title="Preview mode"
             >
               <Eye size={14} /> Preview
             </button>
-            <button className="tb-btn tb-btn--danger tb-btn--icon" onClick={resetToDefault} title="Reset to default GDT chart">
-              <RotateCcw size={15} />
+            {/* Theme toggle: paused, not ready for release yet — un-comment to bring back.
+            <button className="tb-btn tb-btn--icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+            */}
+            <button
+              className="tb-btn tb-btn--primary"
+              style={{ background: "#0e7d6e" }}
+              onClick={performSave}
+              disabled={saveStatus === "saving"}
+              title="Save now (Ctrl+S)"
+            >
+              <Save size={14} /> Save
             </button>
           </div>
 
@@ -719,14 +773,14 @@ function FlowApp() {
               <button 
                 className="tb-btn" 
                 onClick={() => navigate('/')}
-                style={{ 
-                  background: 'rgba(15, 32, 68, 0.85)', 
-                  color: 'white', 
-                  display: 'flex', 
+                style={{
+                  background: 'var(--bg-surface-translucent)',
+                  color: 'var(--text-primary)',
+                  display: 'flex',
                   alignItems: 'center',
                   padding: '8px 16px',
                   borderRadius: 8,
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(var(--surface-rgb),0.1)',
                   backdropFilter: 'blur(12px)'
                 }}
               >
@@ -739,7 +793,7 @@ function FlowApp() {
           <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10, display: "flex", gap: 10 }}>
             {/* Show read-only badge if they lack edit access */}
             {!canEdit && (
-              <div style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px 12px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+              <div style={{ background: 'var(--bg-surface-translucent)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', fontWeight: 600 }}>
                 <Eye size={14} style={{ marginRight: 6 }} /> Read Only
               </div>
             )}
@@ -774,7 +828,6 @@ function FlowApp() {
                 onSelectionChange={onSelectionChange}
                 multiSelectionKeyCode="Shift"
                 onNodeDragStart={onNodeDragStart}
-                onNodeDragStop={onNodeDragStop}
                 onConnect={onConnect}
                 onReconnect={onReconnect}
                 onNodeClick={onNodeClick}
@@ -797,17 +850,20 @@ function FlowApp() {
                 snapGrid={[20, 20]}
                 minZoom={0.05}
                 maxZoom={2.5}
+                setChartIsPublic={setChartIsPublic}
+                setShowShare={setShowShare}
+                canEdit={canEdit}
                 proOptions={{ hideAttribution: true }}
               >
-                {!previewMode && <Background variant={BackgroundVariant.Dots} color="#ffffff22" gap={20} size={1.5} />}
+                {!previewMode && <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#ffffff22' : '#0f172a22'} gap={20} size={1.5} />}
                 {!previewMode && (
-                  <Controls style={{ background: "rgba(15,32,68,.85)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }} />
+                  <Controls style={{ background: "var(--bg-surface-translucent)", border: "1px solid rgba(var(--surface-rgb),.12)", borderRadius: 8 }} />
                 )}
                 {!previewMode && (
                   <MiniMap
                     nodeColor={(n) => n.data?.color || "#1e5799"}
-                    maskColor="rgba(0,0,0,0.65)"
-                    style={{ background: "rgba(15,32,68,.85)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8 }}
+                    maskColor={theme === 'dark' ? 'rgba(0,0,0,0.65)' : 'rgba(15,23,42,0.35)'}
+                    style={{ background: "var(--bg-surface-translucent)", border: "1px solid rgba(var(--surface-rgb),.12)", borderRadius: 8 }}
                   />
                 )}
                 {!previewMode && canEdit && (
@@ -827,6 +883,7 @@ function FlowApp() {
                   edgeCount={edges.length}
                   zoom={viewport.zoom}
                   saveStatus={saveStatus}
+                  onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
                 />
               )}
             </>
@@ -865,13 +922,22 @@ function FlowApp() {
           isCollapsed={collapsedNodes.has(contextMenu.nodeId)}
           onEdit={() => {
             const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
-            if (n) setSelectedNode(n);
+            if (n) { setSelectedNodes([n]); setSelectedEdge(null); }
           }}
           onAddChild={() => addChildNode(contextMenu.nodeId, "office")}
-          onDuplicate={() => duplicateNode(contextMenu.nodeId)}
+          onDuplicate={() => {
+            const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
+            if (n) duplicateNodes([n]);
+          }}
           onToggleCollapse={() => toggleCollapse(contextMenu.nodeId)}
           onDelete={() => {
-            showConfirm("Delete Node", "Delete this node and all its connections?", () => { deleteNode(contextMenu.nodeId); setConfirmModal(null); }, true);
+            const targetId = contextMenu.nodeId;
+            showConfirm("Delete Node", "Delete this node and all its connections?", () => {
+              takeSnapshot();
+              setNodes((nds) => nds.filter((n) => n.id !== targetId));
+              setEdges((eds) => eds.filter((e) => e.source !== targetId && e.target !== targetId));
+              setConfirmModal(null);
+            }, true);
           }}
           onClose={() => setContextMenu(null)}
         />
@@ -918,7 +984,7 @@ function FlowApp() {
             left: linkedChartPopup.x + 12,
             top: linkedChartPopup.y - 20,
             zIndex: 1000,
-            background: 'rgba(10, 18, 40, 0.97)',
+            background: 'var(--bg-surface-translucent)',
             border: '1px solid rgba(14, 125, 110, 0.4)',
             borderRadius: 12,
             padding: '14px 18px',
@@ -932,12 +998,12 @@ function FlowApp() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0e7d6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </div>
             <div>
-              <div style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Chart</div>
-              <div style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>{linkedChartPopup.node.data.nameEn || linkedChartPopup.node.data.name}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Chart</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{linkedChartPopup.node.data.nameEn || linkedChartPopup.node.data.name}</div>
             </div>
             <button
               onClick={() => setLinkedChartPopup(null)}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: 2 }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 2 }}
             >
               <X size={14} />
             </button>
@@ -965,6 +1031,22 @@ function FlowApp() {
           </button>
         </div>
       )}
+
+      <VersionHistoryModal 
+        isOpen={isVersionHistoryOpen}
+        onClose={() => setIsVersionHistoryOpen(false)}
+        chartId={chartId}
+        onRestore={(restoredNodes, restoredEdges) => {
+          takeSnapshot();
+          // Snapshot the pre-restore state too, so restoring the wrong version is itself recoverable.
+          supabase.from("chart_versions").insert({ chart_id: chartId, nodes, edges }).then(({ error }) => {
+            if (error) console.error("Failed to snapshot before restore", error);
+          });
+          setNodes(restoredNodes || []);
+          setEdges(restoredEdges || []);
+          lastSyncData.current = { nodes: "[]", edges: "[]" }; // Force re-sync
+        }}
+      />
     </div>
   );
 }
@@ -974,7 +1056,7 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a1628' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-app)' }}>
         <div className="loading-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
       </div>
     );
@@ -984,6 +1066,7 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -1010,9 +1093,11 @@ export default function App() {
           {/* Chart editor — loads by ID */}
           <Route path="/chart/:chartId" element={
             <ProtectedRoute>
-              <ReactFlowProvider>
-                <FlowApp />
-              </ReactFlowProvider>
+              <ErrorBoundary>
+                <ReactFlowProvider>
+                  <FlowApp />
+                </ReactFlowProvider>
+              </ErrorBoundary>
             </ProtectedRoute>
           } />
 
@@ -1021,5 +1106,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -50,19 +50,30 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
 
   const togglePublic = async (val) => {
     setLinkLoading(true);
-    await supabase.from('charts')
+    const { error } = await supabase.from('charts')
       .update({ is_public: val, public_access_level: accessLevel })
       .eq('id', chartId);
-    setIsPublic(val);
     setLinkLoading(false);
+    if (error) {
+      console.error('Failed to update sharing:', error);
+      window.alert('Failed to update sharing settings. Please try again.');
+      return;
+    }
+    setIsPublic(val);
   };
 
   const updateAccessLevel = async (level) => {
+    const previous = accessLevel;
     setAccessLevel(level);
     if (isPublic) {
-      await supabase.from('charts')
+      const { error } = await supabase.from('charts')
         .update({ public_access_level: level })
         .eq('id', chartId);
+      if (error) {
+        console.error('Failed to update access level:', error);
+        window.alert('Failed to update access level. Please try again.');
+        setAccessLevel(previous);
+      }
     }
   };
 

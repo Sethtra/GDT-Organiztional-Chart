@@ -143,7 +143,7 @@ export default function ProfilePage() {
               <Trash2 size={18} />
               <h2>Danger Zone</h2>
             </div>
-            <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 16 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
               Permanently delete your account and all associated org charts. This action cannot be undone.
             </p>
             <button

@@ -7,10 +7,10 @@ export default function ContextMenu({ x, y, node, isCollapsed, onEdit, onAddChil
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handler);
-    document.addEventListener("mousedown", onClose);
+    document.addEventListener("click", onClose);
     return () => {
       document.removeEventListener("keydown", handler);
-      document.removeEventListener("mousedown", onClose);
+      document.removeEventListener("click", onClose);
     };
   }, [onClose]);
 

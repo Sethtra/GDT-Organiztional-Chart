@@ -61,8 +61,8 @@ export default function ResetPasswordPage() {
         {done ? (
           <div className="auth-success-block">
             <CheckCircle size={48} style={{ color: '#059669' }} />
-            <h3 style={{ marginTop: 16, color: '#ffffff', fontWeight: 700 }}>Password Updated!</h3>
-            <p style={{ color: '#94a3b8', fontSize: 14, marginTop: 8 }}>
+            <h3 style={{ marginTop: 16, color: 'var(--text-primary)', fontWeight: 700 }}>Password Updated!</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
               Redirecting you to the dashboard...
             </p>
           </div>
@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
                     <div className="auth-strength__bars">
                       {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="auth-strength__bar"
-                          style={{ background: i <= strength.level ? strength.color : 'rgba(255,255,255,.1)' }} />
+                          style={{ background: i <= strength.level ? strength.color : 'rgba(var(--surface-rgb),.1)' }} />
                       ))}
                     </div>
                     <span className="auth-strength__label" style={{ color: strength.color }}>{strength.label}</span>

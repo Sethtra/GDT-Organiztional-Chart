@@ -59,7 +59,7 @@ function NewChartModal({ onCreate, onClose }) {
               className={`new-chart-template-card ${!useTemplate ? 'new-chart-template-card--active' : ''}`}
               onClick={() => setUseTemplate(false)}
             >
-              <FileBarChart2 size={22} style={{ color: '#94a3b8' }} />
+              <FileBarChart2 size={22} style={{ color: 'var(--text-secondary)' }} />
               <div>
                 <div className="new-chart-template-card__title">Blank Canvas</div>
                 <div className="new-chart-template-card__sub">Start from scratch</div>
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                     <div 
                       key={chart.id} 
                       style={{ 
-                        background: 'linear-gradient(to right, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9))', 
+                        background: 'linear-gradient(to right, var(--bg-surface), var(--bg-surface-2))',
                         border: '1px solid rgba(234, 179, 8, 0.3)', 
                         borderLeft: '4px solid #eab308',
                         borderRadius: 8, 
@@ -248,10 +248,10 @@ export default function DashboardPage() {
                           <Users size={20} />
                         </div>
                         <div>
-                          <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 2, fontWeight: 500 }}>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 2, fontWeight: 500 }}>
                             Collaboration Invite
                           </p>
-                          <h3 style={{ color: 'white', fontSize: 16, margin: 0, fontWeight: 600 }}>
+                          <h3 style={{ color: 'var(--text-primary)', fontSize: 16, margin: 0, fontWeight: 600 }}>
                             You have been invited to collaborate on <span style={{ color: '#eab308' }}>"{chart.name}"</span>
                           </h3>
                         </div>
@@ -261,7 +261,7 @@ export default function DashboardPage() {
                         <button 
                           onClick={() => declineInvite(chart.id)} 
                           className="tb-btn" 
-                          style={{ background: 'transparent', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)', padding: '8px 16px', fontWeight: 500 }}
+                          style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid rgba(var(--surface-rgb),0.1)', padding: '8px 16px', fontWeight: 500 }}
                         >
                           Decline
                         </button>

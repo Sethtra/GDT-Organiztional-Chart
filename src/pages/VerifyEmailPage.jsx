@@ -75,7 +75,7 @@ export default function VerifyEmailPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', color: '#64748b', fontSize: 13, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
           <Loader2 size={14} className="spin" />
           Waiting for verification...
         </div>

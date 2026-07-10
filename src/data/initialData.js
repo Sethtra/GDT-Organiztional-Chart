@@ -185,7 +185,11 @@ export const initialNodes = [
   { id: "off-c3", type: "orgNode", position: { x: 0, y: 0 }, data: { name: "ការិយាល័យអនុលោម", nameEn: "Compliance Office", orgType: "office", color: "#0369a1", description: "" } },
 ];
 
-export const initialEdges = [
+// NOTE: raw edges only carry id/source/target — `type: "custom"` and default
+// `data` are applied below. Without an explicit type, React Flow renders
+// edges with its own built-in (non-customizable) edge component instead of
+// CustomEdge, silently ignoring line-style, color, and dynamic-glue settings.
+const rawInitialEdges = [
   // ministry → gdt
   { id: "e-min-gdt", source: "ministry", target: "gdt" },
 
@@ -235,3 +239,9 @@ export const initialEdges = [
   { id: "e-dc-2", source: "dept-compliance", target: "off-c2" },
   { id: "e-dc-3", source: "dept-compliance", target: "off-c3" },
 ];
+
+export const initialEdges = rawInitialEdges.map((e) => ({
+  ...e,
+  type: "custom",
+  data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", label: "", dynamic: true },
+}));

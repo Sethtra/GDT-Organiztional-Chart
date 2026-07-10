@@ -176,7 +176,7 @@ export default function RegisterPage() {
                     <div
                       key={i}
                       className="auth-strength__bar"
-                      style={{ background: i <= strength.level ? strength.color : 'rgba(255,255,255,.1)' }}
+                      style={{ background: i <= strength.level ? strength.color : 'rgba(var(--surface-rgb),.1)' }}
                     />
                   ))}
                 </div>

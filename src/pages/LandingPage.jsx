@@ -231,14 +231,14 @@ export default function LandingPage() {
             <span style={{ fontSize: 24 }}>🏛️</span>
             <div>
               <div style={{ fontWeight: 700, color: '#d4af37', fontSize: 13 }}>GDT Org Chart</div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>General Department of Taxation</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>General Department of Taxation</div>
             </div>
           </div>
           <div className="landing__footer-links">
             <Link to="/login" className="landing__footer-link">Sign In</Link>
             <Link to="/register" className="landing__footer-link">Register</Link>
           </div>
-          <div style={{ fontSize: 11, color: '#475569' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
             © {new Date().getFullYear()} Ministry of Economy and Finance — Cambodia
           </div>
         </div>

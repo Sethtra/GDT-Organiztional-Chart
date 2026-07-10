@@ -1,10 +1,12 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LayoutDashboard, LogIn, UserPlus, LogOut, User, ChevronDown } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
+import { LayoutDashboard, LogIn, UserPlus, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Navbar() {
   const { user, displayName, avatarUrl, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -39,6 +41,15 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="navbar__actions">
+          {/* Theme toggle: paused, not ready for release yet — un-comment to bring back.
+          <button
+            className="navbar__theme-toggle"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          */}
           {user ? (
             <>
               <Link
