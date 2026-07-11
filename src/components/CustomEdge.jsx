@@ -1,7 +1,7 @@
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useReactFlow, useInternalNode, Position, getStraightPath, EdgeLabelRenderer } from '@xyflow/react';
-import { getFloatingEdgeParams } from '../utils/floatingEdge';
-
+import { getFloatingEdgeParams, getPersonStaticAnchor, getNodeRect } from '../utils/floatingEdge';
+import { TYPE_META } from '../data/nodeTypes';
 // ── Arrowhead options ─────────────────────────────────────────────────────────
 export const ARROWHEAD_OPTIONS = [
   { id: 'closed',       label: 'Arrow',        preview: '▶' },
@@ -125,10 +125,116 @@ function buildRobustElbow(sx, sy, sp, tx, ty, tp, R = 10) {
   return { ...buildPathFromPts(pts, R), pts };
 }
 
+// ── Waypoint normalization ────────────────────────────────────────────────────
+// Near-misses are what made connectors "never quite straight": a run that ends
+// 2-6px off the anchor's axis renders as a long, obviously-diagonal slash, and
+// nothing ever pulled it back into line. Two complementary guarantees:
+//  · snapPtsToAxes — render-time: unify coordinates that are within ALIGN_TOL
+//    of a neighbor's axis (anchors win, since the passes sweep source→ and
+//    ←target), so slightly-off saved routes self-straighten.
+//  · withAnchorElbows — render-time: if the first/last leg would still leave
+//    its node diagonally (e.g. the node was moved after routing), insert one
+//    square corner so the line always meets the connection dot dead-on.
+// While DRAGGING, SNAP_TOL magnetizes the dragged run onto the anchor axes so
+// releases land exactly aligned instead of a few px off.
+const ALIGN_TOL = 6;
+const SNAP_TOL = 8;
+
+const isVerticalSide = (p) =>
+  p === Position.Top || p === Position.Bottom || p === 'top' || p === 'bottom';
+
+const snapTo = (v, snaps) => {
+  for (const s of snaps) if (s != null && Math.abs(v - s) <= SNAP_TOL) return s;
+  return v;
+};
+
+function snapPtsToAxes(pts, tol) {
+  const out = pts.map(p => ({ ...p }));
+  for (let i = 1; i < out.length - 1; i++) {
+    if (Math.abs(out[i].x - out[i - 1].x) <= tol) out[i].x = out[i - 1].x;
+    if (Math.abs(out[i].y - out[i - 1].y) <= tol) out[i].y = out[i - 1].y;
+  }
+  for (let i = out.length - 2; i >= 1; i--) {
+    if (Math.abs(out[i].x - out[i + 1].x) <= tol) out[i].x = out[i + 1].x;
+    if (Math.abs(out[i].y - out[i + 1].y) <= tol) out[i].y = out[i + 1].y;
+  }
+  return out;
+}
+
+function withAnchorElbows(pts, sourcePosition, targetPosition) {
+  if (pts.length < 3) return pts;
+  const out = pts.map(p => ({ ...p }));
+  const s = out[0], w1 = out[1];
+  if (Math.abs(s.x - w1.x) >= 1 && Math.abs(s.y - w1.y) >= 1) {
+    out.splice(1, 0, isVerticalSide(sourcePosition) ? { x: s.x, y: w1.y } : { x: w1.x, y: s.y });
+  }
+  const t = out[out.length - 1], wl = out[out.length - 2];
+  if (Math.abs(t.x - wl.x) >= 1 && Math.abs(t.y - wl.y) >= 1) {
+    out.splice(out.length - 1, 0, isVerticalSide(targetPosition) ? { x: t.x, y: wl.y } : { x: wl.x, y: t.y });
+  }
+  return out;
+}
+
+// Maximal straight run of waypoints containing `seeds` (startPts indices),
+// along 'h' (shared y) or 'v' (shared x). Only the run moves during a drag —
+// moving ALL waypoints (the old behavior) corrupted every other bend.
+function expandRun(startPts, seeds, axis) {
+  const same = (a, b) => (axis === 'h' ? Math.abs(a.y - b.y) < 1 : Math.abs(a.x - b.x) < 1);
+  const run = new Set(seeds);
+  let lo = Math.min(...seeds);
+  let hi = Math.max(...seeds);
+  while (lo > 0 && same(startPts[lo - 1], startPts[lo])) run.add(--lo);
+  while (hi < startPts.length - 1 && same(startPts[hi + 1], startPts[hi])) run.add(++hi);
+  return run;
+}
+
 // ── Polyline waypoint control handles ───────────────────────────────────────────
 // Shows real handles at user waypoints and ghost handles at midpoints.
-const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeColor }) => {
-  const dragging = useRef(null);
+const ControlHandles = memo(({ id, pts, anchors, setEdges, screenToFlowPosition, strokeColor }) => {
+  // Anchor-axis magnets: a vertical run wants the x of a top/bottom anchor,
+  // a horizontal run the y of a left/right anchor.
+  const { xSnaps, ySnaps } = useMemo(() => {
+    const xs = [], ys = [];
+    if (isVerticalSide(anchors.sp)) xs.push(anchors.sx); else ys.push(anchors.sy);
+    if (isVerticalSide(anchors.tp)) xs.push(anchors.tx); else ys.push(anchors.ty);
+    return { xSnaps: xs, ySnaps: ys };
+  }, [anchors.sx, anchors.sy, anchors.sp, anchors.tx, anchors.ty, anchors.tp]);
+
+  const writePoints = useCallback((newPts) => {
+    setEdges(eds => eds.map(edge =>
+      edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: newPts } }
+    ));
+  }, [id, setEdges]);
+
+  // After every drag: merge duplicate points and drop waypoints sitting mid-way
+  // on a straight run — they add dot clutter without changing the route (and
+  // they're what past drags left behind as stair-step artifacts).
+  const cleanupWaypoints = useCallback(() => {
+    setEdges(eds => eds.map(edge => {
+      if (edge.id !== id) return edge;
+      const wp = edge.data?.points;
+      if (!wp || wp.length === 0) return edge;
+      const full = [
+        { x: anchors.sx, y: anchors.sy },
+        ...wp.map(p => ({ x: p.x, y: p.y })),
+        { x: anchors.tx, y: anchors.ty },
+      ];
+      const kept = [full[0]];
+      for (let i = 1; i < full.length - 1; i++) {
+        const a = kept[kept.length - 1];
+        const b = full[i];
+        const c = full[i + 1];
+        const dup = Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+        const collinear =
+          (Math.abs(a.x - b.x) < 1 && Math.abs(b.x - c.x) < 1) ||
+          (Math.abs(a.y - b.y) < 1 && Math.abs(b.y - c.y) < 1);
+        if (!dup && !collinear) kept.push(b);
+      }
+      const cleaned = kept.slice(1);
+      if (cleaned.length === wp.length) return edge;
+      return { ...edge, data: { ...edge.data, points: cleaned } };
+    }));
+  }, [id, setEdges, anchors]);
 
   const onMouseDown = useCallback((e, type, index) => {
     // type is 'real' or 'ghost'
@@ -139,72 +245,88 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
     const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     // Snapshot interior points
     const startPts = pts.slice(1, pts.length - 1).map(p => ({ ...p }));
-    
-    let activeIdx = index;
-    if (type === 'ghost') {
-      const p0 = pts[index];
-      const p1 = pts[index + 1];
-      startPts.splice(index, 0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 });
-      activeIdx = index;
-    }
 
-    // If this waypoint sits mid-way on a straight run (its neighbors on both
-    // sides line up on the same axis), dragging it carries the whole run along
-    // — same behavior as grabbing the blank line between dots. Corners (where
-    // the flanking segments differ in orientation) stay free-form.
-    let runOrientation = null;
-    if (type === 'real') {
-      const fullIdx = activeIdx + 1; // index within `pts` (pts[0] is the source anchor)
+    let mode = 'free';
+    let activeIdx = index;
+
+    if (type === 'ghost') {
+      const p0 = pts[index], p1 = pts[index + 1];
+      const isH = Math.abs(p0.y - p1.y) < 1;
+      const isV = Math.abs(p0.x - p1.x) < 1;
+      if (isH || isV) {
+        // Pulling a straight segment out spawns a squared jog (two corners
+        // staying on the old line + the pulled pair) so the route never goes
+        // diagonal — the old single free point tore both sides into slants.
+        const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2;
+        const len = isH ? Math.abs(p1.x - p0.x) : Math.abs(p1.y - p0.y);
+        const J = Math.max(8, Math.min(24, len / 4));
+        const quad = isH
+          ? [{ x: mx - J, y: my }, { x: mx - J, y: my }, { x: mx + J, y: my }, { x: mx + J, y: my }]
+          : [{ x: mx, y: my - J }, { x: mx, y: my - J }, { x: mx, y: my + J }, { x: mx, y: my + J }];
+        startPts.splice(index, 0, ...quad);
+        activeIdx = index + 1;
+        mode = isH ? 'jogH' : 'jogV';
+      } else {
+        startPts.splice(index, 0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 });
+        activeIdx = index;
+      }
+      // Trigger immediate state update so the new point(s) render
+      writePoints(startPts.map(p => ({ ...p })));
+    } else {
+      const fullIdx = index + 1; // index within `pts` (pts[0] is the source anchor)
       const before = pts[fullIdx - 1], here = pts[fullIdx], after = pts[fullIdx + 1];
       const hBefore = Math.abs(before.y - here.y) < 1, vBefore = Math.abs(before.x - here.x) < 1;
       const hAfter  = Math.abs(after.y  - here.y) < 1, vAfter  = Math.abs(after.x  - here.x) < 1;
-      if (hBefore && hAfter) runOrientation = 'h';
-      else if (vBefore && vAfter) runOrientation = 'v';
+      if (hBefore && hAfter) mode = 'runH';
+      else if (vBefore && vAfter) mode = 'runV';
+      // Corner between an h and a v segment: dragging it slides BOTH flanking
+      // runs (h flank follows y, v flank follows x) so the corner stays square
+      // instead of tearing both segments diagonal like the old free move did.
+      else if ((hBefore || hAfter) && (vBefore || vAfter)) mode = 'corner';
     }
 
-    dragging.current = { activeIdx, startFlow, startPts, runOrientation };
+    const hRun = (mode === 'runH' || mode === 'corner') ? expandRun(startPts, [activeIdx], 'h') : null;
+    const vRun = (mode === 'runV' || mode === 'corner') ? expandRun(startPts, [activeIdx], 'v') : null;
 
     const onMove = (ev) => {
-      if (!dragging.current) return;
-      const { activeIdx, startFlow, startPts, runOrientation } = dragging.current;
       const cur = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+      const dx = cur.x - startFlow.x, dy = cur.y - startFlow.y;
+      const newPts = startPts.map(p => ({ ...p }));
 
-      let newPts;
-      if (runOrientation === 'h') {
-        const newY = startPts[activeIdx].y + (cur.y - startFlow.y);
-        newPts = startPts.map((p) => ({ x: p.x, y: newY }));
-      } else if (runOrientation === 'v') {
-        const newX = startPts[activeIdx].x + (cur.x - startFlow.x);
-        newPts = startPts.map((p) => ({ x: newX, y: p.y }));
+      if (mode === 'runH') {
+        const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
+        hRun.forEach(k => { newPts[k].y = newY; });
+      } else if (mode === 'runV') {
+        const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+        vRun.forEach(k => { newPts[k].x = newX; });
+      } else if (mode === 'corner') {
+        const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
+        const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+        hRun.forEach(k => { newPts[k].y = newY; });
+        vRun.forEach(k => { newPts[k].x = newX; });
+      } else if (mode === 'jogH') {
+        const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
+        newPts[activeIdx].y = newY;
+        newPts[activeIdx + 1].y = newY;
+      } else if (mode === 'jogV') {
+        const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+        newPts[activeIdx].x = newX;
+        newPts[activeIdx + 1].x = newX;
       } else {
-        newPts = startPts.map(p => ({ ...p }));
-        newPts[activeIdx] = {
-          x: startPts[activeIdx].x + (cur.x - startFlow.x),
-          y: startPts[activeIdx].y + (cur.y - startFlow.y)
-        };
+        newPts[activeIdx] = { x: startPts[activeIdx].x + dx, y: startPts[activeIdx].y + dy };
       }
-
-      setEdges(eds => eds.map(edge =>
-        edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: newPts } }
-      ));
+      writePoints(newPts);
     };
 
     const onUp = () => {
-      dragging.current = null;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      cleanupWaypoints();
     };
-
-    // If ghost, trigger immediate state update so the new point renders
-    if (type === 'ghost') {
-      setEdges(eds => eds.map(edge =>
-        edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: startPts } }
-      ));
-    }
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [id, pts, setEdges, screenToFlowPosition]);
+  }, [pts, screenToFlowPosition, writePoints, cleanupWaypoints, xSnaps, ySnaps]);
 
   const onDoubleClick = useCallback((e, index) => {
     e.stopPropagation();
@@ -217,52 +339,55 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
 
   // Grab-anywhere-on-the-line dragging (Visio-style): lets the user drag a segment
   // directly instead of hunting for the small waypoint dots. Dragging a straight
-  // (h/v) segment pulls the whole aligned run of waypoints along with it — e.g.
-  // pulling the middle of a vertical trunk moves every point on that trunk, not
-  // just the two nearest the grab — so one drag straightens the whole connector.
-  // Diagonal ('free') segments only drag their own two endpoints.
-  const onSegmentMouseDown = useCallback((e, i1, i2, orientation) => {
+  // (h/v) segment pulls its whole aligned run of waypoints along with it — and
+  // ONLY that run, so other bends of the route stay where they were. `movers`
+  // holds the segment's draggable endpoints as startPts indices (anchors are
+  // fixed; pulling the leg next to one spawns a square stub via withAnchorElbows).
+  const onSegmentMouseDown = useCallback((e, movers, orientation) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
 
     const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     const startPts = pts.slice(1, pts.length - 1).map(p => ({ ...p }));
+    const run = orientation === 'free' ? null : expandRun(startPts, movers, orientation);
+    const base = startPts[movers[0]];
 
     const onMove = (ev) => {
       const cur = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
       const dx = cur.x - startFlow.x, dy = cur.y - startFlow.y;
-      let newPts;
+      const newPts = startPts.map(p => ({ ...p }));
       if (orientation === 'h') {
-        const newY = startPts[i1].y + dy;
-        newPts = startPts.map((p) => ({ x: p.x, y: newY }));
+        const newY = snapTo(base.y + dy, ySnaps);
+        run.forEach(k => { newPts[k].y = newY; });
       } else if (orientation === 'v') {
-        const newX = startPts[i1].x + dx;
-        newPts = startPts.map((p) => ({ x: newX, y: p.y }));
+        const newX = snapTo(base.x + dx, xSnaps);
+        run.forEach(k => { newPts[k].x = newX; });
       } else {
-        newPts = startPts.map((p, idx) =>
-          (idx === i1 || idx === i2) ? { x: p.x + dx, y: p.y + dy } : p
-        );
+        movers.forEach(k => { newPts[k] = { x: startPts[k].x + dx, y: startPts[k].y + dy }; });
       }
-      setEdges(eds => eds.map(edge =>
-        edge.id !== id ? edge : { ...edge, data: { ...edge.data, points: newPts } }
-      ));
+      writePoints(newPts);
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      cleanupWaypoints();
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [id, pts, setEdges, screenToFlowPosition]);
+  }, [pts, screenToFlowPosition, writePoints, cleanupWaypoints, xSnaps, ySnaps]);
 
-  const interior = pts.slice(1, pts.length - 1);
+  // Every rendered segment is grabbable — including the two anchor legs, so the
+  // final drop into a node can be dragged too (it detaches into a square stub).
   const segmentHandles = [];
-  for (let k = 0; k < interior.length - 1; k++) {
-    const p1 = interior[k], p2 = interior[k + 1];
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p1 = pts[k], p2 = pts[k + 1];
+    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 4) continue; // collapsed (mid-jog) segments
     const isH = Math.abs(p1.y - p2.y) < 1;
     const isV = Math.abs(p1.x - p2.x) < 1;
-    segmentHandles.push({ p1, p2, i1: k, i2: k + 1, orientation: isH ? 'h' : isV ? 'v' : 'free' });
+    const movers = [k - 1, k].filter(i => i >= 0 && i <= pts.length - 3);
+    if (movers.length === 0) continue;
+    segmentHandles.push({ p1, p2, movers, orientation: isH ? 'h' : isV ? 'v' : 'free' });
   }
 
   const realHandles = [];
@@ -272,6 +397,8 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
 
   const ghostHandles = [];
   for (let i = 0; i < pts.length - 1; i++) {
+    // Too short to fit a bend — also hides the stacked ghosts of a fresh jog
+    if (Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y) < 24) continue;
     ghostHandles.push({
       x: (pts[i].x + pts[i + 1].x) / 2,
       y: (pts[i].y + pts[i + 1].y) / 2,
@@ -295,7 +422,7 @@ const ControlHandles = memo(({ id, pts, setEdges, screenToFlowPosition, strokeCo
               cursor: s.orientation === 'h' ? 'ns-resize' : s.orientation === 'v' ? 'ew-resize' : 'move',
               pointerEvents: 'stroke',
             }}
-            onMouseDown={(e) => onSegmentMouseDown(e, s.i1, s.i2, s.orientation)}
+            onMouseDown={(e) => onSegmentMouseDown(e, s.movers, s.orientation)}
           />
         ))}
       </g>
@@ -370,20 +497,36 @@ const CustomEdge = memo(({
   // handle (e.g. edges created programmatically via "Add Child Node"). It can
   // be forced either way via data.dynamic. Dynamic edges recompute their
   // attachment point every render from the live node rectangles, so they
-  // "walk" to the nearest side as nodes move; locked edges keep the fixed
-  // handle-based coordinates React Flow already resolved.
-  const hasFixedHandle = !!sourceHandleId || !!targetHandleId;
-  const isDynamic = data.dynamic === true || (data.dynamic !== false && !hasFixedHandle);
+  // "walk" to the nearest side as nodes move; locked (static) edges keep
+  // whichever side the user manually dragged to/from — auto-recalculating
+  // that side would silently override a deliberate choice (e.g. dragging to
+  // node B's top specifically shouldn't "helpfully" re-pick B's side).
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
+
+  const hasFixedHandle = !!sourceHandleId || !!targetHandleId;
+  const isDynamic = data.dynamic === true || (data.dynamic !== false && !hasFixedHandle);
   const floating = isDynamic ? getFloatingEdgeParams(sourceNode, targetNode) : null;
 
-  const sourceX = floating?.sx ?? rawSourceX;
-  const sourceY = floating?.sy ?? rawSourceY;
+  // Side each end attaches to: dynamic auto-picks the nearest side; static
+  // keeps whichever handle the user manually dragged to.
   const sourcePosition = floating?.sourcePosition ?? rawSourcePosition;
-  const targetX = floating?.tx ?? rawTargetX;
-  const targetY = floating?.ty ?? rawTargetY;
   const targetPosition = floating?.targetPosition ?? rawTargetPosition;
+
+  // A person card's real top/bottom edge is hidden behind the overlapping
+  // avatar/team pill, and React Flow's raw coordinate (and even the dynamic
+  // param) can land on that hidden edge instead of the visible connector dot
+  // sitting just outside it. Snap a top/bottom person endpoint out onto that
+  // dot — applied in EVERY mode (dynamic, static, and the not-yet-measured
+  // fallback) so the line always terminates exactly on the handle, never a
+  // dozen pixels off behind the avatar.
+  const personSource = getPersonStaticAnchor(sourceNode, sourcePosition);
+  const personTarget = getPersonStaticAnchor(targetNode, targetPosition);
+
+  const sourceX = personSource?.x ?? floating?.sx ?? rawSourceX;
+  const sourceY = personSource?.y ?? floating?.sy ?? rawSourceY;
+  const targetX = personTarget?.x ?? floating?.tx ?? rawTargetX;
+  const targetY = personTarget?.y ?? floating?.ty ?? rawTargetY;
 
   // Read edge styling props
   const strokeColor  = data.strokeColor  || '#4b8fd4';
@@ -416,8 +559,13 @@ const CustomEdge = memo(({
     arrowStartAngle = Math.atan2(sourceY - labelY, sourceX - labelX);
 
   } else if (userPoints && userPoints.length > 0) {
-    // Custom waypoints mode — build path through [source, ...waypoints, target]
-    activePts = [{ x: sourceX, y: sourceY }, ...userPoints, { x: targetX, y: targetY }];
+    // Custom waypoints mode — build path through [source, ...waypoints, target],
+    // normalized so the route is ALWAYS truly straight: near-aligned coordinates
+    // unify onto one axis (heals old saved routes whose anchors have drifted),
+    // and a leg that would leave/enter its node diagonally gets one square
+    // corner inserted. data.points itself is only rewritten on the next drag.
+    const rawPts = [{ x: sourceX, y: sourceY }, ...userPoints.map(p => ({ x: p.x, y: p.y })), { x: targetX, y: targetY }];
+    activePts = withAnchorElbows(snapPtsToAxes(rawPts, ALIGN_TOL), sourcePosition, targetPosition);
     ({ d, labelX, labelY, arrowAngle, arrowStartAngle } = buildPathFromPts(activePts, cornerRadius));
 
   } else {
@@ -585,6 +733,7 @@ const CustomEdge = memo(({
         <ControlHandles
           id={id}
           pts={activePts}
+          anchors={{ sx: sourceX, sy: sourceY, sp: sourcePosition, tx: targetX, ty: targetY, tp: targetPosition }}
           setEdges={setEdges}
           screenToFlowPosition={screenToFlowPosition}
           strokeColor={strokeColor}

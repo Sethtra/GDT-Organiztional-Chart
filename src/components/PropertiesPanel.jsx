@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw } from "lucide-react";
+import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw, Contact, Check } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
 import { ARROWHEAD_OPTIONS } from "./CustomEdge";
+import { TYPE_META, TYPE_OPTIONS } from "../data/nodeTypes";
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
@@ -18,16 +19,6 @@ const COLOR_PRESETS = [
   { label: "Pink",   value: "#be185d" },
   { label: "Slate",  value: "#334155" },
 ];
-
-const TYPE_OPTIONS = ["ministry", "department", "division", "office", "simple"];
-
-const TYPE_META = {
-  ministry:   { accent: "#d4af37" },
-  department: { accent: "#38bdf8" },
-  division:   { accent: "#a78bfa" },
-  office:     { accent: "#6ee7b7" },
-  simple:     { accent: "#94a3b8" },
-};
 
 // ── Arrow preview SVG ─────────────────────────────────────────────────────────
 function ArrowPreview({ type, color, selected }) {
@@ -347,17 +338,17 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
 }
 
 // ── Node Panel ────────────────────────────────────────────────────────────────
-export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDelete, onAddChild, onDuplicate, onClose }) {
+export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDelete, onAddChild, onDuplicate, onClose, onSave }) {
   if (edge) {
     return <EdgePropertiesPanel edge={edge} onUpdate={onUpdateEdge} onDelete={onDelete} onClose={onClose} />;
   }
   if (nodes && nodes.length > 0) {
-    return <NodePropertiesPanel nodes={nodes} onUpdateNodes={onUpdateNodes} onDelete={onDelete} onAddChild={onAddChild} onDuplicate={onDuplicate} onClose={onClose} />;
+    return <NodePropertiesPanel nodes={nodes} onUpdateNodes={onUpdateNodes} onDelete={onDelete} onAddChild={onAddChild} onDuplicate={onDuplicate} onClose={onClose} onSave={onSave} />;
   }
   return null;
 }
 
-function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDuplicate, onClose }) {
+function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDuplicate, onClose, onSave }) {
   const { user } = useAuth();
   const firstNode = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
   const [name, setName]               = useState(firstNode.data.name || "");
@@ -370,6 +361,15 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [fontSize, setFontSize]           = useState(firstNode.data.fontSize || 13);
   const [textAlign, setTextAlign]         = useState(firstNode.data.textAlign || "center");
   const [textVerticalAlign, setTextVerticalAlign] = useState(firstNode.data.textVerticalAlign || "center");
+  // Person-node personal details (shown in the ProfileDrawer on click)
+  const [staffId, setStaffId]             = useState(firstNode.data.staffId || "");
+  const [joinDate, setJoinDate]           = useState(firstNode.data.joinDate || "");
+  const [phone, setPhone]                 = useState(firstNode.data.phone || "");
+  const [address, setAddress]             = useState(firstNode.data.address || "");
+  const [maritalStatus, setMaritalStatus] = useState(firstNode.data.maritalStatus || "");
+  const [siblings, setSiblings]           = useState(firstNode.data.siblings || "");
+  const [education, setEducation]         = useState(firstNode.data.education || "");
+  const [skill, setSkill]                 = useState(firstNode.data.skill || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [addChildType, setAddChildType]   = useState("office");
   const [showAddChild, setShowAddChild]   = useState(false);
@@ -401,6 +401,8 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   // onto every other selected node.
   const onUpdateNodesRef = useRef(onUpdateNodes);
   onUpdateNodesRef.current = onUpdateNodes;
+  const isMultiSelectRef = useRef(isMultiSelect);
+  isMultiSelectRef.current = isMultiSelect;
 
   useEffect(() => {
     const fresh = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
@@ -414,19 +416,46 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setFontSize(fresh.data.fontSize || 13);
     setTextAlign(fresh.data.textAlign || "center");
     setTextVerticalAlign(fresh.data.textVerticalAlign || "center");
+    setStaffId(fresh.data.staffId || "");
+    setJoinDate(fresh.data.joinDate || "");
+    setPhone(fresh.data.phone || "");
+    setAddress(fresh.data.address || "");
+    setMaritalStatus(fresh.data.maritalStatus || "");
+    setSiblings(fresh.data.siblings || "");
+    setEducation(fresh.data.education || "");
+    setSkill(fresh.data.skill || "");
     setConfirmDelete(false);
     setShowAddChild(false);
     skipNextSave.current = true;
   }, [nodes?.map(n => n.id).join(",")]);
 
-  // Auto-save (debounced)
+  // Multi-select writes ONLY the bulk-editable fields — per-node data
+  // (identity, chart link, personal details) must never be copied from the
+  // first node onto the whole selection.
+  const buildPayload = () => {
+    const payload = { orgType, color, textColor, fontSize, textAlign, textVerticalAlign };
+    if (!isMultiSelectRef.current) {
+      Object.assign(payload, {
+        name, nameEn, description, linkedChartId,
+        staffId, joinDate, phone, address, maritalStatus, siblings, education, skill,
+      });
+    }
+    return payload;
+  };
+
+  // Auto-save (debounced) — keeps everything persisted as you type. The Save
+  // button just flushes immediately and finishes editing.
   useEffect(() => {
     if (skipNextSave.current) { skipNextSave.current = false; return; }
-    const t = setTimeout(() => {
-      onUpdateNodesRef.current({ name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign });
-    }, 250);
+    const t = setTimeout(() => { onUpdateNodesRef.current(buildPayload()); }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign]);
+  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign,
+      staffId, joinDate, phone, address, maritalStatus, siblings, education, skill]);
+
+  const handleSave = () => {
+    onUpdateNodesRef.current(buildPayload());
+    onSave?.();
+  };
 
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
@@ -438,7 +467,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           <div className="pp-dot" style={{ background: color }} />
           <span className="pp-title">{isMultiSelect ? `Multiple Nodes (${nodes.length})` : "Properties"}</span>
           <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
-            {orgType}
+            {meta.label || orgType}
           </span>
         </div>
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
@@ -448,7 +477,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
       <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
         <div className="pp-preview__bar" />
         <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
-          {orgType.toUpperCase()}
+          {meta.label || orgType.toUpperCase()}
         </div>
         <div className="pp-preview__name" style={{ color: textColor }}>
           {isMultiSelect ? "(Multiple Selected)" : (name || "ឈ្មោះ")}
@@ -470,19 +499,65 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
         </div>
 
+        {/* Personal Details — person nodes only; shown read-only in the
+            ProfileDrawer when the node is clicked */}
+        {meta.isPerson && !isMultiSelect && (
+        <div className="pp-section">
+          <div className="pp-section-label"><Contact size={11} /> Personal Details</div>
+
+          <label className="pp-label">Staff ID</label>
+          <input className="pp-input" value={staffId} onChange={(e) => setStaffId(e.target.value)} placeholder="e.g. GDT-0421" />
+
+          <label className="pp-label">Join Date</label>
+          <input type="date" className="pp-input" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} style={{ colorScheme: "dark" }} />
+
+          <label className="pp-label">Phone</label>
+          <input className="pp-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="012 345 678" />
+
+          <label className="pp-label">Address</label>
+          <textarea className="pp-textarea" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="ភ្នំពេញ..." dir="auto" rows={2} />
+
+          <label className="pp-label">Marital Status</label>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            {[
+              { v: "", label: "—" },
+              { v: "single", label: "Single" },
+              { v: "married", label: "Married" },
+            ].map(({ v, label }) => (
+              <button key={v || "none"} className={`pp-type-btn ${maritalStatus === v ? "active" : ""}`}
+                style={{ flex: 1 }} onClick={() => setMaritalStatus(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <label className="pp-label">Siblings</label>
+          <input type="number" min={0} className="pp-input" value={siblings}
+            onChange={(e) => setSiblings(e.target.value)} placeholder="e.g. 3" />
+
+          <label className="pp-label">Education</label>
+          <input className="pp-input" value={education} onChange={(e) => setEducation(e.target.value)} placeholder="e.g. MBA — Finance" />
+
+          <label className="pp-label">Skills / Major</label>
+          <input className="pp-input" value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="e.g. Tax audit, Accounting" />
+        </div>
+        )}
+
         {/* Type */}
         <div className="pp-section">
           <div className="pp-section-label"><Tag size={11} /> Node Type</div>
           <div className="pp-type-grid">
             {TYPE_OPTIONS.map((t) => (
               <button key={t} className={`pp-type-btn ${orgType === t ? "active" : ""}`} onClick={() => setOrgType(t)}>
-                {t}
+                {TYPE_META[t]?.label || t}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Background Color */}
+        {/* Background/Text Color — not applicable to person cards, which are
+            a fixed dark card matching design turn 11b (see OrgNode.jsx) */}
+        {!meta.isPerson && (
         <div className="pp-section">
           <div className="pp-section-label"><Palette size={11} /> Background Color</div>
           <div className="pp-colors">
@@ -498,8 +573,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           </div>
           <div className="pp-color-preview" style={{ background: color }}><span>{color}</span></div>
         </div>
+        )}
 
-        {/* Text Color */}
+        {!meta.isPerson && (
         <div className="pp-section">
           <div className="pp-section-label"><Palette size={11} /> Text Color</div>
           <div className="pp-colors">
@@ -520,6 +596,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
             </label>
           </div>
         </div>
+        )}
 
         {/* Text Formatting */}
         <div className="pp-section">
@@ -548,7 +625,10 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
             >+</button>
           </div>
 
-          {/* Horizontal Align */}
+          {/* Horizontal/Vertical Align — not applicable to person cards,
+              which are always centered by design (see OrgNode.jsx) */}
+          {!meta.isPerson && (
+          <>
           <label className="pp-label">Horizontal Align</label>
           <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
             {[
@@ -593,6 +673,8 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
               >{icon}</button>
             ))}
           </div>
+          </>
+          )}
         </div>
 
         {/* Chart Link */}
@@ -646,7 +728,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
                   <div className="pp-type-grid" style={{ marginBottom: 8 }}>
                     {TYPE_OPTIONS.map((t) => (
                       <button key={t} className={`pp-type-btn ${addChildType === t ? "active" : ""}`} onClick={() => setAddChildType(t)}>
-                        {t}
+                        {TYPE_META[t]?.label || t}
                       </button>
                     ))}
                   </div>
@@ -661,8 +743,11 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
         )}
       </div>
 
-      {/* Sticky footer — Delete */}
+      {/* Sticky footer — Save + Delete */}
       <div className="pp-sticky-footer">
+        <button className="pp-btn pp-btn--save" onClick={handleSave}>
+          <Check size={15} /> {meta.isPerson ? "Save Details" : "Save Changes"}
+        </button>
         {confirmDelete ? (
           <div className="pp-delete-confirm">
             <p>Delete {isMultiSelect ? "these nodes" : "this node"} and connections?</p>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Mail, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const { resetPasswordForEmail } = useAuth();
@@ -25,77 +25,88 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-glow auth-glow--left" />
-      <div className="auth-glow auth-glow--right" />
+    <div className="gov-auth-page">
+      <Link to="/" className="gov-auth-back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to Home
+      </Link>
 
-      <div className="auth-card">
-        <div className="auth-card__header">
-          <Link to="/" className="auth-card__brand">
-            <img
-              src="/GDT Logo (Soft).png"
-              alt="GDT - General Department of Taxation"
-              style={{ height: 48, objectFit: 'contain' }}
-            />
-          </Link>
-          <h1 className="auth-card__title">Forgot Password?</h1>
-          <p className="auth-card__sub">Enter your email and we'll send you a reset link</p>
-        </div>
-
-        {sent ? (
-          <div className="auth-success-block">
-            <CheckCircle size={48} style={{ color: '#059669' }} />
-            <h3 style={{ marginTop: 16, color: 'var(--text-primary)', fontWeight: 700 }}>Reset Link Sent!</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
-              Check your inbox at <strong style={{ color: '#0ea5e9' }}>{email}</strong>.
-              The link expires in 1 hour.
-            </p>
-            <Link to="/login" className="auth-submit-btn" style={{ marginTop: 24, display: 'inline-flex', textDecoration: 'none' }}>
-              <ArrowLeft size={16} /> Back to Sign In
-            </Link>
+      <div className="gov-auth-card">
+        <Link to="/" className="gov-auth-header">
+          <img src="/gdt-seal.png" alt="GDT seal" className="gov-auth-seal" />
+          <div className="gov-auth-brand">
+            <div className="gov-auth-brand-khm">អគ្គនាយកដ្ឋានពន្ធដារ</div>
+            <div className="gov-auth-brand-en">General Department of Taxation</div>
           </div>
-        ) : (
-          <>
-            {error && (
-              <div className="auth-error">
-                <AlertCircle size={15} />
-                <span>{error}</span>
+        </Link>
+
+        <div className="gov-auth-body">
+          {sent ? (
+            <div className="gov-auth-success-block">
+              <CheckCircle size={48} style={{ color: '#0f5a34' }} />
+              <h3>Reset Link Sent!</h3>
+              <p>
+                Check your inbox at <strong style={{ color: '#0f5a34' }}>{email}</strong>.
+                The link expires in 1 hour.
+              </p>
+              <Link to="/login" className="gov-auth-submit-btn" style={{ marginTop: 24, textDecoration: 'none' }}>
+                <ArrowLeft size={16} /> Back to Sign In
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="gov-auth-step-row">
+                <span className="gov-auth-step-badge gov-auth-step-badge--1">1</span>
+                <span className="gov-auth-step-label">Request reset link</span>
               </div>
-            )}
-            <form className="auth-form" onSubmit={handleSubmit} noValidate>
-              <div className="auth-field">
-                <label className="auth-label" htmlFor="forgot-email">Email Address</label>
-                <div className="auth-input-wrap">
+              <div className="gov-auth-intro" style={{ textAlign: 'left' }}>
+                <h1 className="gov-auth-title">Forgot your password?</h1>
+                <p className="gov-auth-subtitle">Enter the work email tied to your staff account and we'll send a reset link.</p>
+              </div>
+
+              {error && (
+                <div className="gov-auth-error">
+                  <AlertCircle size={15} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form className="gov-auth-form" onSubmit={handleSubmit} noValidate>
+                <div className="gov-auth-field">
+                  <label className="gov-auth-label" htmlFor="forgot-email">Work email</label>
                   <input
                     id="forgot-email"
                     type="email"
-                    className="auth-input auth-input--icon-l"
-                    placeholder="you@mef.gov.kh"
+                    className="gov-auth-input"
+                    placeholder="name@tax.gov.kh"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
                     disabled={loading}
                   />
-                  <Mail size={16} className="auth-input-icon-left" />
                 </div>
-              </div>
 
-              <button type="submit" className="auth-submit-btn" disabled={loading}>
-                {loading ? (
-                  <><Loader2 size={17} className="spin" /> Sending...</>
-                ) : (
-                  'Send Reset Link'
-                )}
-              </button>
-            </form>
+                <button type="submit" className="gov-auth-submit-btn" disabled={loading}>
+                  {loading ? (
+                    <><Loader2 size={17} className="spin" /> Sending...</>
+                  ) : (
+                    'Send Reset Link'
+                  )}
+                </button>
+              </form>
 
-            <p className="auth-switch" style={{ marginTop: 16 }}>
-              <Link to="/login" className="auth-switch-link">
-                <ArrowLeft size={13} style={{ verticalAlign: 'middle' }} /> Back to Sign In
-              </Link>
-            </p>
-          </>
-        )}
+              <p className="gov-auth-switch">
+                <Link to="/login" className="gov-auth-switch-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <ArrowLeft size={13} /> Back to Sign In
+                </Link>
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="gov-auth-footer">
+          <div className="gov-auth-footer-text">Ministry of Economy and Finance, Kingdom of Cambodia</div>
+        </div>
       </div>
     </div>
   );

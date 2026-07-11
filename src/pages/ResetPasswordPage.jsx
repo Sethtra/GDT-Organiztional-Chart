@@ -12,8 +12,8 @@ function getPasswordStrength(pwd) {
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
   if (score <= 1) return { level: 1, label: 'Weak', color: '#dc2626' };
   if (score === 2) return { level: 2, label: 'Fair', color: '#d97706' };
-  if (score === 3) return { level: 3, label: 'Good', color: '#0ea5e9' };
-  return { level: 4, label: 'Strong', color: '#059669' };
+  if (score === 3) return { level: 3, label: 'Good', color: '#0f5a34' };
+  return { level: 4, label: 'Strong', color: '#0f5a34' };
 }
 
 export default function ResetPasswordPage() {
@@ -47,90 +47,103 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-glow auth-glow--left" />
-      <div className="auth-glow auth-glow--right" />
-
-      <div className="auth-card">
-        <div className="auth-card__header">
-          <span className="auth-card__emblem" style={{ fontSize: 28 }}>🏛️</span>
-          <h1 className="auth-card__title">Set New Password</h1>
-          <p className="auth-card__sub">Create a strong new password for your account</p>
+    <div className="gov-auth-page">
+      <div className="gov-auth-card">
+        <div className="gov-auth-header">
+          <img src="/gdt-seal.png" alt="GDT seal" className="gov-auth-seal" />
+          <div className="gov-auth-brand">
+            <div className="gov-auth-brand-khm">អគ្គនាយកដ្ឋានពន្ធដារ</div>
+            <div className="gov-auth-brand-en">General Department of Taxation</div>
+          </div>
         </div>
 
-        {done ? (
-          <div className="auth-success-block">
-            <CheckCircle size={48} style={{ color: '#059669' }} />
-            <h3 style={{ marginTop: 16, color: 'var(--text-primary)', fontWeight: 700 }}>Password Updated!</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 8 }}>
-              Redirecting you to the dashboard...
-            </p>
-          </div>
-        ) : (
-          <>
-            {error && (
-              <div className="auth-error">
-                <AlertCircle size={15} /> <span>{error}</span>
+        <div className="gov-auth-body">
+          {done ? (
+            <div className="gov-auth-success-block">
+              <CheckCircle size={48} style={{ color: '#0f5a34' }} />
+              <h3>Password Updated!</h3>
+              <p>Redirecting you to the dashboard...</p>
+            </div>
+          ) : (
+            <>
+              <div className="gov-auth-step-row">
+                <span className="gov-auth-step-badge gov-auth-step-badge--2">2</span>
+                <span className="gov-auth-step-label">Set a new password</span>
               </div>
-            )}
-            <form className="auth-form" onSubmit={handleSubmit} noValidate>
-              <div className="auth-field">
-                <label className="auth-label" htmlFor="new-password">New Password</label>
-                <div className="auth-input-wrap">
-                  <input
-                    id="new-password"
-                    type={showPass ? 'text' : 'password'}
-                    className="auth-input auth-input--icon-r"
-                    placeholder="Min. 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    disabled={loading}
-                  />
-                  <button type="button" className="auth-input-icon-btn" onClick={() => setShowPass((v) => !v)} tabIndex={-1}>
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+              <div className="gov-auth-intro" style={{ textAlign: 'left' }}>
+                <h1 className="gov-auth-title" style={{ fontSize: 20 }}>Choose a new password</h1>
+                <p className="gov-auth-subtitle">Shown after the staff member opens the link from their email.</p>
+              </div>
+
+              {error && (
+                <div className="gov-auth-error">
+                  <AlertCircle size={15} /> <span>{error}</span>
                 </div>
-                {password && (
-                  <div className="auth-strength">
-                    <div className="auth-strength__bars">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="auth-strength__bar"
-                          style={{ background: i <= strength.level ? strength.color : 'rgba(var(--surface-rgb),.1)' }} />
-                      ))}
-                    </div>
-                    <span className="auth-strength__label" style={{ color: strength.color }}>{strength.label}</span>
+              )}
+
+              <form className="gov-auth-form" onSubmit={handleSubmit} noValidate>
+                <div className="gov-auth-field">
+                  <label className="gov-auth-label" htmlFor="new-password">New password</label>
+                  <div className="gov-auth-input-wrap">
+                    <input
+                      id="new-password"
+                      type={showPass ? 'text' : 'password'}
+                      className="gov-auth-input gov-auth-input--icon"
+                      placeholder="Min. 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                    <button type="button" className="gov-auth-input-icon-btn" onClick={() => setShowPass((v) => !v)} tabIndex={-1}>
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
-                )}
-              </div>
-
-              <div className="auth-field">
-                <label className="auth-label" htmlFor="new-confirm">Confirm New Password</label>
-                <div className="auth-input-wrap">
-                  <input
-                    id="new-confirm"
-                    type={showConfirm ? 'text' : 'password'}
-                    className={`auth-input auth-input--icon-r ${confirm && confirm !== password ? 'auth-input--error' : ''}`}
-                    placeholder="Repeat new password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    autoComplete="new-password"
-                    disabled={loading}
-                  />
-                  <button type="button" className="auth-input-icon-btn" onClick={() => setShowConfirm((v) => !v)} tabIndex={-1}>
-                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                  {password && (
+                    <div className="gov-auth-strength">
+                      <div className="gov-auth-strength__bars">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="gov-auth-strength__bar"
+                            style={{ background: i <= strength.level ? strength.color : undefined }} />
+                        ))}
+                      </div>
+                      <span className="gov-auth-strength__label" style={{ color: strength.color }}>{strength.label}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <button type="submit" className="auth-submit-btn" disabled={loading}>
-                {loading ? (
-                  <><Loader2 size={17} className="spin" /> Updating...</>
-                ) : 'Update Password'}
-              </button>
-            </form>
-          </>
-        )}
+                <div className="gov-auth-field">
+                  <label className="gov-auth-label" htmlFor="new-confirm">Confirm new password</label>
+                  <div className="gov-auth-input-wrap">
+                    <input
+                      id="new-confirm"
+                      type={showConfirm ? 'text' : 'password'}
+                      className={`gov-auth-input gov-auth-input--icon ${confirm && confirm !== password ? 'gov-auth-input--error' : ''}`}
+                      placeholder="Repeat new password"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                    <button type="button" className="gov-auth-input-icon-btn" onClick={() => setShowConfirm((v) => !v)} tabIndex={-1}>
+                      {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="gov-auth-submit-btn gov-auth-submit-btn--dark" disabled={loading}>
+                  {loading ? (
+                    <><Loader2 size={17} className="spin" /> Updating...</>
+                  ) : 'Reset Password'}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+
+        <div className="gov-auth-footer">
+          <div className="gov-auth-footer-text">Ministry of Economy and Finance, Kingdom of Cambodia</div>
+        </div>
       </div>
     </div>
   );

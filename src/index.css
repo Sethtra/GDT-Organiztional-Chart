@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Kantumruy+Pro:wght@400;500;600;700&display=swap');
 
 /* ============================================================
    TOKENS
@@ -391,6 +391,145 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
 }
 
 /* ============================================================
+   PERSON NODE — dark "clean card" staff/position card, matching Claude
+   Design turn 11b exactly: dark gradient card, gold title/pill accents,
+   3-dot corner decoration, avatar and team-pill overlapping the card's
+   top/bottom edges. Fixed brand treatment (not data.color/theme driven,
+   unlike the org-unit card). The overlapping avatar/pill are
+   pointer-events:none so they don't block drag-to-connect on the
+   connector handles they visually sit on top of.
+   ============================================================ */
+.org-node--person {
+  min-width: 220px;
+  overflow: visible !important;
+  background: linear-gradient(165deg, #1a2432, #0e151f) !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 18px 36px -18px rgba(0,0,0,.6) !important;
+}
+
+.org-node--person:hover {
+  box-shadow: 0 22px 44px -18px rgba(0,0,0,.7) !important;
+}
+
+.org-node--person.org-node--selected {
+  border-color: #e9dca6 !important;
+  box-shadow: 0 0 0 2px rgba(233,220,166,.35), 0 18px 36px -18px rgba(0,0,0,.6) !important;
+}
+
+.person-node__dots {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: flex;
+  gap: 3px;
+  z-index: 3;
+}
+.person-node__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.28);
+}
+
+.person-node__avatar {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  color: #ffffff;
+  border: 3px solid #0e151f;
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  flex-shrink: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.person-node__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 18px 26px;
+  text-align: center;
+}
+
+.person-node__name {
+  font-family: 'Noto Sans Khmer', sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.35;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+.person-node__position {
+  font-family: 'Noto Sans Khmer', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e9dca6;
+  line-height: 1.4;
+  word-break: break-word;
+  margin-top: 3px;
+}
+
+.person-node__team {
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1206;
+  background: #e9dca6;
+  padding: 6px 14px;
+  border-radius: 100px;
+  box-shadow: 0 6px 14px -4px rgba(0,0,0,.4);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.person-node__team--collapsed { opacity: .7; }
+
+.person-node__link-badge {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 4px;
+  background: rgba(233,220,166,.15);
+  border: 1px solid rgba(233,220,166,.4);
+  color: #e9dca6;
+  z-index: 3;
+}
+
+/* Put the top/bottom connector dots exactly on the avatar's apex and the
+   team pill's base — the same points the connector line lands on (see
+   PERSON_TOP_OFFSET/PERSON_BOTTOM_OFFSET in floatingEdge.js) — so the dot and
+   the line agree and the line visibly touches the node. Left/right are
+   unaffected — nothing overlaps those edges. */
+.org-node--person .react-flow__handle-top { top: -42px !important; }
+.org-node--person .react-flow__handle-bottom { bottom: -13px !important; }
+
+/* ============================================================
    FLOW HANDLES
    ============================================================ */
 .flow-handle {
@@ -400,6 +539,19 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   background: rgba(var(--surface-rgb),.2) !important;
   border: 2px solid rgba(var(--surface-rgb),.4) !important;
   transition: all .2s !important;
+  opacity: 0;
+}
+
+/* Connector dots stay hidden until they're useful: hovering or selecting the
+   node, or while a connection is being dragged anywhere on the canvas (the
+   dots are its drop targets). Pointer events stay on even while hidden, so
+   pointing at a dot's spot still reveals it — hovering a handle counts as
+   hovering its node, even for the person-card dots floating outside the card. */
+.org-node:hover .flow-handle,
+.org-node--selected .flow-handle,
+.react-flow:has(.react-flow__connection) .flow-handle,
+.react-flow:has(.react-flow__connectionline) .flow-handle {
+  opacity: 1;
 }
 
 .flow-handle:hover,
@@ -409,6 +561,94 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   border-color: var(--gold-light) !important;
   transform: scale(1.3) !important;
   box-shadow: 0 0 8px rgba(212,175,55,.6) !important;
+}
+
+/* ============================================================
+   STAFF PROFILE DRAWER (read-only person view — ProfileDrawer.jsx)
+   ============================================================ */
+.profile-hero {
+  padding: 26px 16px 18px;
+  text-align: center;
+  background: linear-gradient(165deg, #1a2432, #0e151f);
+  border-bottom: 1px solid rgba(var(--surface-rgb), .08);
+  flex-shrink: 0;
+}
+
+.profile-hero__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #10161f;
+  border: 3px solid rgba(233, 220, 166, .35);
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .6);
+}
+
+.profile-hero__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f5efdc;
+  line-height: 1.35;
+}
+
+.profile-hero__name-en {
+  font-size: 11.5px;
+  color: #93a4b8;
+  margin-top: 2px;
+}
+
+.profile-hero__chip {
+  display: inline-block;
+  margin-top: 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(233, 220, 166, .1);
+  color: #e9dca6;
+  border: 1px solid rgba(233, 220, 166, .3);
+}
+
+.profile-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed rgba(var(--surface-rgb), .07);
+}
+
+.profile-row:last-child { border-bottom: none; }
+
+.profile-row__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.profile-row__value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: right;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.profile-row__value--empty {
+  color: var(--text-muted);
+  opacity: .5;
+  font-weight: 400;
 }
 
 /* ============================================================
@@ -650,6 +890,18 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   justify-content: center;
 }
 .pp-btn--confirm-add:hover { background: #12a090; }
+
+.pp-btn--save {
+  justify-content: center;
+  font-weight: 700;
+  color: #10231c;
+  background: linear-gradient(135deg, #16a085, #0e7d6e);
+  border: none;
+  margin-bottom: 8px;
+  box-shadow: 0 6px 16px -8px rgba(16,160,133,.7);
+}
+.pp-btn--save:hover { filter: brightness(1.08); }
+.pp-btn--save:active { transform: translateY(1px); }
 
 .pp-btn--delete-ghost {
   background: rgba(220,38,38,.1);
@@ -1159,6 +1411,66 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   margin-top: 8px;
   text-align: center;
 }
+
+/* ============================================================
+   CHART TAB BAR — EditorShell (App.jsx), one tab per open linked chart
+   ============================================================ */
+.chart-tab-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 34px;
+  padding: 4px 8px 0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.chart-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  max-width: 200px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.chart-tab:hover { background: rgba(var(--surface-rgb),.05); color: var(--text-primary); }
+
+.chart-tab--active {
+  background: var(--bg-app);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.chart-tab__icon { flex-shrink: 0; opacity: .7; }
+
+.chart-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-tab__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  opacity: .6;
+}
+
+.chart-tab__close:hover { opacity: 1; background: rgba(220,38,38,.2); color: #fca5a5; }
 
 /* ============================================================
    STATUS BAR
@@ -2644,3 +2956,253 @@ input, textarea, select { font-family: 'Noto Sans Khmer', 'Inter', sans-serif; }
   flex-shrink: 0;
 }
 .share-remove-btn:hover { background: rgba(220,38,38,.15); color: #fca5a5; }
+
+/* ============================================================
+   GOV AUTH PAGES — Login, Register, Forgot/Reset Password.
+   Redesign sourced from Claude Design (turns 3a/3b/3c): a light
+   green/gold Cambodian-government visual language. Deliberately a
+   separate class family from `.auth-*` above (still used by
+   VerifyEmailPage, intentionally left untouched) — this is a fixed
+   brand treatment, not wired into the app's dark/light theme tokens.
+   ============================================================ */
+.gov-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef1ec;
+  background-image: radial-gradient(rgba(15,90,52,.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+  padding: 40px 20px;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+}
+
+.gov-auth-back-link {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f5a34;
+  text-decoration: none;
+  z-index: 2;
+}
+.gov-auth-back-link:hover { text-decoration: underline; }
+
+.gov-auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid rgba(15,90,52,.14);
+  border-radius: 4px;
+  box-shadow: 0 8px 30px rgba(15,60,35,.10);
+  overflow: hidden;
+}
+
+.gov-auth-header {
+  padding: 40px 40px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+}
+
+.gov-auth-seal {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  animation: govSealFloat 6s ease-in-out infinite;
+}
+@keyframes govSealFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.gov-auth-brand { text-align: center; }
+.gov-auth-brand-khm {
+  font-family: 'Kantumruy Pro', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f3d24;
+}
+.gov-auth-brand-en {
+  font-size: 13.5px;
+  color: #5c6d63;
+  margin-top: 3px;
+}
+
+.gov-auth-body {
+  padding: 24px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gov-auth-intro { text-align: center; }
+.gov-auth-title {
+  margin: 0;
+  font-size: 23px;
+  color: #0f3d24;
+  font-weight: 800;
+  letter-spacing: -.3px;
+}
+.gov-auth-subtitle {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: #5c6d63;
+}
+
+.gov-auth-form { display: flex; flex-direction: column; gap: 20px; }
+
+.gov-auth-field { display: flex; flex-direction: column; gap: 6px; }
+
+.gov-auth-label-row { display: flex; justify-content: space-between; align-items: baseline; }
+
+.gov-auth-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #16261d;
+}
+
+.gov-auth-forgot-link {
+  font-size: 12.5px;
+  color: #0f5a34;
+  text-decoration: none;
+}
+.gov-auth-forgot-link:hover { text-decoration: underline; }
+
+.gov-auth-input-wrap { position: relative; display: flex; align-items: center; }
+
+.gov-auth-input {
+  width: 100%;
+  border: 1.5px solid rgba(15,90,52,.22);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: #16261d;
+  background: #fff;
+  font-family: inherit;
+  transition: border-color .2s ease;
+}
+.gov-auth-input::placeholder { color: #8a978d; }
+.gov-auth-input:focus { outline: none; border-color: #0f5a34; }
+.gov-auth-input--icon { padding-right: 42px; }
+.gov-auth-input--error { border-color: #dc2626; }
+
+.gov-auth-input-icon-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
+  display: flex;
+  color: #8a978d;
+  cursor: pointer;
+}
+.gov-auth-input-icon-btn:hover { color: #0f5a34; }
+
+.gov-auth-field-hint { font-size: 11.5px; margin-top: 2px; display: block; }
+.gov-auth-field-hint--error { color: #dc2626; }
+
+.gov-auth-strength { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.gov-auth-strength__bars { display: flex; gap: 4px; flex: 1; }
+.gov-auth-strength__bar { height: 3px; flex: 1; border-radius: 2px; background: rgba(15,90,52,.12); transition: background .3s; }
+.gov-auth-strength__label { font-size: 11px; font-weight: 600; min-width: 34px; text-align: right; }
+
+.gov-auth-checkbox-row { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.gov-auth-checkbox { margin-top: 2px; accent-color: #0f5a34; cursor: pointer; flex-shrink: 0; }
+.gov-auth-checkbox-label { font-size: 12.5px; color: #5c6d63; line-height: 1.5; }
+.gov-auth-checkbox-label .link { color: #0f5a34; cursor: pointer; }
+
+.gov-auth-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  background: #0f5a34;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px 0;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  margin-top: 4px;
+  font-family: inherit;
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+.gov-auth-submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15,90,52,.3); }
+.gov-auth-submit-btn:disabled { opacity: .65; cursor: not-allowed; transform: none; box-shadow: none; }
+.gov-auth-submit-btn--dark { background: #0f3d24; }
+
+.gov-auth-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: 1.5px solid rgba(15,90,52,.22);
+  background: #fff;
+  color: #16261d;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color .2s ease, background .2s ease;
+}
+.gov-auth-google-btn:hover:not(:disabled) { border-color: #0f5a34; background: rgba(15,90,52,.03); }
+.gov-auth-google-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.gov-auth-divider { display: flex; align-items: center; gap: 12px; }
+.gov-auth-divider__line { flex: 1; height: 1px; background: rgba(15,90,52,.14); }
+.gov-auth-divider__text { font-size: 12px; color: #8a978d; white-space: nowrap; }
+
+.gov-auth-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(220,38,38,.08);
+  border: 1px solid rgba(220,38,38,.25);
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.gov-auth-switch { text-align: center; font-size: 13px; color: #5c6d63; margin: 0; }
+.gov-auth-switch-link { color: #0f5a34; font-weight: 600; text-decoration: none; }
+.gov-auth-switch-link:hover { text-decoration: underline; }
+
+.gov-auth-footer {
+  padding: 16px 40px 22px;
+  border-top: 1px solid rgba(15,90,52,.1);
+  text-align: center;
+}
+.gov-auth-footer-text { font-size: 11.5px; color: #8a978d; }
+
+.gov-auth-success-block { text-align: center; padding: 8px 0; }
+.gov-auth-success-block h3 { margin: 16px 0 0; color: #0f3d24; font-weight: 700; font-size: 17px; }
+.gov-auth-success-block p { color: #5c6d63; font-size: 14px; margin-top: 8px; line-height: 1.6; }
+
+.gov-auth-step-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.gov-auth-step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gov-auth-step-badge--1 { background: #0f5a34; }
+.gov-auth-step-badge--2 { background: #b8973f; }
+.gov-auth-step-label { font-size: 13px; font-weight: 600; color: #0f3d24; }

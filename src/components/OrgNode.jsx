@@ -2,14 +2,7 @@ import { memo, useState, useContext } from "react";
 import { Handle, Position, NodeResizer } from "@xyflow/react";
 import { Pencil, ChevronDown, ChevronRight, Link as LinkIcon } from "lucide-react";
 import { ChartContext } from "../App";
-
-const TYPE_META = {
-  ministry:   { label: "MINISTRY",   accent: "#d4af37" },
-  department: { label: "DEPARTMENT", accent: "#38bdf8" },
-  division:   { label: "DIVISION",   accent: "#a78bfa" },
-  office:     { label: "OFFICE",     accent: "#6ee7b7" },
-  simple:     { label: "",           accent: "#94a3b8" },
-};
+import { TYPE_META } from "../data/nodeTypes";
 
 const OrgNode = memo(({ id, data, selected }) => {
   const [hovered, setHovered] = useState(false);
@@ -18,15 +11,81 @@ const OrgNode = memo(({ id, data, selected }) => {
   const meta = TYPE_META[data.orgType] || TYPE_META.office;
   const bgColor = data.color || "#1e5799";
   const textColor = data.textColor || "#ffffff";
-  
+
   // Dynamic properties from context
   const isCollapsed = context?.collapsedNodes?.has(id) || false;
   const isHighlighted = context?.searchHighlights?.includes(id) || false;
   const childCount = context?.childCounts?.[id] || 0;
+  const teamSize = context?.teamSizes?.[id] || 0;
 
   const fontSize = data.fontSize || 13;
   const textAlign = data.textAlign || "center";
   const textVerticalAlign = data.textVerticalAlign || "center";
+
+  // Staff/position nodes (Head, Deputy, Officer): dark card matching the
+  // Claude Design "clean card" reference (design turn 11b) exactly — fixed
+  // dark gradient + gold accents, avatar and team-pill overlapping the
+  // card's top/bottom edges. Both overlapping elements are pointer-events:
+  // none (see index.css) so they sit visually on top of this node's
+  // connector handles without blocking drag-to-connect on them.
+  if (meta.isPerson) {
+    const initials = (data.nameEn || data.name || "?").trim().charAt(0).toUpperCase();
+    return (
+      <div
+        className={`org-node org-node--person ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <NodeResizer
+          minWidth={220}
+          minHeight={170}
+          isVisible={selected}
+          lineStyle={{ borderColor: "#e9dca6" }}
+          handleStyle={{ borderColor: "#e9dca6", background: "#fff" }}
+        />
+
+        <Handle type="source" position={Position.Top}    id="top"    className="flow-handle" />
+        <Handle type="source" position={Position.Bottom} id="bottom" className="flow-handle" />
+        <Handle type="source" position={Position.Left}   id="left"   className="flow-handle" />
+        <Handle type="source" position={Position.Right}  id="right"  className="flow-handle" />
+
+        <span className="person-node__dots">
+          <span className="person-node__dot" />
+          <span className="person-node__dot" />
+          <span className="person-node__dot" />
+        </span>
+
+        {data.linkedChartId && (
+          <span title="Linked to another chart" className="person-node__link-badge">
+            <LinkIcon size={9} />
+          </span>
+        )}
+
+        <div className="person-node__avatar" style={{ background: meta.accent }}>
+          {initials}
+        </div>
+
+        <div className="person-node__body">
+          <div className="person-node__name" style={{ fontSize: `${fontSize + 2.5}px` }}>
+            {data.name || "ឈ្មោះ"}
+          </div>
+          <div className="person-node__position">
+            {meta.label}
+          </div>
+        </div>
+
+        {teamSize > 0 && (
+          <span
+            className={`person-node__team ${isCollapsed ? "person-node__team--collapsed" : ""}`}
+            title={isCollapsed ? `${teamSize} people under them (subtree collapsed)` : `${teamSize} people under them`}
+          >
+            {teamSize}
+            {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

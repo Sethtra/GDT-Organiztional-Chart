@@ -31,6 +31,7 @@ import {
 import OrgNode from "./components/OrgNode";
 import CustomEdge from "./components/CustomEdge";
 import PropertiesPanel from "./components/PropertiesPanel";
+import ProfileDrawer from "./components/ProfileDrawer";
 import ConfirmModal from "./components/ConfirmModal";
 import ShareModal from "./components/ShareModal";
 import SearchBar from "./components/SearchBar";
@@ -38,9 +39,11 @@ import ContextMenu from "./components/ContextMenu";
 import ShortcutsModal from "./components/ShortcutsModal";
 import StatusBar from "./components/StatusBar";
 import { getLayoutedElements } from "./utils/layoutUtils";
+import { TYPE_META } from "./data/nodeTypes";
 import { supabase } from "./supabaseClient";
 import ErrorBoundary from "./components/ErrorBoundary";
 import VersionHistoryModal from "./components/VersionHistoryModal";
+import ChartTabBar from "./components/ChartTabBar";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { ThemeProvider, useTheme } from "./hooks/useTheme";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -77,8 +80,7 @@ function normalizeEdges(edges) {
 
 export const ChartContext = createContext(null);
 
-function FlowApp() {
-  const { chartId } = useParams();
+function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -89,8 +91,13 @@ function FlowApp() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(true);
   const [chartName, setChartName] = useState("Untitled Chart");
+  // Report the loaded chart's display name up to EditorShell for the tab label.
+  useEffect(() => { onChartName?.(chartName); }, [chartName, onChartName]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
+  // Person nodes open as a read-only profile first; Edit switches to the
+  // properties panel. Resets to profile view whenever the selection changes.
+  const [editingPerson, setEditingPerson] = useState(false);
   const [layoutDir, setLayoutDir] = useState("TB");
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
@@ -352,7 +359,7 @@ function FlowApp() {
   }, [nodes, edges]);
 
   // ── Compute visible nodes/edges (collapse) ────────────────────
-  const { visibleNodes, visibleEdges, childCounts } = useMemo(() => {
+  const { visibleNodes, visibleEdges, childCounts, teamSizes } = useMemo(() => {
     const hidden = new Set();
     if (collapsedNodes.size > 0) {
       function collectDescendants(nodeId) {
@@ -367,12 +374,34 @@ function FlowApp() {
     }
 
     const cCounts = {};
-    edges.forEach((e) => { cCounts[e.source] = (cCounts[e.source] || 0) + 1; });
+    const childrenMap = {};
+    edges.forEach((e) => {
+      cCounts[e.source] = (cCounts[e.source] || 0) + 1;
+      (childrenMap[e.source] ||= []).push(e.target);
+    });
+
+    // Total descendants per node (not just direct reports) — e.g. a "Head"
+    // with 2 deputies who each have their own staff should show the full
+    // team size underneath them, not just the 2 direct reports.
+    const tSizes = {};
+    const visiting = new Set();
+    function countDescendants(nodeId) {
+      if (tSizes[nodeId] !== undefined) return tSizes[nodeId];
+      if (visiting.has(nodeId)) return 0; // cycle guard — shouldn't happen in a real org tree
+      visiting.add(nodeId);
+      const children = childrenMap[nodeId] || [];
+      let total = children.length;
+      for (const childId of children) total += countDescendants(childId);
+      visiting.delete(nodeId);
+      tSizes[nodeId] = total;
+      return total;
+    }
+    nodes.forEach((n) => countDescendants(n.id));
 
     const vNodes = nodes.filter((n) => !hidden.has(n.id));
     const vEdges = edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
-    
-    return { visibleNodes: vNodes, visibleEdges: vEdges, childCounts: cCounts };
+
+    return { visibleNodes: vNodes, visibleEdges: vEdges, childCounts: cCounts, teamSizes: tSizes };
   }, [nodes, edges, collapsedNodes]);
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -391,6 +420,7 @@ function FlowApp() {
   const onSelectionChange = useCallback(({ nodes, edges }) => {
     setSelectedNodes(nodes);
     setSelectedEdge(edges.length === 1 ? edges[0] : null);
+    setEditingPerson(false);
   }, []);
 
   const onNodeClick = useCallback((evt, node) => {
@@ -574,6 +604,7 @@ function FlowApp() {
     const colorMap = {
       ministry: "#0f2044", department: "#0e7d6e",
       division: "#1e5799", office: "#0369a1",
+      head: "#b45309", deputy: "#c2782e", officer: "#0f766e",
     };
     const newNode = {
       id: newId,
@@ -662,6 +693,23 @@ function FlowApp() {
   }, [setCenter]);
 
   const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge);
+
+  // Single selected person node, resolved fresh from `nodes` so the drawer
+  // reflects edits immediately.
+  const personNode = useMemo(() => {
+    if (selectedEdge || selectedNodes.length !== 1) return null;
+    const live = nodes.find((n) => n.id === selectedNodes[0].id);
+    if (!live || !TYPE_META[live.data?.orgType]?.isPerson) return null;
+    return live;
+  }, [selectedNodes, selectedEdge, nodes]);
+
+  // Memoized so OrgNode (wrapped in memo()) doesn't re-render on every
+  // unrelated render of FlowApp — without this, a new object here every
+  // render defeats memo() for every node on the canvas.
+  const chartContextValue = useMemo(
+    () => ({ childCounts, collapsedNodes, searchHighlights, teamSizes }),
+    [childCounts, collapsedNodes, searchHighlights, teamSizes]
+  );
 
   return (
     <div className={`app-wrapper ${previewMode ? "preview-mode" : ""}`}>
@@ -819,7 +867,7 @@ function FlowApp() {
             </div>
           ) : (
             <>
-              <ChartContext.Provider value={{ childCounts, collapsedNodes, searchHighlights }}>
+              <ChartContext.Provider value={chartContextValue}>
                 <ReactFlow
                   nodes={visibleNodes}
                   edges={visibleEdges}
@@ -890,8 +938,21 @@ function FlowApp() {
           )}
         </div>
 
+        {/* Staff profile drawer — the read-only view a person node opens
+            first (and the only view in preview mode). Edit Details switches
+            to the full properties panel below. */}
+        {personNode && (!editingPerson || previewMode) ? (
+          <ProfileDrawer
+            node={personNode}
+            teamSize={teamSizes[personNode.id] || 0}
+            canEdit={canEdit && !previewMode}
+            onEdit={() => setEditingPerson(true)}
+            onClose={() => { setSelectedNodes([]); setSelectedEdge(null); setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n))); }}
+          />
+        ) : null}
+
         {/* Properties Panel (Outside canvas-wrapper) */}
-        {(selectedNodes.length > 0 || selectedEdge) && !previewMode && (
+        {(selectedNodes.length > 0 || selectedEdge) && !previewMode && !(personNode && !editingPerson) && (
           <PropertiesPanel
             nodes={selectedNodes}
             edge={selectedEdge}
@@ -908,6 +969,16 @@ function FlowApp() {
               }
             }}
             onClose={() => { setSelectedNodes([]); setSelectedEdge(null); }}
+            onSave={() => {
+              // Person node → back to its read-only profile; anything else →
+              // just deselect. Edits are already committed to node state.
+              if (personNode) {
+                setEditingPerson(false);
+              } else {
+                setSelectedNodes([]); setSelectedEdge(null);
+                setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)));
+              }
+            }}
             charts={[]}
           />
         )}
@@ -1009,7 +1080,7 @@ function FlowApp() {
             </button>
           </div>
           <button
-            onClick={() => { navigate(`/chart/${linkedChartPopup.node.data.linkedChartId}`); setLinkedChartPopup(null); }}
+            onClick={() => { openLinkedChart(linkedChartPopup.node.data.linkedChartId); setLinkedChartPopup(null); }}
             style={{
               width: '100%',
               background: 'linear-gradient(135deg, #0e7d6e, #0a5c50)',
@@ -1064,6 +1135,92 @@ function ProtectedRoute({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+/**
+ * Owns the set of currently-open chart tabs. Mounts one independent
+ * <FlowApp> per open tab (each with its own ReactFlowProvider) and hides
+ * inactive ones with CSS instead of unmounting them, so switching tabs
+ * preserves viewport/selection/undo history exactly like browser tabs —
+ * not a cache-and-restore simulation.
+ */
+function EditorShell() {
+  const { chartId: urlChartId } = useParams();
+  const navigate = useNavigate();
+  const [openTabs, setOpenTabs] = useState(() => [urlChartId]);
+  const [activeTabId, setActiveTabId] = useState(urlChartId);
+  const [tabNames, setTabNames] = useState({});
+  // Distinguishes "the URL changed because WE just switched tabs" from "the
+  // URL changed externally" (typed, back/forward, a fresh link) — without
+  // this, syncing tabs<->URL in both directions would loop.
+  const internalNavRef = useRef(false);
+
+  // URL -> tabs (external navigation: open/focus that chart as a tab)
+  useEffect(() => {
+    if (internalNavRef.current) { internalNavRef.current = false; return; }
+    setOpenTabs((tabs) => (tabs.includes(urlChartId) ? tabs : [...tabs, urlChartId]));
+    setActiveTabId(urlChartId);
+  }, [urlChartId]);
+
+  // tabs -> URL (keep the address bar matching the active tab)
+  useEffect(() => {
+    if (activeTabId && activeTabId !== urlChartId) {
+      internalNavRef.current = true;
+      navigate(`/chart/${activeTabId}`, { replace: true });
+    }
+  }, [activeTabId, urlChartId, navigate]);
+
+  const openLinkedChart = useCallback((targetChartId) => {
+    if (!targetChartId) return;
+    setOpenTabs((tabs) => (tabs.includes(targetChartId) ? tabs : [...tabs, targetChartId]));
+    setActiveTabId(targetChartId);
+  }, []);
+
+  const closeTab = useCallback((targetChartId) => {
+    setOpenTabs((tabs) => {
+      const next = tabs.filter((id) => id !== targetChartId);
+      if (activeTabId === targetChartId) {
+        if (next.length === 0) navigate('/dashboard');
+        else setActiveTabId(next[next.length - 1]);
+      }
+      return next;
+    });
+  }, [activeTabId, navigate]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%' }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+        {openTabs.map((id) => (
+          <div
+            key={id}
+            style={{
+              position: 'absolute', inset: 0,
+              visibility: id === activeTabId ? 'visible' : 'hidden',
+              pointerEvents: id === activeTabId ? 'auto' : 'none',
+            }}
+          >
+            <ErrorBoundary>
+              <ReactFlowProvider>
+                <FlowApp
+                  chartId={id}
+                  openLinkedChart={openLinkedChart}
+                  onChartName={(name) => setTabNames((t) => (t[id] === name ? t : { ...t, [id]: name }))}
+                />
+              </ReactFlowProvider>
+            </ErrorBoundary>
+          </div>
+        ))}
+      </div>
+      {openTabs.length > 1 && (
+        <ChartTabBar
+          tabs={openTabs.map((id) => ({ id, name: tabNames[id] || 'Untitled Chart' }))}
+          activeTabId={activeTabId}
+          onSelect={setActiveTabId}
+          onClose={closeTab}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -1090,14 +1247,10 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          {/* Chart editor — loads by ID */}
+          {/* Chart editor — loads by ID, EditorShell manages a tab per open chart */}
           <Route path="/chart/:chartId" element={
             <ProtectedRoute>
-              <ErrorBoundary>
-                <ReactFlowProvider>
-                  <FlowApp />
-                </ReactFlowProvider>
-              </ErrorBoundary>
+              <EditorShell />
             </ProtectedRoute>
           } />
 
