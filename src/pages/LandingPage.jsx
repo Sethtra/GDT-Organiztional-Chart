@@ -1,248 +1,318 @@
-import { Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import {
-  Network, Users, Share2, Download, Shield, Zap,
-  ArrowRight, ChevronDown
-} from 'lucide-react';
-
-const FEATURES = [
-  {
-    icon: <Network size={28} />,
-    title: 'Drag & Drop Editor',
-    desc: 'Build beautiful org charts with an intuitive canvas. Connect nodes, rearrange teams, and see changes instantly.',
-    color: '#0e7d6e',
-  },
-  {
-    icon: <Users size={28} />,
-    title: 'Multi-User Collaboration',
-    desc: 'Share your charts with colleagues. Grant view or edit access via secure links or email invites.',
-    color: '#1e5799',
-  },
-  {
-    icon: <Share2 size={28} />,
-    title: 'One-Click Sharing',
-    desc: 'Generate shareable links in seconds. Public or private, your charts are always accessible.',
-    color: '#7c3aed',
-  },
-  {
-    icon: <Download size={28} />,
-    title: 'Export Anywhere',
-    desc: 'Download your org chart as a high-resolution PNG, PDF, or SVG. Perfect for presentations.',
-    color: '#b45309',
-  },
-  {
-    icon: <Shield size={28} />,
-    title: 'Secure & Private',
-    desc: 'Enterprise-grade security backed by Supabase. Your data is encrypted and protected at all times.',
-    color: '#dc2626',
-  },
-  {
-    icon: <Zap size={28} />,
-    title: 'Auto Layout',
-    desc: 'One click to perfectly arrange your entire org chart. Vertical or horizontal — your choice.',
-    color: '#d97706',
-  },
-];
-
-const STEPS = [
-  { n: '01', title: 'Create Your Account', desc: 'Sign up in seconds with your email or Google account. No credit card required.' },
-  { n: '02', title: 'Design Your Chart', desc: 'Start from the GDT template or a blank canvas. Add nodes, connect teams, customize colors.' },
-  { n: '03', title: 'Share & Export', desc: 'Share a view-only link with leadership or download a print-ready PNG for your reports.' },
-];
+import { useTheme } from '../hooks/useTheme';
+import { Sun, Moon, LayoutDashboard, ChevronDown, User, LogOut } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropRef = useRef(null);
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = user?.user_metadata?.avatar_url;
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
+  /* Unlock scrolling for the landing page.
+     The app's body/root/app-wrapper all set overflow:hidden + height:100vh
+     for the chart builder — we temporarily override that here. */
+  useEffect(() => {
+    const body = document.body;
+    const root = document.getElementById('root');
+    const appWrap = document.querySelector('.app-wrapper');
+    // Save originals
+    const origBody = { overflow: body.style.overflow, height: body.style.height };
+    const origRoot = root ? { height: root.style.height } : null;
+    const origWrap = appWrap ? { overflow: appWrap.style.overflow, height: appWrap.style.height } : null;
+    // Override
+    body.style.overflow = 'auto';
+    body.style.height = 'auto';
+    if (root) root.style.height = 'auto';
+    if (appWrap) { appWrap.style.overflow = 'visible'; appWrap.style.height = 'auto'; }
+    return () => {
+      body.style.overflow = origBody.overflow;
+      body.style.height = origBody.height;
+      if (root && origRoot) root.style.height = origRoot.height;
+      if (appWrap && origWrap) { appWrap.style.overflow = origWrap.overflow; appWrap.style.height = origWrap.height; }
+    };
+  }, []);
 
   return (
-    <div className="landing">
-      <Navbar />
-
-      {/* ── Hero ─────────────────────────────────────────── */}
-      <section className="landing__hero">
-        <div className="landing__hero-glow" />
-        <div className="landing__hero-content">
-          <div className="landing__badge">
-            <span className="landing__badge-dot" />
-            Official GDT Internal Tool — General Department of Taxation
-          </div>
-          <h1 className="landing__headline">
-            Organize Your<br />
-            <span className="landing__headline-accent">Ministry Structure</span><br />
-            with Precision
-          </h1>
-          <p className="landing__sub">
-            The professional org chart designer built for Cambodia's General Department of Taxation.
-            Drag, drop, collaborate, and export in minutes.
-          </p>
-          <div className="landing__hero-cta">
-            {user ? (
-              <Link to="/dashboard" className="landing__btn-primary">
-                Go to Dashboard <ArrowRight size={18} />
+    <div className="landing-page" style={{ minHeight: '100vh', background: 'var(--bg-app)', color: 'var(--text-primary)', fontFamily: '"Inter", sans-serif' }}>
+      
+      {/* ====== LANDING NAVBAR ====== */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 5,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '20px 64px',
+        backdropFilter: 'blur(14px)',
+        background: 'rgba(var(--bg-surface-rgb), .85)',
+        borderBottom: '1px solid var(--border-subtle)',
+      }}>
+        {/* Left: Logo */}
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img 
+            src={theme === 'dark' ? "/GDT-Logo (Dark).png" : "/GDT-Logo (Light).png"} 
+            alt="GDT logo" 
+            style={{ height: 40, objectFit: 'contain' }} 
+          />
+        </Link>
+        {/* Right: Theme toggle + Dashboard/Login */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+            style={{
+              width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--border-subtle)',
+              background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all .2s',
+            }}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+          
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <Link to="/dashboard" style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 13.5, color: 'var(--text-primary)', fontWeight: 500, textDecoration: 'none',
+              }}>
+                <LayoutDashboard size={15} /> Dashboard
               </Link>
-            ) : (
-              <>
-                <Link to="/register" className="landing__btn-primary">
-                  Get Started Free <ArrowRight size={18} />
-                </Link>
-                <Link to="/login" className="landing__btn-ghost">
-                  Sign In
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
+              
+              {/* User dropdown (Copied from Navbar) */}
+              <div className="navbar__avatar-wrap" ref={dropRef}>
+                <button
+                  className="navbar__avatar-btn"
+                  onClick={() => setDropdownOpen((v) => !v)}
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="navbar__avatar-img"
+                    />
+                  ) : (
+                    <div className="navbar__avatar-initials">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="navbar__user-name">{displayName}</span>
+                  <ChevronDown
+                    size={14}
+                    style={{
+                      opacity: 0.6,
+                      transform: dropdownOpen ? "rotate(180deg)" : "none",
+                      transition: "transform .2s",
+                    }}
+                  />
+                </button>
 
-        {/* Floating preview card */}
-        <div className="landing__hero-card">
-          <div className="landing__card-topbar">
-            <span className="landing__card-dot" style={{ background: '#ff5f57' }} />
-            <span className="landing__card-dot" style={{ background: '#ffbd2e' }} />
-            <span className="landing__card-dot" style={{ background: '#28c840' }} />
-            <span style={{ marginLeft: 8, fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
-              GDT Org Chart Editor
-            </span>
-          </div>
-          <div className="landing__card-canvas">
-            {/* Mini SVG org chart preview */}
-            <svg width="100%" height="260" viewBox="0 0 380 260" fill="none">
-              {/* Root */}
-              <rect x="130" y="10" width="120" height="44" rx="8" fill="#0e7d6e" opacity="0.9"/>
-              <text x="190" y="28" textAnchor="middle" fill="white" fontSize="9" fontWeight="700">Ministry</text>
-              <text x="190" y="42" textAnchor="middle" fill="#a7f3d0" fontSize="7.5">ក្រសួង</text>
-              {/* Lines */}
-              <line x1="190" y1="54" x2="190" y2="78" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="80" y1="78" x2="300" y2="78" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="80" y1="78" x2="80" y2="92" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="190" y1="78" x2="190" y2="92" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="300" y1="78" x2="300" y2="92" stroke="#334155" strokeWidth="1.5"/>
-              {/* L2 */}
-              <rect x="30" y="92" width="100" height="40" rx="7" fill="#1e5799" opacity="0.9"/>
-              <text x="80" y="108" textAnchor="middle" fill="white" fontSize="8" fontWeight="700">Department A</text>
-              <text x="80" y="122" textAnchor="middle" fill="#bfdbfe" fontSize="7">នាយកដ្ឋាន ក</text>
-              <rect x="140" y="92" width="100" height="40" rx="7" fill="#1e5799" opacity="0.9"/>
-              <text x="190" y="108" textAnchor="middle" fill="white" fontSize="8" fontWeight="700">Department B</text>
-              <text x="190" y="122" textAnchor="middle" fill="#bfdbfe" fontSize="7">នាយកដ្ឋាន ខ</text>
-              <rect x="250" y="92" width="100" height="40" rx="7" fill="#1e5799" opacity="0.9"/>
-              <text x="300" y="108" textAnchor="middle" fill="white" fontSize="8" fontWeight="700">Department C</text>
-              <text x="300" y="122" textAnchor="middle" fill="#bfdbfe" fontSize="7">នាយកដ្ឋាន គ</text>
-              {/* L3 lines from Dept A */}
-              <line x1="80" y1="132" x2="80" y2="150" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="55" y1="150" x2="105" y2="150" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="55" y1="150" x2="55" y2="160" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="105" y1="150" x2="105" y2="160" stroke="#334155" strokeWidth="1.5"/>
-              <rect x="20" y="160" width="70" height="32" rx="6" fill="#1e4080" opacity="0.85"/>
-              <text x="55" y="175" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="600">Division 1</text>
-              <text x="55" y="187" textAnchor="middle" fill="#93c5fd" fontSize="6.5">ការិយាល័យ</text>
-              <rect x="70" y="160" width="70" height="32" rx="6" fill="#1e4080" opacity="0.85"/>
-              <text x="105" y="175" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="600">Division 2</text>
-              <text x="105" y="187" textAnchor="middle" fill="#93c5fd" fontSize="6.5">ការិយាល័យ</text>
-              {/* L3 from Dept B */}
-              <line x1="190" y1="132" x2="190" y2="160" stroke="#334155" strokeWidth="1.5"/>
-              <rect x="150" y="160" width="80" height="32" rx="6" fill="#1e4080" opacity="0.85"/>
-              <text x="190" y="175" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="600">Office B1</text>
-              <text x="190" y="187" textAnchor="middle" fill="#93c5fd" fontSize="6.5">ការិយាល័យ</text>
-              {/* L3 from Dept C */}
-              <line x1="300" y1="132" x2="300" y2="150" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="270" y1="150" x2="330" y2="150" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="270" y1="150" x2="270" y2="160" stroke="#334155" strokeWidth="1.5"/>
-              <line x1="330" y1="150" x2="330" y2="160" stroke="#334155" strokeWidth="1.5"/>
-              <rect x="232" y="160" width="74" height="32" rx="6" fill="#1e4080" opacity="0.85"/>
-              <text x="269" y="175" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="600">Office C1</text>
-              <text x="269" y="187" textAnchor="middle" fill="#93c5fd" fontSize="6.5">ការិយាល័យ</text>
-              <rect x="296" y="160" width="74" height="32" rx="6" fill="#1e4080" opacity="0.85"/>
-              <text x="333" y="175" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="600">Office C2</text>
-              <text x="333" y="187" textAnchor="middle" fill="#93c5fd" fontSize="6.5">ការិយាល័យ</text>
-              {/* Animated pulse ring */}
-              <circle cx="190" cy="32" r="28" stroke="#0e7d6e" strokeWidth="1" strokeDasharray="4 4" opacity="0.4">
-                <animateTransform attributeName="transform" type="rotate" from="0 190 32" to="360 190 32" dur="10s" repeatCount="indefinite"/>
-              </circle>
-            </svg>
-          </div>
-        </div>
-
-        <div className="landing__hero-scroll">
-          <ChevronDown size={20} className="landing__scroll-icon" />
-        </div>
-      </section>
-
-      {/* ── Features ─────────────────────────────────────── */}
-      <section className="landing__section landing__features" id="features">
-        <div className="landing__section-inner">
-          <div className="landing__section-header">
-            <span className="landing__section-tag">Everything You Need</span>
-            <h2 className="landing__section-title">Built for Government Teams</h2>
-            <p className="landing__section-sub">
-              A complete toolkit for designing, managing, and sharing your organization's structure.
-            </p>
-          </div>
-          <div className="landing__feature-grid">
-            {FEATURES.map((f, i) => (
-              <div className="landing__feature-card" key={i}>
-                <div className="landing__feature-icon" style={{ color: f.color, background: `${f.color}18` }}>
-                  {f.icon}
-                </div>
-                <h3 className="landing__feature-title">{f.title}</h3>
-                <p className="landing__feature-desc">{f.desc}</p>
+                {dropdownOpen && (
+                  <div className="navbar__dropdown">
+                    <Link
+                      to="/profile"
+                      className="navbar__drop-item"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <User size={14} /> Profile Settings
+                    </Link>
+                    <div className="navbar__drop-divider" />
+                    <button
+                      className="navbar__drop-item navbar__drop-item--danger"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut size={14} /> Sign Out
+                    </button>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              style={{
+                fontSize: 13.5, fontWeight: 600, padding: '11px 22px', borderRadius: 100,
+                color: '#fff', background: '#0f5a34', textDecoration: 'none',
+                transition: 'transform .2s ease, box-shadow .2s ease',
+              }}
+            >
+              Staff Login
+            </Link>
+          )}
         </div>
-      </section>
+      </nav>
 
-      {/* ── How It Works ─────────────────────────────────── */}
-      <section className="landing__section landing__how" id="how-it-works">
-        <div className="landing__section-inner">
-          <div className="landing__section-header">
-            <span className="landing__section-tag">Simple Process</span>
-            <h2 className="landing__section-title">Up and Running in Minutes</h2>
-          </div>
-          <div className="landing__steps">
-            {STEPS.map((s, i) => (
-              <div className="landing__step" key={i}>
-                <div className="landing__step-number">{s.n}</div>
-                <div className="landing__step-body">
-                  <h3 className="landing__step-title">{s.title}</h3>
-                  <p className="landing__step-desc">{s.desc}</p>
-                </div>
-                {i < STEPS.length - 1 && <div className="landing__step-arrow"><ArrowRight size={20} /></div>}
+      <main style={{ maxWidth: 1360, margin: '0 auto', paddingBottom: 60 }}>
+        
+        {/* ====== HERO SECTION ====== */}
+        <div style={{ position: 'relative', padding: '80px 64px 60px' }}>
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1.1fr .9fr', gap: 56, alignItems: 'center' }}>
+            {/* Left column */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 34, height: 1, background: 'linear-gradient(90deg, #c9a94d, transparent)' }} />
+                <div style={{ fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', color: '#a4832f' }}>Kingdom of Cambodia · MEF</div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA Banner ───────────────────────────────────── */}
-      <section className="landing__cta-banner">
-        <div className="landing__cta-glow" />
-        <div className="landing__section-inner" style={{ position: 'relative', zIndex: 1 }}>
-          <h2 className="landing__cta-title">Ready to Organize Your Ministry?</h2>
-          <p className="landing__cta-sub">Join GDT staff already using the platform. Free for all GDT users.</p>
-          <Link to="/register" className="landing__btn-primary landing__btn-lg">
-            Create Your Account <ArrowRight size={20} />
-          </Link>
-        </div>
-      </section>
-
-      {/* ── Footer ───────────────────────────────────────── */}
-      <footer className="landing__footer">
-        <div className="landing__section-inner landing__footer-inner">
-          <div className="landing__footer-brand">
-            <span style={{ fontSize: 24 }}>🏛️</span>
-            <div>
-              <div style={{ fontWeight: 700, color: '#d4af37', fontSize: 13 }}>GDT Org Chart</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>General Department of Taxation</div>
+              <h1 style={{
+                margin: 0, fontFamily: '"Source Serif 4", serif',
+                fontSize: 56, lineHeight: 1.15, color: theme === 'dark' ? 'var(--text-primary)' : '#0f5a34', fontWeight: 600, letterSpacing: '-1px',
+              }}>
+                The Department,<br />structured with clarity.
+              </h1>
+              <p style={{ margin: 0, fontSize: 17, lineHeight: 1.75, color: 'var(--text-secondary)', maxWidth: 460, fontWeight: 400 }}>
+                A refined organizational chart platform for the General Department of Taxation — precise reporting lines, always current, built for an institution of record.
+              </p>
+              <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+                <Link
+                  to={user ? "/dashboard" : "/login"}
+                  className="landing-cta-primary"
+                  style={{
+                    position: 'relative', overflow: 'hidden',
+                    background: '#0f5a34', color: '#fff', fontWeight: 600, fontSize: 15,
+                    padding: '16px 30px', borderRadius: 100, textDecoration: 'none',
+                    transition: 'transform .2s ease, box-shadow .2s ease',
+                  }}
+                >
+                  <span style={{ position: 'relative', zIndex: 1 }}>Launch Chart Builder</span>
+                  <span style={{
+                    position: 'absolute', top: 0, left: 0, width: '36%', height: '100%',
+                    background: 'linear-gradient(120deg, transparent, rgba(255,255,255,.28), transparent)',
+                    animation: 'shine 3.8s ease-in-out infinite',
+                  }} />
+                </Link>
+                {!user && (
+                  <Link
+                    to="/login"
+                    style={{
+                      border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontWeight: 600, fontSize: 15,
+                      padding: '16px 30px', borderRadius: 100, textDecoration: 'none',
+                      transition: 'border-color .2s ease, transform .2s ease',
+                      background: 'var(--bg-surface)'
+                    }}
+                  >
+                    Staff Login
+                  </Link>
+                )}
+              </div>
+            </div>
+            {/* Right column — building image + floating badge */}
+            <div style={{ position: 'relative' }}>
+              <div style={{ borderRadius: 20, overflow: 'hidden', boxShadow: '0 40px 80px -24px rgba(0,0,0,.28)' }}>
+                <img src="/building-city.png" alt="GDT headquarters" style={{ width: '100%', display: 'block' }} />
+              </div>
+              {/* Floating "Head Office" badge */}
+              <div style={{
+                position: 'absolute', bottom: -22, left: -22,
+                background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 14,
+                padding: '18px 22px',
+                boxShadow: '0 20px 40px -16px rgba(0,0,0,.22)',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <img src="/gdt-seal.png" alt="GDT Seal" style={{ width: 30, height: 30, objectFit: 'contain' }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Head Office</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Phnom Penh, Cambodia</div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="landing__footer-links">
-            <Link to="/login" className="landing__footer-link">Sign In</Link>
-            <Link to="/register" className="landing__footer-link">Register</Link>
+        </div>
+
+        {/* ====== FEATURES SECTION ====== */}
+        <div style={{ padding: '80px 64px 72px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 48, gap: 40 }}>
+            <h2 style={{
+              margin: 0, fontFamily: '"Source Serif 4", serif',
+              fontSize: 32, color: theme === 'dark' ? 'var(--text-primary)' : '#0f5a34', fontWeight: 600, letterSpacing: '-.5px', maxWidth: 440,
+            }}>
+              Built for an institution that never stops evolving.
+            </h2>
+            <div style={{ width: 64, height: 1, background: '#c9a94d', flex: 'none', marginBottom: 10 }} />
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-            © {new Date().getFullYear()} Ministry of Economy and Finance — Cambodia
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1,
+            background: 'var(--border-subtle)', borderRadius: 16, overflow: 'hidden',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            {[
+              { n: '01', title: 'Build the structure', desc: 'Add departments, units, and positions on a precise drag-and-drop canvas.' },
+              { n: '02', title: 'Keep it current', desc: 'Update reporting lines and personnel the moment the Department changes.' },
+              { n: '03', title: 'Share and export', desc: 'Publish the live chart for staff, or export a polished version for print.' },
+            ].map((f) => (
+              <div key={f.n} style={{
+                background: 'var(--bg-surface)', padding: '40px 32px',
+                display: 'flex', flexDirection: 'column', gap: 14,
+                transition: 'transform .25s ease',
+              }}>
+                <div style={{ fontFamily: '"Source Serif 4", serif', fontSize: 13, color: '#a4832f', fontWeight: 600 }}>{f.n}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{f.title}</div>
+                <div style={{ fontSize: 14.5, lineHeight: 1.7, color: 'var(--text-secondary)' }}>{f.desc}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </footer>
+
+        {/* ====== CTA BAND ====== */}
+        <div style={{ padding: '0 64px 72px' }}>
+          <div style={{
+            borderRadius: 20,
+            background: 'linear-gradient(135deg, #0f5a34, #0a3b21)',
+            boxShadow: '0 24px 48px -12px rgba(15,90,52,.35)',
+            padding: '56px 64px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32,
+          }}>
+            <div>
+              <div style={{ fontFamily: '"Source Serif 4", serif', fontSize: 26, color: '#ffffff', fontWeight: 600, marginBottom: 8 }}>
+                Ready to see the full structure?
+              </div>
+              <div style={{ fontSize: 14.5, color: 'rgba(255,255,255,.7)' }}>
+                Open the live chart builder for the Department.
+              </div>
+            </div>
+            <Link
+              to={user ? "/dashboard" : "/login"}
+              style={{
+                flex: 'none',
+                background: 'linear-gradient(135deg, #e9dca6, #c9a94d)',
+                color: '#0c0f0d', fontWeight: 700, fontSize: 14.5,
+                padding: '16px 30px', borderRadius: 100, textDecoration: 'none',
+                transition: 'transform .2s, box-shadow .2s',
+              }}
+            >
+              Launch Chart Builder
+            </Link>
+          </div>
+        </div>
+
+        {/* ====== FOOTER ====== */}
+        <div style={{
+          padding: '26px 64px 0',
+          borderTop: '1px solid var(--border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>Ministry of Economy and Finance, Kingdom of Cambodia</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>© General Department of Taxation</div>
+        </div>
+      </main>
     </div>
   );
 }

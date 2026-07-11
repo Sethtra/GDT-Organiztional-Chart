@@ -23,7 +23,9 @@ export default function SearchBar({ nodes, onFlyTo, onHighlight, onClose }) {
       const name = (n.data?.name || "").toLowerCase();
       const nameEn = (n.data?.nameEn || "").toLowerCase();
       const type = (n.data?.orgType || "").toLowerCase();
-      return name.includes(q) || nameEn.includes(q) || type.includes(q);
+      const dept = (n.data?.department || "").toLowerCase();
+      const office = (n.data?.office || "").toLowerCase();
+      return name.includes(q) || nameEn.includes(q) || type.includes(q) || dept.includes(q) || office.includes(q);
     });
     setResults(matched);
     setActiveIdx(0);
@@ -59,7 +61,7 @@ export default function SearchBar({ nodes, onFlyTo, onHighlight, onClose }) {
           <input
             ref={inputRef}
             className="searchbar-input"
-            placeholder="Search nodes by name or type..."
+            placeholder="Search nodes by name, type, department, or office..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -82,10 +84,24 @@ export default function SearchBar({ nodes, onFlyTo, onHighlight, onClose }) {
               >
                 <span
                   className="searchbar-result-dot"
-                  style={{ background: node.data?.color || "#1e5799" }}
+                  style={{ background: node.data?.color || "var(--default-node-bg)" }}
                 />
-                <span className="searchbar-result-name">{node.data?.nameEn || node.data?.name}</span>
-                <span className="searchbar-result-type">{node.data?.orgType}</span>
+                <span className="searchbar-result-name">
+                  {node.data?.name || node.data?.nameEn}
+                  {node.data?.name && node.data?.nameEn && (
+                    <span style={{ opacity: 0.6, fontSize: '0.9em', marginLeft: 6 }}>
+                      ({node.data?.nameEn})
+                    </span>
+                  )}
+                </span>
+                <span className="searchbar-result-type">
+                  {node.data?.orgType}
+                  {(node.data?.department || node.data?.office) && (
+                    <span style={{ opacity: 0.6, marginLeft: 6 }}>
+                      ({[node.data?.department, node.data?.office].filter(Boolean).join(" - ")})
+                    </span>
+                  )}
+                </span>
               </button>
             ))}
           </div>

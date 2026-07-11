@@ -1,6 +1,11 @@
 import { memo, useState, useContext } from "react";
 import { Handle, Position, NodeResizer } from "@xyflow/react";
-import { Pencil, ChevronDown, ChevronRight, Link as LinkIcon } from "lucide-react";
+import {
+  Pencil,
+  ChevronDown,
+  ChevronRight,
+  Link as LinkIcon,
+} from "lucide-react";
 import { ChartContext } from "../App";
 import { TYPE_META } from "../data/nodeTypes";
 
@@ -9,7 +14,7 @@ const OrgNode = memo(({ id, data, selected }) => {
   const context = useContext(ChartContext);
 
   const meta = TYPE_META[data.orgType] || TYPE_META.office;
-  const bgColor = data.color || "#1e5799";
+  const bgColor = data.color || "var(--default-node-bg)";
   const textColor = data.textColor || "#ffffff";
 
   // Dynamic properties from context
@@ -29,7 +34,10 @@ const OrgNode = memo(({ id, data, selected }) => {
   // none (see index.css) so they sit visually on top of this node's
   // connector handles without blocking drag-to-connect on them.
   if (meta.isPerson) {
-    const initials = (data.nameEn || data.name || "?").trim().charAt(0).toUpperCase();
+    const initials = (data.nameEn || data.name || "?")
+      .trim()
+      .charAt(0)
+      .toUpperCase();
     return (
       <div
         className={`org-node org-node--person ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
@@ -44,10 +52,36 @@ const OrgNode = memo(({ id, data, selected }) => {
           handleStyle={{ borderColor: "#e9dca6", background: "#fff" }}
         />
 
-        <Handle type="source" position={Position.Top}    id="top"    className="flow-handle" />
-        <Handle type="source" position={Position.Bottom} id="bottom" className="flow-handle" />
-        <Handle type="source" position={Position.Left}   id="left"   className="flow-handle" />
-        <Handle type="source" position={Position.Right}  id="right"  className="flow-handle" />
+        <Handle
+          type="source"
+          position={Position.Top}
+          id="top"
+          className="flow-handle"
+        />
+        {data.type !== 'officer' && (
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="bottom"
+            className="flow-handle"
+          />
+        )}
+        {data.type !== 'officer' && (
+          <Handle
+            type="source"
+            position={Position.Left}
+            id="left"
+            className="flow-handle"
+          />
+        )}
+        {data.type !== 'officer' && (
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="right"
+            className="flow-handle"
+          />
+        )}
 
         <span className="person-node__dots">
           <span className="person-node__dot" />
@@ -56,31 +90,46 @@ const OrgNode = memo(({ id, data, selected }) => {
         </span>
 
         {data.linkedChartId && (
-          <span title="Linked to another chart" className="person-node__link-badge">
+          <span
+            title="Linked to another chart"
+            className="person-node__link-badge"
+          >
             <LinkIcon size={9} />
           </span>
         )}
 
-        <div className="person-node__avatar" style={{ background: meta.accent }}>
+        <div
+          className="person-node__avatar"
+          style={{ "--avatar-accent": meta.accent }}
+        >
           {initials}
         </div>
 
         <div className="person-node__body">
-          <div className="person-node__name" style={{ fontSize: `${fontSize + 2.5}px` }}>
+          <div
+            className="person-node__name"
+            style={{ fontSize: `${fontSize + 2.5}px` }}
+          >
             {data.name || "ឈ្មោះ"}
           </div>
-          <div className="person-node__position">
-            {meta.label}
-          </div>
+          <div className="person-node__position">{meta.label}</div>
         </div>
 
-        {teamSize > 0 && (
+        {teamSize > 0 && data.type !== 'officer' && (
           <span
             className={`person-node__team ${isCollapsed ? "person-node__team--collapsed" : ""}`}
-            title={isCollapsed ? `${teamSize} people under them (subtree collapsed)` : `${teamSize} people under them`}
+            title={
+              isCollapsed
+                ? `${teamSize} people under them (subtree collapsed)`
+                : `${teamSize} people under them`
+            }
           >
             {teamSize}
-            {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+            {isCollapsed ? (
+              <ChevronRight size={11} />
+            ) : (
+              <ChevronDown size={11} />
+            )}
           </span>
         )}
       </div>
@@ -90,7 +139,11 @@ const OrgNode = memo(({ id, data, selected }) => {
   return (
     <div
       className={`org-node ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
-      style={{ "--node-bg": bgColor, "--node-accent": meta.accent, color: textColor }}
+      style={{
+        "--node-bg": bgColor,
+        "--node-accent": meta.accent,
+        color: textColor,
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -104,25 +157,58 @@ const OrgNode = memo(({ id, data, selected }) => {
       />
 
       {/* Connection handles */}
-      <Handle type="source" position={Position.Top}    id="top"    className="flow-handle" />
-      <Handle type="source" position={Position.Bottom} id="bottom" className="flow-handle" />
-      <Handle type="source" position={Position.Left}   id="left"   className="flow-handle" />
-      <Handle type="source" position={Position.Right}  id="right"  className="flow-handle" />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        className="flow-handle"
+      />
 
       {/* Colored top accent bar */}
       <div className="org-node__bar" />
 
       {/* Header: type badge + hints — hidden for 'simple' type */}
       <div className="org-node__header">
-        {data.orgType !== 'simple' && (
-          <span className="org-node__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
+        {data.orgType !== "simple" && (
+          <span
+            className="org-node__badge"
+            style={{ color: meta.accent, borderColor: meta.accent }}
+          >
             {meta.label}
           </span>
         )}
-        <div className="org-node__header-right" style={data.orgType === 'simple' ? { marginLeft: 'auto' } : {}}>
+        <div
+          className="org-node__header-right"
+          style={data.orgType === "simple" ? { marginLeft: "auto" } : {}}
+        >
           {childCount > 0 && (
-            <span className="org-node__child-count" style={{ color: meta.accent }}>
-              {isCollapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+            <span
+              className="org-node__child-count"
+              style={{ color: meta.accent }}
+            >
+              {isCollapsed ? (
+                <ChevronRight size={10} />
+              ) : (
+                <ChevronDown size={10} />
+              )}
               {childCount}
             </span>
           )}
@@ -132,8 +218,19 @@ const OrgNode = memo(({ id, data, selected }) => {
             </span>
           )}
           {data.linkedChartId && (
-            <span title="Linked to another chart" style={{ display: 'inline-flex', alignItems: 'center', padding: '1px 5px', background: 'rgba(14,125,110,0.25)', borderRadius: 4, border: '1px solid rgba(14,125,110,0.5)', marginLeft: 2 }}>
-              <LinkIcon size={9} style={{ color: '#0e7d6e' }} />
+            <span
+              title="Linked to another chart"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "1px 5px",
+                background: "rgba(14,125,110,0.25)",
+                borderRadius: 4,
+                border: "1px solid rgba(14,125,110,0.5)",
+                marginLeft: 2,
+              }}
+            >
+              <LinkIcon size={9} style={{ color: "#0e7d6e" }} />
             </span>
           )}
         </div>
@@ -143,24 +240,34 @@ const OrgNode = memo(({ id, data, selected }) => {
       <div
         className="org-node__body"
         style={{
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
           justifyContent: textVerticalAlign,
           textAlign: textAlign,
           flex: 1,
         }}
       >
-        <div className="org-node__name" style={{ fontSize: `${fontSize}px` }}>{data.name || "ឈ្មោះ"}</div>
+        <div className="org-node__name" style={{ fontSize: `${fontSize}px` }}>
+          {data.name || "ឈ្មោះ"}
+        </div>
         {data.nameEn && (
-          <div className="org-node__name-en" style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}>{data.nameEn}</div>
+          <div
+            className="org-node__name-en"
+            style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}
+          >
+            {data.nameEn}
+          </div>
         )}
         {data.description && (
-          <div className="org-node__desc" style={{ fontSize: `${Math.max(8, fontSize - 4)}px` }}>{data.description}</div>
+          <div
+            className="org-node__desc"
+            style={{ fontSize: `${Math.max(8, fontSize - 4)}px` }}
+          >
+            {data.description}
+          </div>
         )}
         {isCollapsed && childCount > 0 && (
-          <div className="org-node__collapsed-badge">
-            ▶ {childCount} hidden
-          </div>
+          <div className="org-node__collapsed-badge">▶ {childCount} hidden</div>
         )}
       </div>
     </div>

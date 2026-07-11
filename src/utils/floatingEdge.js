@@ -100,13 +100,12 @@ export function getFloatingEdgeParams(sourceNode, targetNode) {
 
 // For a STATIC edge (locked to a specific handle the user manually chose —
 // e.g. dragged from node A's left side to node B's top) the SIDE must stay
-// exactly what was picked; only a person card's top/bottom needs its
-// position nudged past the overlapping avatar/team pill. Returns null for
-// non-person nodes (or left/right sides) so the caller's raw React-Flow
-// coordinate is used unchanged, and null if the node isn't resolvable yet.
-export function getPersonStaticAnchor(node, position) {
+// exactly what was picked. This ensures we calculate the EXACT center of that
+// side, bypassing React Flow's default behavior of slightly offsetting
+// overlapping edges (which caused perfectly vertical parent->child trunks to
+// split into multiple slightly unaligned lines).
+export function getStaticAnchor(node, position) {
   if (!node?.internals?.positionAbsolute) return null;
-  if (!TYPE_META[node.data?.orgType]?.isPerson) return null;
-  if (position !== Position.Top && position !== Position.Bottom) return null;
-  return getPort(getNodeRect(node), position, true);
+  const isPerson = !!TYPE_META[node.data?.orgType]?.isPerson;
+  return getPort(getNodeRect(node), position, isPerson);
 }

@@ -8,7 +8,7 @@ import { TYPE_META, TYPE_OPTIONS } from "../data/nodeTypes";
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
   { label: "Teal",   value: "#0e7d6e" },
-  { label: "Blue",   value: "#1e5799" },
+  { label: "Blue",   value: "var(--default-node-bg)" },
   { label: "Sky",    value: "#0369a1" },
   { label: "Purple", value: "#6d28d9" },
   { label: "Violet", value: "#7c3aed" },
@@ -355,7 +355,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [nameEn, setNameEn]           = useState(firstNode.data.nameEn || "");
   const [description, setDescription] = useState(firstNode.data.description || "");
   const [orgType, setOrgType]         = useState(firstNode.data.orgType || "office");
-  const [color, setColor]             = useState(firstNode.data.color || "#1e5799");
+  const [color, setColor]             = useState(firstNode.data.color || "var(--default-node-bg)");
   const [textColor, setTextColor]     = useState(firstNode.data.textColor || "#ffffff");
   const [linkedChartId, setLinkedChartId] = useState(firstNode.data.linkedChartId || "");
   const [fontSize, setFontSize]           = useState(firstNode.data.fontSize || 13);
@@ -363,6 +363,8 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [textVerticalAlign, setTextVerticalAlign] = useState(firstNode.data.textVerticalAlign || "center");
   // Person-node personal details (shown in the ProfileDrawer on click)
   const [staffId, setStaffId]             = useState(firstNode.data.staffId || "");
+  const [department, setDepartment]       = useState(firstNode.data.department || "");
+  const [office, setOffice]               = useState(firstNode.data.office || "");
   const [joinDate, setJoinDate]           = useState(firstNode.data.joinDate || "");
   const [phone, setPhone]                 = useState(firstNode.data.phone || "");
   const [address, setAddress]             = useState(firstNode.data.address || "");
@@ -410,13 +412,15 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setNameEn(fresh.data.nameEn || "");
     setDescription(fresh.data.description || "");
     setOrgType(fresh.data.orgType || "office");
-    setColor(fresh.data.color || "#1e5799");
+    setColor(fresh.data.color || "var(--default-node-bg)");
     setTextColor(fresh.data.textColor || "#ffffff");
     setLinkedChartId(fresh.data.linkedChartId || "");
     setFontSize(fresh.data.fontSize || 13);
     setTextAlign(fresh.data.textAlign || "center");
     setTextVerticalAlign(fresh.data.textVerticalAlign || "center");
     setStaffId(fresh.data.staffId || "");
+    setDepartment(fresh.data.department || "");
+    setOffice(fresh.data.office || "");
     setJoinDate(fresh.data.joinDate || "");
     setPhone(fresh.data.phone || "");
     setAddress(fresh.data.address || "");
@@ -437,7 +441,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     if (!isMultiSelectRef.current) {
       Object.assign(payload, {
         name, nameEn, description, linkedChartId,
-        staffId, joinDate, phone, address, maritalStatus, siblings, education, skill,
+        staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill,
       });
     }
     return payload;
@@ -450,7 +454,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     const t = setTimeout(() => { onUpdateNodesRef.current(buildPayload()); }, 250);
     return () => clearTimeout(t);
   }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign,
-      staffId, joinDate, phone, address, maritalStatus, siblings, education, skill]);
+      staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill]);
 
   const handleSave = () => {
     onUpdateNodesRef.current(buildPayload());
@@ -507,6 +511,12 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
 
           <label className="pp-label">Staff ID</label>
           <input className="pp-input" value={staffId} onChange={(e) => setStaffId(e.target.value)} placeholder="e.g. GDT-0421" />
+
+          <label className="pp-label">Department</label>
+          <input className="pp-input" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. IT Department" />
+
+          <label className="pp-label">Office</label>
+          <input className="pp-input" value={office} onChange={(e) => setOffice(e.target.value)} placeholder="e.g. Software Dev Office" />
 
           <label className="pp-label">Join Date</label>
           <input type="date" className="pp-input" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} style={{ colorScheme: "dark" }} />

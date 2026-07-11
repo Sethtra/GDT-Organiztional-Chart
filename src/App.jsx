@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, useRef, useMemo, createContext } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  useMemo,
+  createContext,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -23,9 +30,24 @@ import { toPng } from "html-to-image";
 import "@xyflow/react/dist/style.css";
 
 import {
-  Plus, LayoutGrid, ArrowDownUp, ArrowLeftRight,
-  Undo2, Redo2, Eye, EyeOff, Download, Save, Sun, Moon,
-  Search as SearchIcon, Keyboard, CheckCircle2, Loader2, Share2, X,
+  Plus,
+  LayoutGrid,
+  ArrowDownUp,
+  ArrowLeftRight,
+  Undo2,
+  Redo2,
+  Eye,
+  EyeOff,
+  Download,
+  Save,
+  Sun,
+  Moon,
+  Search as SearchIcon,
+  Keyboard,
+  CheckCircle2,
+  Loader2,
+  Share2,
+  X,
 } from "lucide-react";
 
 import OrgNode from "./components/OrgNode";
@@ -63,7 +85,13 @@ const edgeTypes = { custom: CustomEdge };
 const DEFAULT_EDGE_OPTIONS = {
   type: "custom",
   animated: false,
-  data: { strokeColor: "#4b8fd4", strokeWidth: 2, arrowType: "closed", arrowStart: "none", label: "" },
+  data: {
+    strokeColor: "#4b8fd4",
+    strokeWidth: 2,
+    arrowType: "closed",
+    arrowStart: "none",
+    label: "",
+  },
 };
 
 // Older/legacy charts (e.g. anything seeded before the GDT template edges
@@ -74,7 +102,13 @@ const DEFAULT_EDGE_OPTIONS = {
 // so old charts self-heal instead of needing a manual data migration.
 function normalizeEdges(edges) {
   return (edges || []).map((e) =>
-    e.type === "custom" ? e : { ...e, type: "custom", data: { ...DEFAULT_EDGE_OPTIONS.data, ...e.data } }
+    e.type === "custom"
+      ? e
+      : {
+          ...e,
+          type: "custom",
+          data: { ...DEFAULT_EDGE_OPTIONS.data, ...e.data },
+        },
   );
 }
 
@@ -92,7 +126,9 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const [loading, setLoading] = useState(true);
   const [chartName, setChartName] = useState("Untitled Chart");
   // Report the loaded chart's display name up to EditorShell for the tab label.
-  useEffect(() => { onChartName?.(chartName); }, [chartName, onChartName]);
+  useEffect(() => {
+    onChartName?.(chartName);
+  }, [chartName, onChartName]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
   // Person nodes open as a read-only profile first; Edit switches to the
@@ -141,7 +177,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   edgesRef.current = edges;
 
   const takeSnapshot = useCallback(() => {
-    setPast((p) => [...p.slice(-30), { nodes: nodesRef.current, edges: edgesRef.current }]);
+    setPast((p) => [
+      ...p.slice(-30),
+      { nodes: nodesRef.current, edges: edgesRef.current },
+    ]);
     setFuture([]);
   }, []);
 
@@ -173,9 +212,9 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const pasteNode = useCallback(() => {
     if (!clipboard || clipboard.length === 0) return;
     takeSnapshot();
-    
+
     const idMap = {};
-    const newNodes = clipboard.map(n => {
+    const newNodes = clipboard.map((n) => {
       const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
       idMap[n.id] = newId;
       return {
@@ -187,7 +226,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     });
 
     const newEdges = [];
-    edges.forEach(e => {
+    edges.forEach((e) => {
       if (idMap[e.source] && idMap[e.target]) {
         newEdges.push({
           ...e,
@@ -200,14 +239,13 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     });
 
     setNodes((nds) => [
-      ...nds.map(n => ({ ...n, selected: false })),
-      ...newNodes
+      ...nds.map((n) => ({ ...n, selected: false })),
+      ...newNodes,
     ]);
     setEdges((eds) => [...eds, ...newEdges]);
-    
+
     setClipboard(newNodes);
   }, [clipboard, setNodes, setEdges, edges, takeSnapshot]);
-
 
   // ── Save ─────────────────────────────────────────────────────
   // Shared by the debounced autosave effect and the manual Save button, so
@@ -216,7 +254,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const performSave = useCallback(async () => {
     const nodesStr = JSON.stringify(nodes);
     const edgesStr = JSON.stringify(edges);
-    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) {
+    if (
+      nodesStr === lastSyncData.current.nodes &&
+      edgesStr === lastSyncData.current.edges
+    ) {
       setSaveStatus("saved");
       return;
     }
@@ -227,8 +268,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
     // Guard against accidentally saving a near-empty chart over real data
     // (e.g. a bulk-select-delete misfire).
-    if (prevNodeCount > 5 && (currNodeCount < 3 || currNodeCount < prevNodeCount * 0.3)) {
-      if (!window.confirm(`Warning: You are about to save a state with only ${currNodeCount} nodes (down from ${prevNodeCount}). This will overwrite your data in the database. Are you absolutely sure you want to proceed?`)) {
+    if (
+      prevNodeCount > 5 &&
+      (currNodeCount < 3 || currNodeCount < prevNodeCount * 0.3)
+    ) {
+      if (
+        !window.confirm(
+          `Warning: You are about to save a state with only ${currNodeCount} nodes (down from ${prevNodeCount}). This will overwrite your data in the database. Are you absolutely sure you want to proceed?`,
+        )
+      ) {
         setNodes(prevNodes);
         setEdges(JSON.parse(lastSyncData.current.edges || "[]"));
         setSaveStatus("saved");
@@ -238,14 +286,26 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
     setSaveStatus("saving");
     lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
-    await supabase.from("charts").update({ nodes, edges, updated_at: new Date().toISOString() }).eq("id", chartId);
+    await supabase
+      .from("charts")
+      .update({ nodes, edges, updated_at: new Date().toISOString() })
+      .eq("id", chartId);
 
     // Auto-save version history every 5 minutes
-    const lastVersionTimeStr = localStorage.getItem(`last_version_time_${chartId}`);
-    const lastVersionTime = lastVersionTimeStr ? parseInt(lastVersionTimeStr, 10) : 0;
+    const lastVersionTimeStr = localStorage.getItem(
+      `last_version_time_${chartId}`,
+    );
+    const lastVersionTime = lastVersionTimeStr
+      ? parseInt(lastVersionTimeStr, 10)
+      : 0;
     if (Date.now() - lastVersionTime > 5 * 60 * 1000) {
-      await supabase.from("chart_versions").insert({ chart_id: chartId, nodes, edges });
-      localStorage.setItem(`last_version_time_${chartId}`, Date.now().toString());
+      await supabase
+        .from("chart_versions")
+        .insert({ chart_id: chartId, nodes, edges });
+      localStorage.setItem(
+        `last_version_time_${chartId}`,
+        Date.now().toString(),
+      );
     }
 
     setSaveStatus("saved");
@@ -253,7 +313,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
   // ── Load data ────────────────────────────────────────────────
   useEffect(() => {
-    if (!chartId) { navigate('/dashboard'); return; }
+    if (!chartId) {
+      navigate("/dashboard");
+      return;
+    }
 
     async function loadData() {
       const { data } = await supabase
@@ -271,9 +334,14 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         if (data.owner_id === user?.id) {
           editAccess = true;
           ownerStatus = true;
-        }
-        else if (data.is_public && data.public_access_level === 'edit') editAccess = true;
-        else if (user && data.chart_shares?.some(s => s.shared_email === user.email && s.access_level === 'edit')) {
+        } else if (data.is_public && data.public_access_level === "edit")
+          editAccess = true;
+        else if (
+          user &&
+          data.chart_shares?.some(
+            (s) => s.shared_email === user.email && s.access_level === "edit",
+          )
+        ) {
           editAccess = true;
         }
         setCanEdit(editAccess);
@@ -286,7 +354,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         // permanently healing any chart saved before edges carried a `type`.
         setNodes(data.nodes || []);
         setEdges(normalizeEdges(data.edges));
-        lastSyncData.current = { nodes: JSON.stringify(data.nodes || []), edges: JSON.stringify(data.edges || []) };
+        lastSyncData.current = {
+          nodes: JSON.stringify(data.nodes || []),
+          edges: JSON.stringify(data.edges || []),
+        };
 
         // Local-backup safety net: recover unsaved work if the browser closed
         // (or refreshed) before the debounced save finished. Compares BOTH
@@ -294,27 +365,36 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         // change (e.g. drawing one new connector, no new node) used to be
         // invisible to this check and would silently vanish on reload.
         try {
-          const localBackupStr = localStorage.getItem(`chart_backup_${chartId}`);
+          const localBackupStr = localStorage.getItem(
+            `chart_backup_${chartId}`,
+          );
           if (localBackupStr) {
             const localBackup = JSON.parse(localBackupStr);
-            const serverIsNewer = data.updated_at && localBackup.timestamp
-              ? new Date(data.updated_at).getTime() >= localBackup.timestamp
-              : false;
+            const serverIsNewer =
+              data.updated_at && localBackup.timestamp
+                ? new Date(data.updated_at).getTime() >= localBackup.timestamp
+                : false;
             const localHasMore =
               (localBackup.nodes?.length || 0) > (data.nodes?.length || 0) ||
               (localBackup.edges?.length || 0) > (data.edges?.length || 0);
             if (!serverIsNewer && localHasMore) {
-              if (window.confirm("A local backup was found with unsaved changes not present on the server. Do you want to recover it?")) {
+              if (
+                window.confirm(
+                  "A local backup was found with unsaved changes not present on the server. Do you want to recover it?",
+                )
+              ) {
                 setNodes(localBackup.nodes);
                 setEdges(normalizeEdges(localBackup.edges));
                 lastSyncData.current = { nodes: "[]", edges: "[]" }; // Force a resync
               }
             }
           }
-        } catch (e) { console.error("Error reading local backup", e); }
+        } catch (e) {
+          console.error("Error reading local backup", e);
+        }
       } else {
         // Chart not found — go back to dashboard
-        navigate('/dashboard');
+        navigate("/dashboard");
         return;
       }
       setLoading(false);
@@ -332,24 +412,33 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     // debounced) so even an edit that hasn't reached the DB yet is
     // recoverable via the load-time backup check.
     try {
-      localStorage.setItem(`chart_backup_${chartId}`, JSON.stringify({ nodes, edges, timestamp: Date.now() }));
+      localStorage.setItem(
+        `chart_backup_${chartId}`,
+        JSON.stringify({ nodes, edges, timestamp: Date.now() }),
+      );
     } catch (e) {
       console.warn("Failed to save to localStorage", e);
     }
 
-    if (nodesStr === lastSyncData.current.nodes && edgesStr === lastSyncData.current.edges) return;
+    if (
+      nodesStr === lastSyncData.current.nodes &&
+      edgesStr === lastSyncData.current.edges
+    )
+      return;
 
-    const timeoutId = setTimeout(() => { performSave(); }, 350);
+    const timeoutId = setTimeout(() => {
+      performSave();
+    }, 350);
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, loading, canEdit, chartId, performSave]);
 
   // ── Sync selected nodes ────────────────────────────────────────
   useEffect(() => {
     if (selectedNodes.length > 0) {
-      const ids = new Set(selectedNodes.map(n => n.id));
-      const freshNodes = nodes.filter(n => ids.has(n.id) && n.selected);
+      const ids = new Set(selectedNodes.map((n) => n.id));
+      const freshNodes = nodes.filter((n) => ids.has(n.id) && n.selected);
       if (freshNodes.length !== selectedNodes.length) {
-         setSelectedNodes(freshNodes);
+        setSelectedNodes(freshNodes);
       }
     }
     if (selectedEdge) {
@@ -363,12 +452,14 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     const hidden = new Set();
     if (collapsedNodes.size > 0) {
       function collectDescendants(nodeId) {
-        edges.filter((e) => e.source === nodeId).forEach((e) => {
-          if (!hidden.has(e.target)) {
-            hidden.add(e.target);
-            collectDescendants(e.target);
-          }
-        });
+        edges
+          .filter((e) => e.source === nodeId)
+          .forEach((e) => {
+            if (!hidden.has(e.target)) {
+              hidden.add(e.target);
+              collectDescendants(e.target);
+            }
+          });
       }
       collapsedNodes.forEach((id) => collectDescendants(id));
     }
@@ -399,23 +490,38 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     nodes.forEach((n) => countDescendants(n.id));
 
     const vNodes = nodes.filter((n) => !hidden.has(n.id));
-    const vEdges = edges.filter((e) => !hidden.has(e.source) && !hidden.has(e.target));
+    const vEdges = edges.filter(
+      (e) => !hidden.has(e.source) && !hidden.has(e.target),
+    );
 
-    return { visibleNodes: vNodes, visibleEdges: vEdges, childCounts: cCounts, teamSizes: tSizes };
+    return {
+      visibleNodes: vNodes,
+      visibleEdges: vEdges,
+      childCounts: cCounts,
+      teamSizes: tSizes,
+    };
   }, [nodes, edges, collapsedNodes]);
 
   // ── Handlers ──────────────────────────────────────────────────
-  const onNodeDragStart = useCallback(() => { takeSnapshot(); }, [takeSnapshot]);
-
-  const onConnect = useCallback((params) => {
+  const onNodeDragStart = useCallback(() => {
     takeSnapshot();
-    setEdges((eds) => addEdge({ ...params, ...DEFAULT_EDGE_OPTIONS }, eds));
-  }, [setEdges, takeSnapshot]);
+  }, [takeSnapshot]);
 
-  const onReconnect = useCallback((oldEdge, newConnection) => {
-    takeSnapshot();
-    setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
-  }, [setEdges, takeSnapshot]);
+  const onConnect = useCallback(
+    (params) => {
+      takeSnapshot();
+      setEdges((eds) => addEdge({ ...params, ...DEFAULT_EDGE_OPTIONS }, eds));
+    },
+    [setEdges, takeSnapshot],
+  );
+
+  const onReconnect = useCallback(
+    (oldEdge, newConnection) => {
+      takeSnapshot();
+      setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
+    },
+    [setEdges, takeSnapshot],
+  );
 
   const onSelectionChange = useCallback(({ nodes, edges }) => {
     setSelectedNodes(nodes);
@@ -424,7 +530,11 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   }, []);
 
   const onNodeClick = useCallback((evt, node) => {
-    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+    if (
+      document.activeElement &&
+      (document.activeElement.tagName === "INPUT" ||
+        document.activeElement.tagName === "TEXTAREA")
+    ) {
       document.activeElement.blur();
     }
     setContextMenu(null);
@@ -436,90 +546,127 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   }, []);
 
   const onEdgeClick = useCallback((_evt, edge) => {
-    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+    if (
+      document.activeElement &&
+      (document.activeElement.tagName === "INPUT" ||
+        document.activeElement.tagName === "TEXTAREA")
+    ) {
       document.activeElement.blur();
     }
   }, []);
 
   const onPaneClick = useCallback(() => {
-    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
+    if (
+      document.activeElement &&
+      (document.activeElement.tagName === "INPUT" ||
+        document.activeElement.tagName === "TEXTAREA")
+    ) {
       document.activeElement.blur();
     }
     setContextMenu(null);
   }, []);
 
-  const onNodeContextMenu = useCallback((evt, node) => {
-    if (document.activeElement && (document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA")) {
-      document.activeElement.blur();
-    }
-    evt.preventDefault();
-    setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
-    if (!node.selected) {
-      setNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
-    }
-  }, [setNodes]);
+  const onNodeContextMenu = useCallback(
+    (evt, node) => {
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === "INPUT" ||
+          document.activeElement.tagName === "TEXTAREA")
+      ) {
+        document.activeElement.blur();
+      }
+      evt.preventDefault();
+      setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
+      if (!node.selected) {
+        setNodes((nds) =>
+          nds.map((n) => ({ ...n, selected: n.id === node.id })),
+        );
+      }
+    },
+    [setNodes],
+  );
 
-  const updateSelectedNodes = useCallback((data) => {
-    takeSnapshot();
-    setNodes((nds) => nds.map((n) => (n.selected ? { ...n, data: { ...n.data, ...data } } : n)));
-  }, [setNodes, takeSnapshot]);
+  const updateSelectedNodes = useCallback(
+    (data) => {
+      takeSnapshot();
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.selected ? { ...n, data: { ...n.data, ...data } } : n,
+        ),
+      );
+    },
+    [setNodes, takeSnapshot],
+  );
 
-  const updateEdgeProperties = useCallback((id, edgeData) => {
-    takeSnapshot();
-    setEdges((eds) => eds.map((e) => (e.id === id ? { ...e, ...edgeData } : e)));
-  }, [setEdges, takeSnapshot]);
+  const updateEdgeProperties = useCallback(
+    (id, edgeData) => {
+      takeSnapshot();
+      setEdges((eds) =>
+        eds.map((e) => (e.id === id ? { ...e, ...edgeData } : e)),
+      );
+    },
+    [setEdges, takeSnapshot],
+  );
 
   const deleteNodes = useCallback(() => {
     takeSnapshot();
-    const ids = new Set(selectedNodes.map(n => n.id));
+    const ids = new Set(selectedNodes.map((n) => n.id));
     setNodes((nds) => nds.filter((n) => !ids.has(n.id)));
-    setEdges((eds) => eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)));
+    setEdges((eds) =>
+      eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
+    );
   }, [selectedNodes, setNodes, setEdges, takeSnapshot]);
 
-  const duplicateNodes = useCallback((nodesToDuplicate) => {
-    if (!nodesToDuplicate || nodesToDuplicate.length === 0) return;
-    takeSnapshot();
-    
-    const idMap = {};
-    const newNodes = nodesToDuplicate.map(n => {
-      const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-      idMap[n.id] = newId;
-      return {
-        ...n,
-        id: newId,
-        position: { x: n.position.x + 40, y: n.position.y + 40 },
-        selected: true,
-      };
-    });
+  const duplicateNodes = useCallback(
+    (nodesToDuplicate) => {
+      if (!nodesToDuplicate || nodesToDuplicate.length === 0) return;
+      takeSnapshot();
 
-    const newEdges = [];
-    edges.forEach(e => {
-      if (idMap[e.source] && idMap[e.target]) {
-        newEdges.push({
-          ...e,
-          id: `e-${idMap[e.source]}-${idMap[e.target]}`,
-          source: idMap[e.source],
-          target: idMap[e.target],
-          selected: false,
-        });
-      }
-    });
+      const idMap = {};
+      const newNodes = nodesToDuplicate.map((n) => {
+        const newId = `node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        idMap[n.id] = newId;
+        return {
+          ...n,
+          id: newId,
+          position: { x: n.position.x + 40, y: n.position.y + 40 },
+          selected: true,
+        };
+      });
 
-    setNodes((nds) => [
-      ...nds.map(n => ({ ...n, selected: false })),
-      ...newNodes
-    ]);
-    setEdges((eds) => [...eds, ...newEdges]);
-  }, [edges, setNodes, setEdges, takeSnapshot]);
+      const newEdges = [];
+      edges.forEach((e) => {
+        if (idMap[e.source] && idMap[e.target]) {
+          newEdges.push({
+            ...e,
+            id: `e-${idMap[e.source]}-${idMap[e.target]}`,
+            source: idMap[e.source],
+            target: idMap[e.target],
+            selected: false,
+          });
+        }
+      });
+
+      setNodes((nds) => [
+        ...nds.map((n) => ({ ...n, selected: false })),
+        ...newNodes,
+      ]);
+      setEdges((eds) => [...eds, ...newEdges]);
+    },
+    [edges, setNodes, setEdges, takeSnapshot],
+  );
 
   // ── Keyboard shortcuts ────────────────────────────────────────
   const handleKeyDownRef = useRef();
-  
+
   // Update the ref to the latest closure on every render
   useEffect(() => {
     handleKeyDownRef.current = (e) => {
       if (e.key === "Shift") setShiftHeld(true);
-      const inInput = e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable;
+      const inInput =
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "TEXTAREA" ||
+        e.target.isContentEditable;
 
       // Ignore all diagram shortcuts if typing in a text field
       if (inInput) {
@@ -538,7 +685,8 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       if (e.ctrlKey || e.metaKey) {
         if (key === "z" || code === "KeyZ") {
           e.preventDefault();
-          if (e.shiftKey) redo(); else undo();
+          if (e.shiftKey) redo();
+          else undo();
         } else if (key === "y" || code === "KeyY") {
           e.preventDefault();
           redo();
@@ -572,10 +720,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       }
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedNodes.length > 0) {
-          showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and all connections?`, () => { 
-            deleteNodes(); 
-            setConfirmModal(null); 
-          }, true);
+          showConfirm(
+            "Delete Nodes",
+            `Delete ${selectedNodes.length} node(s) and all connections?`,
+            () => {
+              deleteNodes();
+              setConfirmModal(null);
+            },
+            true,
+          );
         } else if (selectedEdge) {
           takeSnapshot();
           setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
@@ -586,7 +739,9 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => handleKeyDownRef.current?.(e);
-    const handleKeyUp = (e) => { if (e.key === "Shift") setShiftHeld(false); };
+    const handleKeyUp = (e) => {
+      if (e.key === "Shift") setShiftHeld(false);
+    };
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keyup", handleKeyUp);
     return () => {
@@ -595,50 +750,89 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     };
   }, []);
 
-
-  const addChildNode = useCallback((parentId, orgType) => {
-    takeSnapshot();
-    const parent = nodes.find((n) => n.id === parentId);
-    if (!parent) return;
-    const newId = `node-${Date.now()}`;
-    const colorMap = {
-      ministry: "#0f2044", department: "#0e7d6e",
-      division: "#1e5799", office: "#0369a1",
-      head: "#b45309", deputy: "#c2782e", officer: "#0f766e",
-    };
-    const newNode = {
-      id: newId,
-      type: "orgNode",
-      position: { x: parent.position.x + (Math.random() * 60 - 30), y: parent.position.y + 180 },
-      data: { name: "ថ្មី", nameEn: "New Node", orgType, color: colorMap[orgType] || "#1e5799", description: "" },
-    };
-    const newEdge = {
-      id: `e-${parentId}-${newId}`, source: parentId, target: newId,
-      ...DEFAULT_EDGE_OPTIONS,
-      data: { ...DEFAULT_EDGE_OPTIONS.data, dynamic: true },
-    };
-    setNodes((nds) => [...nds.map(n => ({...n, selected: false})), { ...newNode, selected: true }]);
-    setEdges((eds) => [...eds, newEdge]);
-    // Expand parent if collapsed
-    setCollapsedNodes((prev) => { const s = new Set(prev); s.delete(parentId); return s; });
-  }, [nodes, setNodes, setEdges, takeSnapshot]);
+  const addChildNode = useCallback(
+    (parentId, orgType) => {
+      takeSnapshot();
+      const parent = nodes.find((n) => n.id === parentId);
+      if (!parent) return;
+      const newId = `node-${Date.now()}`;
+      const colorMap = {
+        ministry: "#0f2044",
+        department: "#0e7d6e",
+        division: "var(--default-node-bg)",
+        office: "#0369a1",
+        head: "#b45309",
+        deputy: "#c2782e",
+        officer: "#0f766e",
+      };
+      const newNode = {
+        id: newId,
+        type: "orgNode",
+        position: {
+          x: parent.position.x + (Math.random() * 60 - 30),
+          y: parent.position.y + 180,
+        },
+        data: {
+          name: "ថ្មី",
+          nameEn: "New Node",
+          orgType,
+          color: colorMap[orgType] || "var(--default-node-bg)",
+          description: "",
+        },
+      };
+      const newEdge = {
+        id: `e-${parentId}-${newId}`,
+        source: parentId,
+        target: newId,
+        ...DEFAULT_EDGE_OPTIONS,
+        data: { ...DEFAULT_EDGE_OPTIONS.data, dynamic: true },
+      };
+      setNodes((nds) => [
+        ...nds.map((n) => ({ ...n, selected: false })),
+        { ...newNode, selected: true },
+      ]);
+      setEdges((eds) => [...eds, newEdge]);
+      // Expand parent if collapsed
+      setCollapsedNodes((prev) => {
+        const s = new Set(prev);
+        s.delete(parentId);
+        return s;
+      });
+    },
+    [nodes, setNodes, setEdges, takeSnapshot],
+  );
 
   const addRootNode = useCallback(() => {
     takeSnapshot();
     const newId = `node-${Date.now()}`;
     const newNode = {
-      id: newId, type: "orgNode",
+      id: newId,
+      type: "orgNode",
       position: { x: Math.random() * 600 - 300, y: -200 },
-      data: { name: "ថ្មី", nameEn: "New Node", orgType: "department", color: "#1e5799", description: "" },
-      selected: true
+      data: {
+        name: "ថ្មី",
+        nameEn: "New Node",
+        orgType: "department",
+        color: "var(--default-node-bg)",
+        description: "",
+      },
+      selected: true,
     };
-    setNodes((nds) => [...nds.map(n => ({...n, selected: false})), newNode]);
+    setNodes((nds) => [
+      ...nds.map((n) => ({ ...n, selected: false })),
+      newNode,
+    ]);
   }, [setNodes, takeSnapshot]);
 
   const autoLayout = useCallback(() => {
     takeSnapshot();
-    const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, layoutDir);
-    setNodes(ln); setEdges(le);
+    const { nodes: ln, edges: le } = getLayoutedElements(
+      nodes,
+      edges,
+      layoutDir,
+    );
+    setNodes(ln);
+    setEdges(le);
   }, [nodes, edges, layoutDir, setNodes, setEdges, takeSnapshot]);
 
   const toggleLayout = useCallback(() => {
@@ -646,13 +840,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     const nextDir = layoutDir === "TB" ? "LR" : "TB";
     setLayoutDir(nextDir);
     const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, nextDir);
-    setNodes(ln); setEdges(le);
+    setNodes(ln);
+    setEdges(le);
   }, [layoutDir, nodes, edges, setNodes, setEdges, takeSnapshot]);
 
   const toggleCollapse = useCallback((nodeId) => {
     setCollapsedNodes((prev) => {
       const s = new Set(prev);
-      if (s.has(nodeId)) s.delete(nodeId); else s.add(nodeId);
+      if (s.has(nodeId)) s.delete(nodeId);
+      else s.add(nodeId);
       return s;
     });
   }, []);
@@ -661,24 +857,39 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     setConfirmModal({ title, message, onConfirm, danger });
   };
 
-
-  const onEdgeDoubleClick = useCallback((evt, edge) => {
-    takeSnapshot();
-    setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-    setSelectedEdge(null);
-  }, [setEdges, takeSnapshot]);
+  const onEdgeDoubleClick = useCallback(
+    (evt, edge) => {
+      takeSnapshot();
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      setSelectedEdge(null);
+    },
+    [setEdges, takeSnapshot],
+  );
 
   const downloadImage = useCallback(() => {
     const currentNodes = getNodes();
     if (currentNodes.length === 0) return;
     const nodesBounds = getNodesBounds(currentNodes);
-    const imageWidth = 1920, imageHeight = 1080;
-    const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.1, 2, 0.1);
+    const imageWidth = 1920,
+      imageHeight = 1080;
+    const viewport = getViewportForBounds(
+      nodesBounds,
+      imageWidth,
+      imageHeight,
+      0.1,
+      2,
+      0.1,
+    );
     const el = document.querySelector(".react-flow__viewport");
     toPng(el, {
-      backgroundColor: theme === 'dark' ? '#0f2044' : '#ffffff',
-      width: imageWidth, height: imageHeight,
-      style: { width: `${imageWidth}px`, height: `${imageHeight}px`, transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` },
+      backgroundColor: theme === "dark" ? "#0f2044" : "#ffffff",
+      width: imageWidth,
+      height: imageHeight,
+      style: {
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      },
     }).then((dataUrl) => {
       const a = document.createElement("a");
       a.setAttribute("download", "org-chart.png");
@@ -688,9 +899,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   }, [getNodes, theme]);
 
   // Search fly-to
-  const handleFlyTo = useCallback((node) => {
-    setCenter(node.position.x + 100, node.position.y + 50, { zoom: 1.2, duration: 600 });
-  }, [setCenter]);
+  const handleFlyTo = useCallback(
+    (node) => {
+      setCenter(node.position.x + 100, node.position.y + 50, {
+        zoom: 1.2,
+        duration: 600,
+      });
+    },
+    [setCenter],
+  );
 
   const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge);
 
@@ -708,62 +925,112 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   // render defeats memo() for every node on the canvas.
   const chartContextValue = useMemo(
     () => ({ childCounts, collapsedNodes, searchHighlights, teamSizes }),
-    [childCounts, collapsedNodes, searchHighlights, teamSizes]
+    [childCounts, collapsedNodes, searchHighlights, teamSizes],
   );
 
   return (
     <div className={`app-wrapper ${previewMode ? "preview-mode" : ""}`}>
-
       {/* ── Header ────────────────────────────────────────── */}
       {!previewMode && (
         <header className="app-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <button
               className="tb-btn tb-btn--icon"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate("/dashboard")}
               title="Back to Dashboard"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
             </button>
             <div className="tb-divider" style={{ height: 24, margin: 0 }} />
             <div className="header-brand">
               <img
-                src="/GDT Logo (Soft).png"
+                src={
+                  theme === "dark"
+                    ? "/GDT-Logo (Dark).png"
+                    : "/GDT-Logo (Light).png"
+                }
                 alt="GDT - General Department of Taxation"
-                style={{ height: 36, objectFit: 'contain' }}
+                style={{ height: 36, objectFit: "contain" }}
               />
             </div>
           </div>
 
           <div className="header-toolbar">
             {/* Edit group */}
-            <button className="tb-btn tb-btn--primary" onClick={addRootNode} title="Add Node">
+            <button
+              className="tb-btn tb-btn--primary"
+              onClick={addRootNode}
+              title="Add Node"
+            >
               <Plus size={14} /> Add Node
             </button>
-            <button className="tb-btn tb-btn--icon" onClick={autoLayout} title="Auto Layout">
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={autoLayout}
+              title="Auto Layout"
+            >
               <LayoutGrid size={15} />
             </button>
-            <button className="tb-btn tb-btn--icon" onClick={toggleLayout} title={layoutDir === "TB" ? "Vertical Layout" : "Horizontal Layout"}>
-              {layoutDir === "TB" ? <ArrowDownUp size={15} /> : <ArrowLeftRight size={15} />}
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={toggleLayout}
+              title={
+                layoutDir === "TB" ? "Vertical Layout" : "Horizontal Layout"
+              }
+            >
+              {layoutDir === "TB" ? (
+                <ArrowDownUp size={15} />
+              ) : (
+                <ArrowLeftRight size={15} />
+              )}
             </button>
 
             <div className="tb-divider" />
 
             {/* History group */}
-            <button className="tb-btn tb-btn--icon" onClick={undo} disabled={past.length === 0} title="Undo (Ctrl+Z)">
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={undo}
+              disabled={past.length === 0}
+              title="Undo (Ctrl+Z)"
+            >
               <Undo2 size={15} />
             </button>
-            <button className="tb-btn tb-btn--icon" onClick={redo} disabled={future.length === 0} title="Redo (Ctrl+Y)">
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={redo}
+              disabled={future.length === 0}
+              title="Redo (Ctrl+Y)"
+            >
               <Redo2 size={15} />
             </button>
 
             <div className="tb-divider" />
 
             {/* Utility group */}
-            <button className="tb-btn tb-btn--icon" onClick={() => setShowSearch(true)} title="Search (Ctrl+F)">
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={() => setShowSearch(true)}
+              title="Search (Ctrl+F)"
+            >
               <SearchIcon size={15} />
             </button>
-            <button className="tb-btn tb-btn--icon" onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)">
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={() => setShowShortcuts(true)}
+              title="Keyboard shortcuts (?)"
+            >
               <Keyboard size={15} />
             </button>
 
@@ -772,7 +1039,6 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
             {isOwner && (
               <button
                 className="tb-btn tb-btn--primary"
-                style={{ background: '#7c3aed' }}
                 onClick={() => setShowShare(true)}
                 title="Share chart"
               >
@@ -781,20 +1047,29 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
             )}
             <button
               className="tb-btn tb-btn--primary"
-              style={{ background: "#0ea5e9" }}
-              onClick={() => { setPreviewMode(true); setSelectedNodes([]); setSelectedEdge(null); }}
+              onClick={() => {
+                setPreviewMode(true);
+                setSelectedNodes([]);
+                setSelectedEdge(null);
+              }}
               title="Preview mode"
             >
               <Eye size={14} /> Preview
             </button>
-            {/* Theme toggle: paused, not ready for release yet — un-comment to bring back.
-            <button className="tb-btn tb-btn--icon" onClick={toggleTheme} title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}>
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            {/* Theme toggle */}
+            <button
+              className="tb-btn tb-btn--icon"
+              onClick={toggleTheme}
+              title={
+                theme === "dark"
+                  ? "Switch to light theme"
+                  : "Switch to dark theme"
+              }
+            >
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            */}
             <button
               className="tb-btn tb-btn--primary"
-              style={{ background: "#0e7d6e" }}
               onClick={performSave}
               disabled={saveStatus === "saving"}
               title="Save now (Ctrl+S)"
@@ -804,10 +1079,20 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           </div>
 
           {/* Save badge */}
-          <div className={`save-badge ${saveStatus === "saving" ? "save-badge--saving" : saveStatus === "saved" ? "save-badge--saved" : ""}`}>
-            {saveStatus === "saving" && <Loader2 size={12} className="save-spin" />}
+          <div
+            className={`save-badge ${saveStatus === "saving" ? "save-badge--saving" : saveStatus === "saved" ? "save-badge--saved" : ""}`}
+          >
+            {saveStatus === "saving" && (
+              <Loader2 size={12} className="save-spin" />
+            )}
             {saveStatus === "saved" && <CheckCircle2 size={12} />}
-            <span>{saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : ""}</span>
+            <span>
+              {saveStatus === "saving"
+                ? "Saving..."
+                : saveStatus === "saved"
+                  ? "Saved"
+                  : ""}
+            </span>
           </div>
         </header>
       )}
@@ -817,31 +1102,65 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         <>
           {/* Back button for Viewers */}
           {!canEdit && (
-            <div style={{ position: "absolute", top: 20, left: 20, zIndex: 10 }}>
-              <button 
-                className="tb-btn" 
-                onClick={() => navigate('/')}
+            <div
+              style={{ position: "absolute", top: 20, left: 20, zIndex: 10 }}
+            >
+              <button
+                className="tb-btn"
+                onClick={() => navigate("/")}
                 style={{
-                  background: 'var(--bg-surface-translucent)',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px 16px',
+                  background: "var(--bg-surface-translucent)",
+                  color: "var(--text-primary)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "8px 16px",
                   borderRadius: 8,
-                  border: '1px solid rgba(var(--surface-rgb),0.1)',
-                  backdropFilter: 'blur(12px)'
+                  border: "1px solid rgba(var(--surface-rgb),0.1)",
+                  backdropFilter: "blur(12px)",
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8 }}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ marginRight: 8 }}
+                >
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
                 Back to Home
               </button>
             </div>
           )}
-          
-          <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10, display: "flex", gap: 10 }}>
+
+          <div
+            style={{
+              position: "absolute",
+              top: 20,
+              right: 20,
+              zIndex: 10,
+              display: "flex",
+              gap: 10,
+            }}
+          >
             {/* Show read-only badge if they lack edit access */}
             {!canEdit && (
-              <div style={{ background: 'var(--bg-surface-translucent)', color: 'var(--text-primary)', padding: '6px 12px', borderRadius: 6, fontSize: 13, display: 'flex', alignItems: 'center', fontWeight: 600 }}>
+              <div
+                style={{
+                  background: "var(--bg-surface-translucent)",
+                  color: "var(--text-primary)",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  fontWeight: 600,
+                }}
+              >
                 <Eye size={14} style={{ marginRight: 6 }} /> Read Only
               </div>
             )}
@@ -849,7 +1168,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
               <Download size={14} /> Download PNG
             </button>
             {canEdit && (
-              <button className="tb-btn tb-btn--danger" onClick={() => setPreviewMode(false)}>
+              <button
+                className="tb-btn tb-btn--danger"
+                onClick={() => setPreviewMode(false)}
+              >
                 <EyeOff size={14} /> Exit Preview
               </button>
             )}
@@ -858,7 +1180,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       )}
 
       {/* ── Main Content Area ────────────────────────────── */}
-      <div className="main-content" style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div
+        className="main-content"
+        style={{
+          display: "flex",
+          flex: 1,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
         <div className={`canvas-wrapper ${panelOpen ? "panel-open" : ""}`}>
           {loading ? (
             <div className="loading-screen">
@@ -873,55 +1203,82 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
                   edges={visibleEdges}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
-                onSelectionChange={onSelectionChange}
-                multiSelectionKeyCode="Shift"
-                onNodeDragStart={onNodeDragStart}
-                onConnect={onConnect}
-                onReconnect={onReconnect}
-                onNodeClick={onNodeClick}
-                onEdgeClick={onEdgeClick}
-                onPaneClick={onPaneClick}
-                onEdgeDoubleClick={onEdgeDoubleClick}
-                onNodeContextMenu={onNodeContextMenu}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
-                connectionMode={ConnectionMode.Loose}
-                reconnectRadius={shiftHeld ? 150 : 20}
-                nodesDraggable={canEdit && !previewMode}
-                nodesConnectable={canEdit && !previewMode}
-                elementsSelectable={canEdit || previewMode}
-                edgesFocusable={canEdit && !previewMode}
-                fitView
-                fitViewOptions={{ padding: 0.15 }}
-                snapToGrid
-                snapGrid={[20, 20]}
-                minZoom={0.05}
-                maxZoom={2.5}
-                setChartIsPublic={setChartIsPublic}
-                setShowShare={setShowShare}
-                canEdit={canEdit}
-                proOptions={{ hideAttribution: true }}
-              >
-                {!previewMode && <Background variant={BackgroundVariant.Dots} color={theme === 'dark' ? '#ffffff22' : '#0f172a22'} gap={20} size={1.5} />}
-                {!previewMode && (
-                  <Controls style={{ background: "var(--bg-surface-translucent)", border: "1px solid rgba(var(--surface-rgb),.12)", borderRadius: 8 }} />
-                )}
-                {!previewMode && (
-                  <MiniMap
-                    nodeColor={(n) => n.data?.color || "#1e5799"}
-                    maskColor={theme === 'dark' ? 'rgba(0,0,0,0.65)' : 'rgba(15,23,42,0.35)'}
-                    style={{ background: "var(--bg-surface-translucent)", border: "1px solid rgba(var(--surface-rgb),.12)", borderRadius: 8 }}
-                  />
-                )}
-                {!previewMode && canEdit && (
-                  <Panel position="top-right" style={{ pointerEvents: "none" }}>
-                    <div className="hint-chip">
-                      Right-click node for menu &nbsp;·&nbsp; Ctrl+F to search &nbsp;·&nbsp; ? for shortcuts
-                    </div>
-                  </Panel>
-                )}
-              </ReactFlow>
+                  onSelectionChange={onSelectionChange}
+                  multiSelectionKeyCode="Shift"
+                  onNodeDragStart={onNodeDragStart}
+                  onConnect={onConnect}
+                  onReconnect={onReconnect}
+                  onNodeClick={onNodeClick}
+                  onEdgeClick={onEdgeClick}
+                  onPaneClick={onPaneClick}
+                  onEdgeDoubleClick={onEdgeDoubleClick}
+                  onNodeContextMenu={onNodeContextMenu}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
+                  connectionMode={ConnectionMode.Loose}
+                  reconnectRadius={shiftHeld ? 150 : 20}
+                  nodesDraggable={canEdit && !previewMode}
+                  nodesConnectable={canEdit && !previewMode}
+                  elementsSelectable={canEdit || previewMode}
+                  edgesFocusable={canEdit && !previewMode}
+                  fitView
+                  fitViewOptions={{ padding: 0.15 }}
+                  snapToGrid
+                  snapGrid={[20, 20]}
+                  minZoom={0.05}
+                  maxZoom={2.5}
+                  setChartIsPublic={setChartIsPublic}
+                  setShowShare={setShowShare}
+                  canEdit={canEdit}
+                  proOptions={{ hideAttribution: true }}
+                >
+                  {!previewMode && (
+                    <Background
+                      variant={BackgroundVariant.Dots}
+                      color={theme === "dark" ? "#ffffff22" : "#0f172a40"}
+                      gap={20}
+                      size={1.5}
+                    />
+                  )}
+                  {!previewMode && (
+                    <Controls
+                      style={{
+                        background: "var(--bg-surface-translucent)",
+                        border: "1px solid rgba(var(--surface-rgb),.12)",
+                        borderRadius: 8,
+                      }}
+                    />
+                  )}
+                  {!previewMode && (
+                    <MiniMap
+                      nodeColor={(n) =>
+                        n.data?.color || "var(--default-node-bg)"
+                      }
+                      maskColor={
+                        theme === "dark"
+                          ? "rgba(0,0,0,0.65)"
+                          : "rgba(15,23,42,0.35)"
+                      }
+                      style={{
+                        background: "var(--bg-surface-translucent)",
+                        border: "1px solid rgba(var(--surface-rgb),.12)",
+                        borderRadius: 8,
+                      }}
+                    />
+                  )}
+                  {!previewMode && canEdit && (
+                    <Panel
+                      position="top-right"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      <div className="hint-chip">
+                        Right-click node for menu &nbsp;·&nbsp; Ctrl+F to search
+                        &nbsp;·&nbsp; ? for shortcuts
+                      </div>
+                    </Panel>
+                  )}
+                </ReactFlow>
               </ChartContext.Provider>
 
               {/* Status Bar */}
@@ -947,41 +1304,67 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
             teamSize={teamSizes[personNode.id] || 0}
             canEdit={canEdit && !previewMode}
             onEdit={() => setEditingPerson(true)}
-            onClose={() => { setSelectedNodes([]); setSelectedEdge(null); setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n))); }}
+            onClose={() => {
+              setSelectedNodes([]);
+              setSelectedEdge(null);
+              setNodes((nds) =>
+                nds.map((n) => (n.selected ? { ...n, selected: false } : n)),
+              );
+            }}
           />
         ) : null}
 
         {/* Properties Panel (Outside canvas-wrapper) */}
-        {(selectedNodes.length > 0 || selectedEdge) && !previewMode && !(personNode && !editingPerson) && (
-          <PropertiesPanel
-            nodes={selectedNodes}
-            edge={selectedEdge}
-            onUpdateNodes={updateSelectedNodes}
-            onUpdateEdge={updateEdgeProperties}
-            onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
-            onDelete={() => {
-              if (selectedNodes.length > 0) {
-                showConfirm("Delete Nodes", `Delete ${selectedNodes.length} node(s) and all connections?`, () => { deleteNodes(); setConfirmModal(null); }, true);
-              } else if (selectedEdge) {
-                takeSnapshot();
-                setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
+        {(selectedNodes.length > 0 || selectedEdge) &&
+          !previewMode &&
+          !(personNode && !editingPerson) && (
+            <PropertiesPanel
+              nodes={selectedNodes}
+              edge={selectedEdge}
+              onUpdateNodes={updateSelectedNodes}
+              onUpdateEdge={updateEdgeProperties}
+              onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
+              onDelete={() => {
+                if (selectedNodes.length > 0) {
+                  showConfirm(
+                    "Delete Nodes",
+                    `Delete ${selectedNodes.length} node(s) and all connections?`,
+                    () => {
+                      deleteNodes();
+                      setConfirmModal(null);
+                    },
+                    true,
+                  );
+                } else if (selectedEdge) {
+                  takeSnapshot();
+                  setEdges((eds) =>
+                    eds.filter((e) => e.id !== selectedEdge.id),
+                  );
+                  setSelectedEdge(null);
+                }
+              }}
+              onClose={() => {
+                setSelectedNodes([]);
                 setSelectedEdge(null);
-              }
-            }}
-            onClose={() => { setSelectedNodes([]); setSelectedEdge(null); }}
-            onSave={() => {
-              // Person node → back to its read-only profile; anything else →
-              // just deselect. Edits are already committed to node state.
-              if (personNode) {
-                setEditingPerson(false);
-              } else {
-                setSelectedNodes([]); setSelectedEdge(null);
-                setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)));
-              }
-            }}
-            charts={[]}
-          />
-        )}
+              }}
+              onSave={() => {
+                // Person node → back to its read-only profile; anything else →
+                // just deselect. Edits are already committed to node state.
+                if (personNode) {
+                  setEditingPerson(false);
+                } else {
+                  setSelectedNodes([]);
+                  setSelectedEdge(null);
+                  setNodes((nds) =>
+                    nds.map((n) =>
+                      n.selected ? { ...n, selected: false } : n,
+                    ),
+                  );
+                }
+              }}
+              charts={[]}
+            />
+          )}
       </div>
 
       {/* ── Context Menu ─────────────────────────────────── */}
@@ -993,7 +1376,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           isCollapsed={collapsedNodes.has(contextMenu.nodeId)}
           onEdit={() => {
             const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
-            if (n) { setSelectedNodes([n]); setSelectedEdge(null); }
+            if (n) {
+              setSelectedNodes([n]);
+              setSelectedEdge(null);
+            }
           }}
           onAddChild={() => addChildNode(contextMenu.nodeId, "office")}
           onDuplicate={() => {
@@ -1003,12 +1389,21 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           onToggleCollapse={() => toggleCollapse(contextMenu.nodeId)}
           onDelete={() => {
             const targetId = contextMenu.nodeId;
-            showConfirm("Delete Node", "Delete this node and all its connections?", () => {
-              takeSnapshot();
-              setNodes((nds) => nds.filter((n) => n.id !== targetId));
-              setEdges((eds) => eds.filter((e) => e.source !== targetId && e.target !== targetId));
-              setConfirmModal(null);
-            }, true);
+            showConfirm(
+              "Delete Node",
+              "Delete this node and all its connections?",
+              () => {
+                takeSnapshot();
+                setNodes((nds) => nds.filter((n) => n.id !== targetId));
+                setEdges((eds) =>
+                  eds.filter(
+                    (e) => e.source !== targetId && e.target !== targetId,
+                  ),
+                );
+                setConfirmModal(null);
+              },
+              true,
+            );
           }}
           onClose={() => setContextMenu(null)}
         />
@@ -1020,7 +1415,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           nodes={nodes}
           onFlyTo={handleFlyTo}
           onHighlight={setSearchHighlights}
-          onClose={() => { setShowSearch(false); setSearchHighlights([]); }}
+          onClose={() => {
+            setShowSearch(false);
+            setSearchHighlights([]);
+          }}
         />
       )}
 
@@ -1035,7 +1433,9 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       )}
 
       {/* ── Shortcuts Modal ──────────────────────────── */}
-      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      {showShortcuts && (
+        <ShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
 
       {/* ── Confirm Modal ────────────────────────────────── */}
       {confirmModal && (
@@ -1051,68 +1451,140 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       {linkedChartPopup && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             left: linkedChartPopup.x + 12,
             top: linkedChartPopup.y - 20,
             zIndex: 1000,
-            background: 'var(--bg-surface-translucent)',
-            border: '1px solid rgba(14, 125, 110, 0.4)',
+            background: "var(--bg-surface-translucent)",
+            border: "1px solid rgba(14, 125, 110, 0.4)",
             borderRadius: 12,
-            padding: '14px 18px',
+            padding: "14px 18px",
             minWidth: 220,
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(14,125,110,0.1)',
-            backdropFilter: 'blur(20px)',
+            boxShadow:
+              "0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(14,125,110,0.1)",
+            backdropFilter: "blur(20px)",
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <div style={{ background: 'rgba(14,125,110,0.2)', padding: 6, borderRadius: 8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0e7d6e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                background: "rgba(14,125,110,0.2)",
+                padding: 6,
+                borderRadius: 8,
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0e7d6e"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
             </div>
             <div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Linked Chart</div>
-              <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{linkedChartPopup.node.data.nameEn || linkedChartPopup.node.data.name}</div>
+              <div
+                style={{
+                  color: "var(--text-muted)",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                }}
+              >
+                Linked Chart
+              </div>
+              <div
+                style={{
+                  color: "var(--text-primary)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {linkedChartPopup.node.data.nameEn ||
+                  linkedChartPopup.node.data.name}
+              </div>
             </div>
             <button
               onClick={() => setLinkedChartPopup(null)}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 2 }}
+              style={{
+                marginLeft: "auto",
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: 2,
+              }}
             >
               <X size={14} />
             </button>
           </div>
           <button
-            onClick={() => { openLinkedChart(linkedChartPopup.node.data.linkedChartId); setLinkedChartPopup(null); }}
+            onClick={() => {
+              openLinkedChart(linkedChartPopup.node.data.linkedChartId);
+              setLinkedChartPopup(null);
+            }}
             style={{
-              width: '100%',
-              background: 'linear-gradient(135deg, #0e7d6e, #0a5c50)',
-              border: 'none',
+              width: "100%",
+              background: "linear-gradient(135deg, #0e7d6e, #0a5c50)",
+              border: "none",
               borderRadius: 8,
-              color: 'white',
-              padding: '9px 14px',
-              cursor: 'pointer',
+              color: "white",
+              padding: "9px 14px",
+              cursor: "pointer",
               fontWeight: 600,
               fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               gap: 8,
             }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
             Open Chart
           </button>
         </div>
       )}
 
-      <VersionHistoryModal 
+      <VersionHistoryModal
         isOpen={isVersionHistoryOpen}
         onClose={() => setIsVersionHistoryOpen(false)}
         chartId={chartId}
         onRestore={(restoredNodes, restoredEdges) => {
           takeSnapshot();
           // Snapshot the pre-restore state too, so restoring the wrong version is itself recoverable.
-          supabase.from("chart_versions").insert({ chart_id: chartId, nodes, edges }).then(({ error }) => {
-            if (error) console.error("Failed to snapshot before restore", error);
-          });
+          supabase
+            .from("chart_versions")
+            .insert({ chart_id: chartId, nodes, edges })
+            .then(({ error }) => {
+              if (error)
+                console.error("Failed to snapshot before restore", error);
+            });
           setNodes(restoredNodes || []);
           setEdges(restoredEdges || []);
           lastSyncData.current = { nodes: "[]", edges: "[]" }; // Force re-sync
@@ -1127,8 +1599,19 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-app)' }}>
-        <div className="loading-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          background: "var(--bg-app)",
+        }}
+      >
+        <div
+          className="loading-spinner"
+          style={{ width: 40, height: 40, borderWidth: 3 }}
+        />
       </div>
     );
   }
@@ -1155,8 +1638,13 @@ function EditorShell() {
 
   // URL -> tabs (external navigation: open/focus that chart as a tab)
   useEffect(() => {
-    if (internalNavRef.current) { internalNavRef.current = false; return; }
-    setOpenTabs((tabs) => (tabs.includes(urlChartId) ? tabs : [...tabs, urlChartId]));
+    if (internalNavRef.current) {
+      internalNavRef.current = false;
+      return;
+    }
+    setOpenTabs((tabs) =>
+      tabs.includes(urlChartId) ? tabs : [...tabs, urlChartId],
+    );
     setActiveTabId(urlChartId);
   }, [urlChartId]);
 
@@ -1170,31 +1658,44 @@ function EditorShell() {
 
   const openLinkedChart = useCallback((targetChartId) => {
     if (!targetChartId) return;
-    setOpenTabs((tabs) => (tabs.includes(targetChartId) ? tabs : [...tabs, targetChartId]));
+    setOpenTabs((tabs) =>
+      tabs.includes(targetChartId) ? tabs : [...tabs, targetChartId],
+    );
     setActiveTabId(targetChartId);
   }, []);
 
-  const closeTab = useCallback((targetChartId) => {
-    setOpenTabs((tabs) => {
-      const next = tabs.filter((id) => id !== targetChartId);
-      if (activeTabId === targetChartId) {
-        if (next.length === 0) navigate('/dashboard');
-        else setActiveTabId(next[next.length - 1]);
-      }
-      return next;
-    });
-  }, [activeTabId, navigate]);
+  const closeTab = useCallback(
+    (targetChartId) => {
+      setOpenTabs((tabs) => {
+        const next = tabs.filter((id) => id !== targetChartId);
+        if (activeTabId === targetChartId) {
+          if (next.length === 0) navigate("/dashboard");
+          else setActiveTabId(next[next.length - 1]);
+        }
+        return next;
+      });
+    },
+    [activeTabId, navigate],
+  );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%' }}>
-      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        width: "100%",
+      }}
+    >
+      <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         {openTabs.map((id) => (
           <div
             key={id}
             style={{
-              position: 'absolute', inset: 0,
-              visibility: id === activeTabId ? 'visible' : 'hidden',
-              pointerEvents: id === activeTabId ? 'auto' : 'none',
+              position: "absolute",
+              inset: 0,
+              visibility: id === activeTabId ? "visible" : "hidden",
+              pointerEvents: id === activeTabId ? "auto" : "none",
             }}
           >
             <ErrorBoundary>
@@ -1202,7 +1703,11 @@ function EditorShell() {
                 <FlowApp
                   chartId={id}
                   openLinkedChart={openLinkedChart}
-                  onChartName={(name) => setTabNames((t) => (t[id] === name ? t : { ...t, [id]: name }))}
+                  onChartName={(name) =>
+                    setTabNames((t) =>
+                      t[id] === name ? t : { ...t, [id]: name },
+                    )
+                  }
                 />
               </ReactFlowProvider>
             </ErrorBoundary>
@@ -1211,7 +1716,10 @@ function EditorShell() {
       </div>
       {openTabs.length > 1 && (
         <ChartTabBar
-          tabs={openTabs.map((id) => ({ id, name: tabNames[id] || 'Untitled Chart' }))}
+          tabs={openTabs.map((id) => ({
+            id,
+            name: tabNames[id] || "Untitled Chart",
+          }))}
           activeTabId={activeTabId}
           onSelect={setActiveTabId}
           onClose={closeTab}
@@ -1224,41 +1732,50 @@ function EditorShell() {
 export default function App() {
   return (
     <ThemeProvider>
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          {/* Protected routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          } />
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Chart editor — loads by ID, EditorShell manages a tab per open chart */}
-          <Route path="/chart/:chartId" element={
-            <ProtectedRoute>
-              <EditorShell />
-            </ProtectedRoute>
-          } />
+            {/* Chart editor — loads by ID, EditorShell manages a tab per open chart */}
+            <Route
+              path="/chart/:chartId"
+              element={
+                <ProtectedRoute>
+                  <EditorShell />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* 404 */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            {/* 404 */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

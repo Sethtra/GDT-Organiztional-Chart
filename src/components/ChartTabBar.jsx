@@ -20,7 +20,10 @@ export default function ChartTabBar({ tabs, activeTabId, onSelect, onClose }) {
             className="chart-tab__close"
             role="button"
             tabIndex={-1}
-            onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose(tab.id);
+            }}
             title="Close tab"
           >
             <X size={12} />

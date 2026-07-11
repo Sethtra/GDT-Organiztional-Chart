@@ -47,7 +47,7 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
 
       {/* Hero — mirrors the person card's dark/gold look */}
       <div className="profile-hero">
-        <div className="profile-hero__avatar" style={{ background: meta.accent || "#f59e0b" }}>
+        <div className="profile-hero__avatar" style={{ '--avatar-accent': meta.accent || "#f59e0b" }}>
           {initials}
         </div>
         <div className="profile-hero__name">{d.name || "ឈ្មោះ"}</div>
@@ -59,9 +59,11 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
       <div className="pp-body">
         <div className="pp-section">
           <div className="pp-section-label"><Briefcase size={11} /> Work</div>
-          <Row icon={<Hash size={12} />}     label="ID"     value={d.staffId} />
-          <Row icon={<Calendar size={12} />} label="Joined" value={formatJoinDate(d.joinDate)} />
-          <Row icon={<Users size={12} />}    label="Team"   value={teamSize > 0 ? `${teamSize} people` : ""} />
+          <Row icon={<Hash size={12} />}     label="ID"         value={d.staffId} />
+          <Row icon={<Briefcase size={12} />} label="Department" value={d.department} />
+          <Row icon={<MapPin size={12} />}   label="Office"     value={d.office} />
+          <Row icon={<Calendar size={12} />} label="Joined"     value={formatJoinDate(d.joinDate)} />
+          <Row icon={<Users size={12} />}    label="Team"       value={teamSize > 0 ? `${teamSize} people` : ""} />
         </div>
 
         <div className="pp-section">
