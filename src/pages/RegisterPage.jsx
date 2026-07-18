@@ -12,8 +12,8 @@ function getPasswordStrength(pwd) {
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
   if (score <= 1) return { level: 1, label: 'Weak', color: '#dc2626' };
   if (score === 2) return { level: 2, label: 'Fair', color: '#d97706' };
-  if (score === 3) return { level: 3, label: 'Good', color: '#0f5a34' };
-  return { level: 4, label: 'Strong', color: '#0f5a34' };
+  if (score === 3) return { level: 3, label: 'Good', color: 'var(--link-color)' };
+  return { level: 4, label: 'Strong', color: 'var(--link-color)' };
 }
 
 export default function RegisterPage() {

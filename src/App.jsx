@@ -4,9 +4,10 @@ import {
   useState,
   useRef,
   useMemo,
+  useContext,
   createContext,
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import {
   ReactFlow,
@@ -113,6 +114,53 @@ function normalizeEdges(edges) {
 }
 
 export const ChartContext = createContext(null);
+
+// ── Tab management context ─────────────────────────────────────
+// Lives above the router so tab state survives Dashboard↔Chart navigations.
+const TabContext = createContext(null);
+
+function TabProvider({ children }) {
+  const [openTabs, setOpenTabs] = useState([]);
+  const [activeTabId, setActiveTabId] = useState(null);
+  const [tabNames, setTabNames] = useState({});
+
+  const openTab = useCallback((chartId) => {
+    if (!chartId) return;
+    setOpenTabs((tabs) =>
+      tabs.includes(chartId) ? tabs : [...tabs, chartId],
+    );
+    setActiveTabId(chartId);
+  }, []);
+
+  const closeTab = useCallback((chartId, navigateFn) => {
+    setOpenTabs((tabs) => {
+      const next = tabs.filter((id) => id !== chartId);
+      // If we closed the active tab, switch to the last remaining one
+      setActiveTabId((current) => {
+        if (current === chartId) {
+          if (next.length === 0) {
+            navigateFn?.("/dashboard");
+            return null;
+          }
+          return next[next.length - 1];
+        }
+        return current;
+      });
+      return next;
+    });
+  }, []);
+
+  const setTabName = useCallback((chartId, name) => {
+    setTabNames((t) => (t[chartId] === name ? t : { ...t, [chartId]: name }));
+  }, []);
+
+  const value = useMemo(
+    () => ({ openTabs, activeTabId, tabNames, openTab, closeTab, setActiveTabId, setTabName }),
+    [openTabs, activeTabId, tabNames, openTab, closeTab, setTabName],
+  );
+
+  return <TabContext.Provider value={value}>{children}</TabContext.Provider>;
+}
 
 function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const { user } = useAuth();
@@ -306,6 +354,47 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         `last_version_time_${chartId}`,
         Date.now().toString(),
       );
+    }
+
+    // Auto-save thumbnail every 5 minutes (throttled separately)
+    const lastThumbTimeStr = localStorage.getItem(`last_thumb_time_${chartId}`);
+    const lastThumbTime = lastThumbTimeStr ? parseInt(lastThumbTimeStr, 10) : 0;
+    if (Date.now() - lastThumbTime > 5 * 60 * 1000) {
+      try {
+        const el = document.querySelector(".react-flow__viewport");
+        if (el && nodes.length > 0) {
+          const { getNodesBounds, getViewportForBounds } = await import("@xyflow/react");
+          const currentNodes = nodes;
+          const nodesBounds = getNodesBounds(currentNodes);
+          const thumbW = 640, thumbH = 360;
+          const viewport = getViewportForBounds(nodesBounds, thumbW, thumbH, 0.05, 2, 0.05);
+          const dataUrl = await toPng(el, {
+            backgroundColor: "#0f2044",
+            width: thumbW,
+            height: thumbH,
+            style: {
+              width: `${thumbW}px`,
+              height: `${thumbH}px`,
+              transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+            },
+          });
+          // Convert dataUrl to Blob
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const filePath = `${chartId}.png`;
+          await supabase.storage.from("thumbnails").upload(filePath, blob, {
+            contentType: "image/png",
+            upsert: true,
+          });
+          const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(filePath);
+          if (urlData?.publicUrl) {
+            await supabase.from("charts").update({ thumbnail_url: urlData.publicUrl }).eq("id", chartId);
+          }
+          localStorage.setItem(`last_thumb_time_${chartId}`, Date.now().toString());
+        }
+      } catch (thumbErr) {
+        console.warn("Thumbnail capture failed (non-critical):", thumbErr);
+      }
     }
 
     setSaveStatus("saved");
@@ -870,16 +959,17 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     const currentNodes = getNodes();
     if (currentNodes.length === 0) return;
     const nodesBounds = getNodesBounds(currentNodes);
-    const imageWidth = 1920,
-      imageHeight = 1080;
-    const viewport = getViewportForBounds(
-      nodesBounds,
-      imageWidth,
-      imageHeight,
-      0.1,
-      2,
-      0.1,
-    );
+    
+    const padding = 60;
+    const imageWidth = Math.ceil(nodesBounds.width + padding * 2);
+    const imageHeight = Math.ceil(nodesBounds.height + padding * 2);
+    
+    const viewport = {
+      x: padding - nodesBounds.x,
+      y: padding - nodesBounds.y,
+      zoom: 1,
+    };
+
     const el = document.querySelector(".react-flow__viewport");
     toPng(el, {
       backgroundColor: theme === "dark" ? "#0f2044" : "#ffffff",
@@ -892,11 +982,11 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       },
     }).then((dataUrl) => {
       const a = document.createElement("a");
-      a.setAttribute("download", "org-chart.png");
+      a.setAttribute("download", `${chartName || "org-chart"}.png`);
       a.setAttribute("href", dataUrl);
       a.click();
     });
-  }, [getNodes, theme]);
+  }, [getNodes, theme, chartName]);
 
   // Search fly-to
   const handleFlyTo = useCallback(
@@ -1617,74 +1707,60 @@ function ProtectedRoute({ children }) {
   }
   return user ? children : <Navigate to="/login" replace />;
 }
-
 /**
- * Owns the set of currently-open chart tabs. Mounts one independent
- * <FlowApp> per open tab (each with its own ReactFlowProvider) and hides
- * inactive ones with CSS instead of unmounting them, so switching tabs
- * preserves viewport/selection/undo history exactly like browser tabs —
- * not a cache-and-restore simulation.
+ * Owns the set of currently-open chart tabs. Consumes TabContext (which
+ * persists above the router) so tab state survives Dashboard↔Chart
+ * navigations. Rendered OUTSIDE <Routes> so it never unmounts — FlowApp
+ * instances stay alive across Dashboard round-trips.
+ *
+ * Data flow is UNIDIRECTIONAL:  URL → state (never state → URL).
+ * Tab clicks / linked-chart opens navigate first; the effect syncs state.
  */
 function EditorShell() {
-  const { chartId: urlChartId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [openTabs, setOpenTabs] = useState(() => [urlChartId]);
-  const [activeTabId, setActiveTabId] = useState(urlChartId);
-  const [tabNames, setTabNames] = useState({});
-  // Distinguishes "the URL changed because WE just switched tabs" from "the
-  // URL changed externally" (typed, back/forward, a fresh link) — without
-  // this, syncing tabs<->URL in both directions would loop.
-  const internalNavRef = useRef(false);
+  const {
+    openTabs, activeTabId, tabNames,
+    openTab, closeTab, setActiveTabId, setTabName,
+  } = useContext(TabContext);
 
-  // URL -> tabs (external navigation: open/focus that chart as a tab)
+  // Detect whether we're on a /chart/:id route
+  const chartMatch = location.pathname.match(/^\/chart\/([^/]+)/);
+  const urlChartId = chartMatch ? chartMatch[1] : null;
+
+  // URL → state: when the URL points to a chart, ensure it's open & active
   useEffect(() => {
-    if (internalNavRef.current) {
-      internalNavRef.current = false;
-      return;
+    console.log('[EditorShell] URL effect fired:', { urlChartId, activeTabId, openTabs: openTabs.join(',') });
+    if (urlChartId) {
+      openTab(urlChartId);
     }
-    setOpenTabs((tabs) =>
-      tabs.includes(urlChartId) ? tabs : [...tabs, urlChartId],
-    );
-    setActiveTabId(urlChartId);
-  }, [urlChartId]);
+  }, [urlChartId, openTab]);
 
-  // tabs -> URL (keep the address bar matching the active tab)
-  useEffect(() => {
-    if (activeTabId && activeTabId !== urlChartId) {
-      internalNavRef.current = true;
-      navigate(`/chart/${activeTabId}`, { replace: true });
-    }
-  }, [activeTabId, urlChartId, navigate]);
+  // Navigate to open a linked chart (called from within FlowApp)
+  const handleOpenLinkedChart = useCallback((chartId) => {
+    if (!chartId) return;
+    openTab(chartId); // Add to tab list immediately
+    navigate(`/chart/${chartId}`, { replace: true });
+  }, [openTab, navigate]);
 
-  const openLinkedChart = useCallback((targetChartId) => {
-    if (!targetChartId) return;
-    setOpenTabs((tabs) =>
-      tabs.includes(targetChartId) ? tabs : [...tabs, targetChartId],
-    );
-    setActiveTabId(targetChartId);
-  }, []);
-
-  const closeTab = useCallback(
-    (targetChartId) => {
-      setOpenTabs((tabs) => {
-        const next = tabs.filter((id) => id !== targetChartId);
-        if (activeTabId === targetChartId) {
-          if (next.length === 0) navigate("/dashboard");
-          else setActiveTabId(next[next.length - 1]);
-        }
-        return next;
-      });
-    },
-    [activeTabId, navigate],
+  const handleCloseTab = useCallback(
+    (chartId) => closeTab(chartId, navigate),
+    [closeTab, navigate],
   );
+
+  // Only show when we're on a chart route and have tabs
+  const isVisible = !!urlChartId && openTabs.length > 0;
+
+  if (!isVisible) return null;
 
   return (
     <div
       style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 10,
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
-        width: "100%",
       }}
     >
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
@@ -1694,20 +1770,18 @@ function EditorShell() {
             style={{
               position: "absolute",
               inset: 0,
-              visibility: id === activeTabId ? "visible" : "hidden",
+              opacity: id === activeTabId ? 1 : 0,
+              zIndex: id === activeTabId ? 1 : -1,
               pointerEvents: id === activeTabId ? "auto" : "none",
+              transition: "opacity 0.15s ease",
             }}
           >
             <ErrorBoundary>
               <ReactFlowProvider>
                 <FlowApp
                   chartId={id}
-                  openLinkedChart={openLinkedChart}
-                  onChartName={(name) =>
-                    setTabNames((t) =>
-                      t[id] === name ? t : { ...t, [id]: name },
-                    )
-                  }
+                  openLinkedChart={handleOpenLinkedChart}
+                  onChartName={(name) => setTabName(id, name)}
                 />
               </ReactFlowProvider>
             </ErrorBoundary>
@@ -1721,11 +1795,80 @@ function EditorShell() {
             name: tabNames[id] || "Untitled Chart",
           }))}
           activeTabId={activeTabId}
-          onSelect={setActiveTabId}
-          onClose={closeTab}
+          onSelect={(id) => navigate(`/chart/${id}`, { replace: true })}
+          onClose={handleCloseTab}
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Main layout: renders Routes for all pages, plus a persistent EditorShell
+ * that lives outside the route tree so it never unmounts.
+ */
+function AppLayout() {
+  const { user, loading } = useAuth();
+
+  return (
+    <>
+      <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Protected routes */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/folder/:folderId"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Chart editor — handled by the persistent EditorShell below,
+              but we still need a route entry so ProtectedRoute guards it
+              and React Router doesn't show 404. */}
+          <Route
+            path="/chart/:chartId"
+            element={
+              <ProtectedRoute>
+                {/* EditorShell renders itself via the persistent instance below */}
+                <div />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </div>
+
+      {/* Persistent editor — never unmounts once a chart has been opened */}
+      {user && !loading && <EditorShell />}
+    </>
   );
 }
 
@@ -1733,48 +1876,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-            {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Chart editor — loads by ID, EditorShell manages a tab per open chart */}
-            <Route
-              path="/chart/:chartId"
-              element={
-                <ProtectedRoute>
-                  <EditorShell />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </BrowserRouter>
+        <TabProvider>
+          <BrowserRouter>
+            <AppLayout />
+          </BrowserRouter>
+        </TabProvider>
       </AuthProvider>
     </ThemeProvider>
   );

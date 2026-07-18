@@ -43,10 +43,10 @@ export default function ForgotPasswordPage() {
         <div className="gov-auth-body">
           {sent ? (
             <div className="gov-auth-success-block">
-              <CheckCircle size={48} style={{ color: '#0f5a34' }} />
+              <CheckCircle size={48} style={{ color: 'var(--link-color)' }} />
               <h3>Reset Link Sent!</h3>
               <p>
-                Check your inbox at <strong style={{ color: '#0f5a34' }}>{email}</strong>.
+                Check your inbox at <strong style={{ color: 'var(--text-primary)' }}>{email}</strong>.
                 The link expires in 1 hour.
               </p>
               <Link to="/login" className="gov-auth-submit-btn" style={{ marginTop: 24, textDecoration: 'none' }}>

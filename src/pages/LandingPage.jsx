@@ -155,7 +155,7 @@ export default function LandingPage() {
                 transition: 'transform .2s ease, box-shadow .2s ease',
               }}
             >
-              Staff Login
+              Login
             </Link>
           )}
         </div>
@@ -209,7 +209,7 @@ export default function LandingPage() {
                       background: 'var(--bg-surface)'
                     }}
                   >
-                    Staff Login
+                    Login
                   </Link>
                 )}
               </div>

@@ -10,10 +10,11 @@ import {
   ChevronDown,
   Sun,
   Moon,
+  Search,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
-export default function Navbar() {
+export default function Navbar({ search, setSearch }) {
   const { user, displayName, avatarUrl, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -48,6 +49,20 @@ export default function Navbar() {
             style={{ height: 36, objectFit: "contain" }}
           />
         </Link>
+
+        {/* Optional Search Bar */}
+        {search !== undefined && setSearch && (
+          <div className="navbar__search">
+            <Search size={18} className="navbar__search-icon" />
+            <input
+              type="text"
+              className="navbar__search-input"
+              placeholder="Search in Drive"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        )}
 
         {/* Right side */}
         <div className="navbar__actions">
