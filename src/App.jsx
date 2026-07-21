@@ -62,8 +62,9 @@ import ContextMenu from "./components/ContextMenu";
 import ShortcutsModal from "./components/ShortcutsModal";
 import StatusBar from "./components/StatusBar";
 import { getLayoutedElements } from "./utils/layoutUtils";
-import { TYPE_META } from "./data/nodeTypes";
 import { supabase } from "./supabaseClient";
+import { TYPE_META } from "./data/nodeTypes";
+import { mergeHRDataIntoNodes, syncNodeToHRDatabase } from "./utils/hrUtils";
 import ErrorBoundary from "./components/ErrorBoundary";
 import VersionHistoryModal from "./components/VersionHistoryModal";
 import ChartTabBar from "./components/ChartTabBar";
@@ -441,10 +442,13 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         // lastSyncData intentionally reflects the RAW saved data (pre-normalization)
         // so the persist effect sees a diff and re-saves the normalized edges,
         // permanently healing any chart saved before edges carried a `type`.
-        setNodes(data.nodes || []);
+        // Load HR data from relational tables and merge it into the visual nodes
+        const mergedNodes = await mergeHRDataIntoNodes(chartId, data.nodes || []);
+        
+        setNodes(mergedNodes);
         setEdges(normalizeEdges(data.edges));
         lastSyncData.current = {
-          nodes: JSON.stringify(data.nodes || []),
+          nodes: JSON.stringify(mergedNodes),
           edges: JSON.stringify(data.edges || []),
         };
 
@@ -679,12 +683,18 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     (data) => {
       takeSnapshot();
       setNodes((nds) =>
-        nds.map((n) =>
-          n.selected ? { ...n, data: { ...n.data, ...data } } : n,
-        ),
+        nds.map((n) => {
+          if (n.selected) {
+            const updatedNode = { ...n, data: { ...n.data, ...data } };
+            // Sync to HR database in the background if it's an HR node
+            syncNodeToHRDatabase(chartId, user?.id, updatedNode);
+            return updatedNode;
+          }
+          return n;
+        })
       );
     },
-    [setNodes, takeSnapshot],
+    [setNodes, takeSnapshot, chartId, user?.id],
   );
 
   const updateEdgeProperties = useCallback(
@@ -846,13 +856,8 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       if (!parent) return;
       const newId = `node-${Date.now()}`;
       const colorMap = {
-        ministry: "#0f2044",
-        department: "#0e7d6e",
-        division: "var(--default-node-bg)",
-        office: "#0369a1",
-        head: "#b45309",
-        deputy: "#c2782e",
-        officer: "#0f766e",
+        orgNode: "var(--default-node-bg)",
+        individualNode: "#334155",
       };
       const newNode = {
         id: newId,
@@ -901,7 +906,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       data: {
         name: "ថ្មី",
         nameEn: "New Node",
-        orgType: "department",
+        orgType: "orgNode",
         color: "var(--default-node-bg)",
         description: "",
       },
@@ -1471,7 +1476,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
               setSelectedEdge(null);
             }
           }}
-          onAddChild={() => addChildNode(contextMenu.nodeId, "office")}
+          onAddChild={() => addChildNode(contextMenu.nodeId, "orgNode")}
           onDuplicate={() => {
             const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
             if (n) duplicateNodes([n]);

@@ -354,9 +354,11 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [name, setName]               = useState(firstNode.data.name || "");
   const [nameEn, setNameEn]           = useState(firstNode.data.nameEn || "");
   const [description, setDescription] = useState(firstNode.data.description || "");
-  const [orgType, setOrgType]         = useState(firstNode.data.orgType || "office");
+  const [orgType, setOrgType]         = useState(firstNode.data.orgType || "orgNode");
   const [color, setColor]             = useState(firstNode.data.color || "var(--default-node-bg)");
   const [textColor, setTextColor]     = useState(firstNode.data.textColor || "#ffffff");
+  const [badgeText, setBadgeText]     = useState(firstNode.data.badgeText || "");
+  const [badgeColor, setBadgeColor]   = useState(firstNode.data.badgeColor || "#38bdf8");
   const [linkedChartId, setLinkedChartId] = useState(firstNode.data.linkedChartId || "");
   const [fontSize, setFontSize]           = useState(firstNode.data.fontSize || 13);
   const [textAlign, setTextAlign]         = useState(firstNode.data.textAlign || "center");
@@ -372,12 +374,17 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [siblings, setSiblings]           = useState(firstNode.data.siblings || "");
   const [education, setEducation]         = useState(firstNode.data.education || "");
   const [skill, setSkill]                 = useState(firstNode.data.skill || "");
+  const [history, setHistory]             = useState(firstNode.data.history || []);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [addChildType, setAddChildType]   = useState("office");
+  const [addChildType, setAddChildType]   = useState("orgNode");
   const [showAddChild, setShowAddChild]   = useState(false);
+  const [showVacateForm, setShowVacateForm] = useState(false);
+  const [vacateStatus, setVacateStatus]   = useState("Retired");
+  const [vacateDate, setVacateDate]       = useState(new Date().toISOString().split('T')[0]);
+  const [vacateNotes, setVacateNotes]     = useState("");
   const [charts, setCharts]               = useState([]);
 
-  const meta = TYPE_META[orgType] || TYPE_META.office;
+  const meta = TYPE_META[orgType] || TYPE_META.orgNode;
   const isMultiSelect = nodes && nodes.length > 1;
 
   // Fetch user's charts for chart linking
@@ -411,7 +418,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setName(fresh.data.name || "");
     setNameEn(fresh.data.nameEn || "");
     setDescription(fresh.data.description || "");
-    setOrgType(fresh.data.orgType || "office");
+    setOrgType(fresh.data.orgType || "orgNode");
+    setBadgeText(fresh.data.badgeText || "");
+    setBadgeColor(fresh.data.badgeColor || "#38bdf8");
     setColor(fresh.data.color || "var(--default-node-bg)");
     setTextColor(fresh.data.textColor || "#ffffff");
     setLinkedChartId(fresh.data.linkedChartId || "");
@@ -428,8 +437,10 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setSiblings(fresh.data.siblings || "");
     setEducation(fresh.data.education || "");
     setSkill(fresh.data.skill || "");
+    setHistory(fresh.data.history || []);
     setConfirmDelete(false);
     setShowAddChild(false);
+    setShowVacateForm(false);
     skipNextSave.current = true;
   }, [nodes?.map(n => n.id).join(",")]);
 
@@ -437,14 +448,64 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   // (identity, chart link, personal details) must never be copied from the
   // first node onto the whole selection.
   const buildPayload = () => {
-    const payload = { orgType, color, textColor, fontSize, textAlign, textVerticalAlign };
+    const payload = { orgType, color, textColor, badgeText, badgeColor, fontSize, textAlign, textVerticalAlign };
     if (!isMultiSelectRef.current) {
       Object.assign(payload, {
         name, nameEn, description, linkedChartId,
-        staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill,
+        staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill, history,
       });
     }
     return payload;
+  };
+
+  const handleVacate = () => {
+    if (!name && !nameEn) {
+      setShowVacateForm(false);
+      return;
+    }
+    
+    const newRecord = {
+      id: Date.now().toString(),
+      name, nameEn, staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill,
+      exitStatus: vacateStatus,
+      dateLeft: vacateDate,
+      notes: vacateNotes
+    };
+
+    const newHistory = [newRecord, ...history];
+    setHistory(newHistory);
+    
+    setName("");
+    setNameEn("");
+    setStaffId("");
+    setDepartment("");
+    setOffice("");
+    setJoinDate("");
+    setPhone("");
+    setAddress("");
+    setMaritalStatus("");
+    setSiblings("");
+    setEducation("");
+    setSkill("");
+    setShowVacateForm(false);
+    setVacateNotes("");
+
+    // Force flush
+    const payload = buildPayload();
+    payload.history = newHistory;
+    payload.name = "";
+    payload.nameEn = "";
+    payload.staffId = "";
+    payload.department = "";
+    payload.office = "";
+    payload.joinDate = "";
+    payload.phone = "";
+    payload.address = "";
+    payload.maritalStatus = "";
+    payload.siblings = "";
+    payload.education = "";
+    payload.skill = "";
+    onUpdateNodesRef.current(payload);
   };
 
   // Auto-save (debounced) — keeps everything persisted as you type. The Save
@@ -453,8 +514,8 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     if (skipNextSave.current) { skipNextSave.current = false; return; }
     const t = setTimeout(() => { onUpdateNodesRef.current(buildPayload()); }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, linkedChartId, fontSize, textAlign, textVerticalAlign,
-      staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill]);
+  }, [name, nameEn, description, orgType, color, textColor, badgeText, badgeColor, linkedChartId, fontSize, textAlign, textVerticalAlign,
+      staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill, history]);
 
   const handleSave = () => {
     onUpdateNodesRef.current(buildPayload());
@@ -470,18 +531,15 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
         <div className="pp-header-left">
           <div className="pp-dot" style={{ background: color }} />
           <span className="pp-title">{isMultiSelect ? `Multiple Nodes (${nodes.length})` : "Properties"}</span>
-          <span className="pp-type-chip" style={{ color: meta.accent, borderColor: meta.accent }}>
-            {meta.label || orgType}
-          </span>
         </div>
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
 
       {/* Live node preview */}
-      <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": meta.accent }}>
+      <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": badgeColor || meta.accent }}>
         <div className="pp-preview__bar" />
-        <div className="pp-preview__badge" style={{ color: meta.accent, borderColor: meta.accent }}>
-          {meta.label || orgType.toUpperCase()}
+        <div className="pp-preview__badge" style={{ color: badgeColor || meta.accent, borderColor: badgeColor || meta.accent }}>
+          {badgeText || meta.label || orgType.toUpperCase()}
         </div>
         <div className="pp-preview__name" style={{ color: textColor }}>
           {isMultiSelect ? "(Multiple Selected)" : (name || "ឈ្មោះ")}
@@ -550,6 +608,36 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
 
           <label className="pp-label">Skills / Major</label>
           <input className="pp-input" value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="e.g. Tax audit, Accounting" />
+
+          {/* Vacate Action */}
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
+            {!showVacateForm ? (
+              <button className="pp-btn pp-btn--danger" style={{ width: "100%" }} onClick={() => setShowVacateForm(true)}>
+                Vacate Position / Remove Staff
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(255,0,0,0.05)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,0,0,0.1)' }}>
+                <label className="pp-label" style={{ color: '#fca5a5' }}>Reason for leaving</label>
+                <select className="pp-input" value={vacateStatus} onChange={e => setVacateStatus(e.target.value)}>
+                  <option>Retired</option>
+                  <option>Transferred</option>
+                  <option>Suspended</option>
+                  <option>Resigned</option>
+                </select>
+                
+                <label className="pp-label" style={{ color: '#fca5a5' }}>Date</label>
+                <input type="date" className="pp-input" value={vacateDate} onChange={e => setVacateDate(e.target.value)} style={{ colorScheme: "dark" }} />
+                
+                <label className="pp-label" style={{ color: '#fca5a5' }}>Notes</label>
+                <textarea className="pp-textarea" value={vacateNotes} onChange={e => setVacateNotes(e.target.value)} placeholder="Optional context..." rows={2} />
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <button className="pp-btn" style={{ flex: 1 }} onClick={() => setShowVacateForm(false)}>Cancel</button>
+                  <button className="pp-btn pp-btn--danger" style={{ flex: 1 }} onClick={handleVacate}>Confirm</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         )}
 
@@ -563,6 +651,35 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Custom Badge */}
+        <div className="pp-section">
+          <div className="pp-section-label"><Tag size={11} /> Badge Settings</div>
+          <label className="pp-label">Badge Text</label>
+          <input className="pp-input" value={badgeText} onChange={(e) => setBadgeText(e.target.value)} placeholder={meta.label || "e.g. Department, Director..."} />
+          <label className="pp-label" style={{ marginTop: 8 }}>Badge Color</label>
+          <div className="pp-colors">
+            {[
+              { label: "Blue",   value: "#38bdf8" },
+              { label: "Gold",   value: "#d4af37" },
+              { label: "Amber",  value: "#f59e0b" },
+              { label: "Red",    value: "#f43f5e" },
+              { label: "Green",  value: "#0e7d6e" },
+              { label: "Purple", value: "#a78bfa" },
+              { label: "Teal",   value: "#5eead4" },
+              { label: "Pink",   value: "#fb7185" },
+            ].map((c) => (
+              <button key={c.value} className={`pp-swatch ${badgeColor === c.value ? "active" : ""}`}
+                style={{ background: c.value }} onClick={() => setBadgeColor(c.value)} title={c.label} />
+            ))}
+            <label className="pp-swatch pp-swatch--custom" title="Custom badge color">
+              <input type="color" value={badgeColor} onChange={(e) => setBadgeColor(e.target.value)}
+                style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} />
+              <span style={{ fontSize: 14 }}>🎨</span>
+            </label>
+          </div>
+          <div className="pp-color-preview" style={{ background: badgeColor }}><span>{badgeColor}</span></div>
         </div>
 
         {/* Background/Text Color — not applicable to person cards, which are

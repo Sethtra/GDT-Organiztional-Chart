@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X, Pencil, Hash, Calendar, Users, Phone, MapPin, Heart, GraduationCap, Sparkles, Briefcase, Contact } from "lucide-react";
 import { TYPE_META } from "../data/nodeTypes";
 
@@ -33,6 +34,10 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
 
   const marital = d.maritalStatus === "married" ? "Married"
     : d.maritalStatus === "single" ? "Single" : "";
+    
+  const [activeTab, setActiveTab] = useState("current");
+  const history = d.history || [];
+  const isVacant = !d.name && !d.nameEn;
 
   return (
     <div className="properties-panel profile-drawer">
@@ -50,13 +55,42 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
         <div className="profile-hero__avatar" style={{ '--avatar-accent': meta.accent || "#f59e0b" }}>
           {initials}
         </div>
-        <div className="profile-hero__name">{d.name || "ឈ្មោះ"}</div>
-        {d.nameEn && <div className="profile-hero__name-en">{d.nameEn}</div>}
-        {meta.label && <span className="profile-hero__chip">{meta.label}</span>}
+        <div className="profile-hero__text">
+          <div className="profile-hero__name">
+            {isVacant ? <span style={{ color: "#fca5a5" }}>VACANT POSITION</span> : (d.name || "ឈ្មោះ")}
+          </div>
+          {d.nameEn && <div className="profile-hero__name-en">{d.nameEn}</div>}
+        </div>
       </div>
 
+      {/* Tabs */}
+      {history.length > 0 && (
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(var(--surface-rgb), 0.1)' }}>
+          <button 
+            style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'current' ? '2px solid #38bdf8' : '2px solid transparent', color: activeTab === 'current' ? '#38bdf8' : 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => setActiveTab("current")}
+          >
+            Current Staff
+          </button>
+          <button 
+            style={{ flex: 1, padding: '12px 0', background: 'transparent', border: 'none', borderBottom: activeTab === 'history' ? '2px solid #38bdf8' : '2px solid transparent', color: activeTab === 'history' ? '#38bdf8' : 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            onClick={() => setActiveTab("history")}
+          >
+            History ({history.length})
+          </button>
+        </div>
+      )}
+
       {/* Details */}
+      {activeTab === "current" && (
       <div className="pp-body">
+        {isVacant && (
+          <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+            This position is currently vacant. Click "Edit Details" to assign a new staff member.
+          </div>
+        )}
+        {!isVacant && (
+          <>
         <div className="pp-section">
           <div className="pp-section-label"><Briefcase size={11} /> Work</div>
           <Row icon={<Hash size={12} />}     label="ID"         value={d.staffId} />
@@ -79,7 +113,49 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
           <Row icon={<GraduationCap size={12} />} label="Education" value={d.education} />
           <Row icon={<Sparkles size={12} />}      label="Skills"    value={d.skill} />
         </div>
+          </>
+        )}
       </div>
+      )}
+
+      {activeTab === "history" && (
+        <div className="pp-body">
+          {history.map((record, i) => (
+            <div key={record.id || i} style={{ padding: '16px 20px', borderBottom: '1px dashed rgba(var(--surface-rgb), 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                 <div>
+                   <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{record.name}</div>
+                   {record.nameEn && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{record.nameEn}</div>}
+                 </div>
+                 <span style={{ 
+                   fontSize: '10px', 
+                   fontWeight: 700,
+                   textTransform: 'uppercase',
+                   padding: '2px 8px', 
+                   borderRadius: '12px', 
+                   background: record.exitStatus === 'Retired' ? 'rgba(148,163,184,0.15)' : 
+                               record.exitStatus === 'Transferred' ? 'rgba(56,189,248,0.15)' : 
+                               record.exitStatus === 'Resigned' ? 'rgba(244,63,94,0.15)' : 'rgba(245,158,11,0.15)',
+                   color: record.exitStatus === 'Retired' ? '#94a3b8' : 
+                          record.exitStatus === 'Transferred' ? '#38bdf8' : 
+                          record.exitStatus === 'Resigned' ? '#f43f5e' : '#f59e0b',
+                   border: '1px solid currentColor'
+                 }}>
+                   {record.exitStatus}
+                 </span>
+              </div>
+              <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Left position on: <strong style={{ color: 'var(--text-primary)' }}>{formatJoinDate(record.dateLeft) || "Unknown"}</strong>
+              </div>
+              {record.notes && (
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontStyle: 'italic', background: 'rgba(var(--surface-rgb), 0.05)', padding: '8px 12px', borderRadius: '6px' }}>
+                  "{record.notes}"
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Footer — edit switches to the full properties panel */}
       {canEdit && (

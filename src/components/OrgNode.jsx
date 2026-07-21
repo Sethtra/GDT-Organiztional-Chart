@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Link as LinkIcon,
+  History,
 } from "lucide-react";
 import { ChartContext } from "../App";
 import { TYPE_META } from "../data/nodeTypes";
@@ -13,9 +14,11 @@ const OrgNode = memo(({ id, data, selected }) => {
   const [hovered, setHovered] = useState(false);
   const context = useContext(ChartContext);
 
-  const meta = TYPE_META[data.orgType] || TYPE_META.office;
+  const meta = TYPE_META[data.orgType] || TYPE_META.orgNode;
   const bgColor = data.color || "var(--default-node-bg)";
   const textColor = data.textColor || "#ffffff";
+  const badgeText = data.badgeText || meta.label;
+  const badgeAccent = data.badgeColor || meta.accent;
 
   // Dynamic properties from context
   const isCollapsed = context?.collapsedNodes?.has(id) || false;
@@ -38,6 +41,10 @@ const OrgNode = memo(({ id, data, selected }) => {
       .trim()
       .charAt(0)
       .toUpperCase();
+
+    const isVacant = !data.name && !data.nameEn;
+    const hasHistory = data.history && data.history.length > 0;
+
     return (
       <div
         className={`org-node org-node--person ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
@@ -48,8 +55,8 @@ const OrgNode = memo(({ id, data, selected }) => {
           minWidth={220}
           minHeight={170}
           isVisible={selected}
-          lineStyle={{ borderColor: "#e9dca6" }}
-          handleStyle={{ borderColor: "#e9dca6", background: "#fff" }}
+          lineStyle={{ borderColor: badgeAccent }}
+          handleStyle={{ borderColor: badgeAccent, background: "#fff" }}
         />
 
         <Handle
@@ -89,6 +96,13 @@ const OrgNode = memo(({ id, data, selected }) => {
           <span className="person-node__dot" />
         </span>
 
+        <span
+          className="person-node__badge"
+          style={{ "--badge-color": badgeAccent }}
+        >
+          {badgeText}
+        </span>
+
         {data.linkedChartId && (
           <span
             title="Linked to another chart"
@@ -98,11 +112,20 @@ const OrgNode = memo(({ id, data, selected }) => {
           </span>
         )}
 
+        {hasHistory && (
+          <span
+            title={`${data.history.length} past record(s)`}
+            className="person-node__history-badge"
+          >
+            <History size={10} />
+          </span>
+        )}
+
         <div
           className="person-node__avatar"
-          style={{ "--avatar-accent": meta.accent }}
+          style={{ "--avatar-accent": badgeAccent, opacity: isVacant ? 0.3 : 1 }}
         >
-          {initials}
+          {isVacant ? "?" : initials}
         </div>
 
         <div className="person-node__body">
@@ -110,9 +133,12 @@ const OrgNode = memo(({ id, data, selected }) => {
             className="person-node__name"
             style={{ fontSize: `${fontSize + 2.5}px` }}
           >
-            {data.name || "ឈ្មោះ"}
+            {isVacant ? (
+              <span style={{ color: "#fca5a5", letterSpacing: "2px", fontWeight: "800", fontSize: "11px" }}>VACANT</span>
+            ) : (
+              data.name
+            )}
           </div>
-          <div className="person-node__position">{meta.label}</div>
         </div>
 
         {teamSize > 0 && data.type !== 'officer' && (
@@ -141,7 +167,7 @@ const OrgNode = memo(({ id, data, selected }) => {
       className={`org-node ${selected ? "org-node--selected" : ""} ${isHighlighted ? "org-node--highlighted" : ""}`}
       style={{
         "--node-bg": bgColor,
-        "--node-accent": meta.accent,
+        "--node-accent": badgeAccent,
         color: textColor,
       }}
       onMouseEnter={() => setHovered(true)}
@@ -152,8 +178,8 @@ const OrgNode = memo(({ id, data, selected }) => {
         minWidth={180}
         minHeight={70}
         isVisible={selected}
-        lineStyle={{ borderColor: meta.accent }}
-        handleStyle={{ borderColor: meta.accent, background: "#fff" }}
+        lineStyle={{ borderColor: badgeAccent }}
+        handleStyle={{ borderColor: badgeAccent, background: "#fff" }}
       />
 
       {/* Connection handles */}
@@ -190,9 +216,9 @@ const OrgNode = memo(({ id, data, selected }) => {
         {data.orgType !== "simple" && (
           <span
             className="org-node__badge"
-            style={{ color: meta.accent, borderColor: meta.accent }}
+            style={{ color: badgeAccent, borderColor: badgeAccent }}
           >
-            {meta.label}
+            {badgeText}
           </span>
         )}
         <div
@@ -202,7 +228,7 @@ const OrgNode = memo(({ id, data, selected }) => {
           {childCount > 0 && (
             <span
               className="org-node__child-count"
-              style={{ color: meta.accent }}
+              style={{ color: badgeAccent }}
             >
               {isCollapsed ? (
                 <ChevronRight size={10} />
