@@ -76,8 +76,9 @@ export async function mergeHRDataIntoNodes(chartId, originalNodes) {
 
     // History
     if (historyAssignments.length > 0) {
-      newData.history = historyAssignments.map(a => {
+      const dbHistory = historyAssignments.map(a => {
         const st = a.staff || {};
+        const rawStatus = a.exit_status || '';
         return {
           dbAssignmentId: a.id,
           dbStaffId: st.id,
@@ -92,12 +93,54 @@ export async function mergeHRDataIntoNodes(chartId, originalNodes) {
           skill: st.skill || '',
           joinDate: a.start_date || st.join_date || '',
           dateLeft: a.end_date || '',
-          exitStatus: a.exit_status || '',
+          exitStatus: (rawStatus && rawStatus !== 'Vacated' && rawStatus !== 'Departed') ? rawStatus : '',
           notes: a.notes || ''
         };
       });
+
+      const combined = [...dbHistory];
+      (node.data?.history || []).forEach(localRec => {
+        if (!localRec || typeof localRec !== 'object') return;
+        if (!localRec.name && !localRec.nameEn && !localRec.staffId && !localRec.dateLeft && !localRec.exitStatus) return;
+        
+        const localMatchKey = `${(localRec.name || '').trim().toLowerCase()}_${(localRec.dateLeft || '').trim()}`;
+        const existingIdx = combined.findIndex(r => {
+          const rMatchKey = `${(r.name || '').trim().toLowerCase()}_${(r.dateLeft || '').trim()}`;
+          return rMatchKey === localMatchKey;
+        });
+
+        if (existingIdx >= 0) {
+          if (!combined[existingIdx].exitStatus || combined[existingIdx].exitStatus === 'Vacated' || combined[existingIdx].exitStatus === 'Departed') {
+            if (localRec.exitStatus) combined[existingIdx].exitStatus = localRec.exitStatus;
+          }
+          if (!combined[existingIdx].notes && localRec.notes) {
+            combined[existingIdx].notes = localRec.notes;
+          }
+        } else {
+          combined.push(localRec);
+        }
+      });
+
+      combined.forEach(rec => {
+        if (!rec.exitStatus || rec.exitStatus === 'Vacated' || rec.exitStatus === 'Departed') {
+          rec.exitStatus = 'Resigned';
+        }
+      });
+
+      newData.history = combined;
     } else {
-      newData.history = [];
+      const seen = new Set();
+      newData.history = (node.data?.history || []).filter(item => {
+        if (!item || typeof item !== 'object') return false;
+        if (!item.name && !item.nameEn && !item.staffId && !item.dateLeft && !item.exitStatus) return false;
+        const key = `${(item.name || '').trim().toLowerCase()}_${(item.dateLeft || '').trim()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).map(rec => ({
+        ...rec,
+        exitStatus: (!rec.exitStatus || rec.exitStatus === 'Vacated' || rec.exitStatus === 'Departed') ? 'Resigned' : rec.exitStatus
+      }));
     }
 
     return { ...node, data: newData };
@@ -201,9 +244,15 @@ export async function syncNodeToHRDatabase(chartId, ownerId, node) {
         }
       }
     } else {
-      // If name is cleared, terminate active assignment
+      // If name is cleared (vacated), terminate active assignment with detailed vacate record
+      const latestHistory = (d.history && d.history.length > 0) ? d.history[0] : null;
       await supabase.from('position_assignments')
-        .update({ end_date: new Date().toISOString().split('T')[0], exit_status: 'Vacated' })
+        .update({
+          end_date: latestHistory?.dateLeft || new Date().toISOString().split('T')[0],
+          exit_status: latestHistory?.exitStatus || 'Vacated',
+          notes: latestHistory?.notes || null,
+          updated_at: new Date().toISOString()
+        })
         .eq('position_id', positionId)
         .is('end_date', null);
     }

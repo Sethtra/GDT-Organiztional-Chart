@@ -90,11 +90,7 @@ const OrgNode = memo(({ id, data, selected }) => {
           />
         )}
 
-        <span className="person-node__dots">
-          <span className="person-node__dot" />
-          <span className="person-node__dot" />
-          <span className="person-node__dot" />
-        </span>
+
 
         <span
           className="person-node__badge"

@@ -1004,16 +1004,22 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     [setCenter],
   );
 
-  const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge);
 
-  // Single selected person node, resolved fresh from `nodes` so the drawer
-  // reflects edits immediately.
+  // Only shift canvas right when the edit PropertiesPanel is actually visible.
+  // When viewing a person node profile (read-only drawer on the right), the
+  // left side has nothing, so we must NOT add the margin-left offset.
   const personNode = useMemo(() => {
     if (selectedEdge || selectedNodes.length !== 1) return null;
     const live = nodes.find((n) => n.id === selectedNodes[0].id);
     if (!live || !TYPE_META[live.data?.orgType]?.isPerson) return null;
     return live;
   }, [selectedNodes, selectedEdge, nodes]);
+
+  // Shift canvas left only when the edit PropertiesPanel is rendered.
+  // Profile-view (personNode && !editingPerson) shows a right-side drawer only
+  // — nothing fills the left, so no margin shift needed.
+  const showingProfileOnly = !!(personNode && !editingPerson && !previewMode);
+  const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge) && !showingProfileOnly;
 
   // Memoized so OrgNode (wrapped in memo()) doesn't re-render on every
   // unrelated render of FlowApp — without this, a new object here every
@@ -1323,9 +1329,6 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
                   snapGrid={[20, 20]}
                   minZoom={0.05}
                   maxZoom={2.5}
-                  setChartIsPublic={setChartIsPublic}
-                  setShowShare={setShowShare}
-                  canEdit={canEdit}
                   proOptions={{ hideAttribution: true }}
                 >
                   {!previewMode && (

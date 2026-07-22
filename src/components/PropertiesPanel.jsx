@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw, Contact, Check } from "lucide-react";
+import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw, Contact, Check, UserMinus } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
 import { ARROWHEAD_OPTIONS } from "./CustomEdge";
@@ -459,20 +459,30 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   };
 
   const handleVacate = () => {
-    if (!name && !nameEn) {
+    if (!name && !nameEn && !staffId) {
       setShowVacateForm(false);
       return;
     }
     
     const newRecord = {
-      id: Date.now().toString(),
+      id: "vacate_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7),
       name, nameEn, staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill,
       exitStatus: vacateStatus,
       dateLeft: vacateDate,
       notes: vacateNotes
     };
 
-    const newHistory = [newRecord, ...history];
+    // Strict content-based deduplication
+    const seen = new Set();
+    const newHistory = [newRecord, ...(history || [])].filter(item => {
+      if (!item || typeof item !== 'object') return false;
+      if (!item.name && !item.nameEn && !item.staffId && !item.dateLeft && !item.exitStatus) return false;
+      const key = `${(item.name || '').trim().toLowerCase()}_${(item.nameEn || '').trim().toLowerCase()}_${item.dateLeft || ''}_${item.exitStatus || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     setHistory(newHistory);
     
     setName("");
@@ -489,6 +499,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setSkill("");
     setShowVacateForm(false);
     setVacateNotes("");
+
+    // Prevent debounced auto-save effect from flushing stale state
+    skipNextSave.current = true;
 
     // Force flush
     const payload = buildPayload();
@@ -610,30 +623,111 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           <input className="pp-input" value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="e.g. Tax audit, Accounting" />
 
           {/* Vacate Action */}
-          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px dashed rgba(255,255,255,0.08)" }}>
             {!showVacateForm ? (
-              <button className="pp-btn pp-btn--danger" style={{ width: "100%" }} onClick={() => setShowVacateForm(true)}>
-                Vacate Position / Remove Staff
+              <button
+                type="button"
+                onClick={() => setShowVacateForm(true)}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  background: "rgba(244, 63, 94, 0.08)",
+                  border: "1px solid rgba(244, 63, 94, 0.25)",
+                  color: "#f43f5e",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: "0 2px 8px rgba(244, 63, 94, 0.05)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(244, 63, 94, 0.16)";
+                  e.currentTarget.style.borderColor = "rgba(244, 63, 94, 0.4)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(244, 63, 94, 0.08)";
+                  e.currentTarget.style.borderColor = "rgba(244, 63, 94, 0.25)";
+                }}
+              >
+                <UserMinus size={14} />
+                <span>Vacate Position / Remove Staff</span>
               </button>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(255,0,0,0.05)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,0,0,0.1)' }}>
-                <label className="pp-label" style={{ color: '#fca5a5' }}>Reason for leaving</label>
-                <select className="pp-input" value={vacateStatus} onChange={e => setVacateStatus(e.target.value)}>
-                  <option>Retired</option>
-                  <option>Transferred</option>
-                  <option>Suspended</option>
-                  <option>Resigned</option>
-                </select>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                background: 'rgba(244, 63, 94, 0.04)',
+                padding: 16,
+                borderRadius: 10,
+                border: '1px solid rgba(244, 63, 94, 0.2)'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#f43f5e', display: 'flex', alignItems: 'center', gap: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <UserMinus size={13} /> Vacate Position Record
+                </div>
                 
-                <label className="pp-label" style={{ color: '#fca5a5' }}>Date</label>
-                <input type="date" className="pp-input" value={vacateDate} onChange={e => setVacateDate(e.target.value)} style={{ colorScheme: "dark" }} />
+                <div>
+                  <label htmlFor="vacate-reason-select" className="pp-label" style={{ color: '#94a3b8', marginBottom: 4, display: 'block' }}>Reason for leaving</label>
+                  <select
+                    id="vacate-reason-select"
+                    className="pp-input"
+                    value={vacateStatus}
+                    onChange={e => setVacateStatus(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <option value="Retired">Retired</option>
+                    <option value="Transferred">Transferred</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Resigned">Resigned</option>
+                  </select>
+                </div>
                 
-                <label className="pp-label" style={{ color: '#fca5a5' }}>Notes</label>
-                <textarea className="pp-textarea" value={vacateNotes} onChange={e => setVacateNotes(e.target.value)} placeholder="Optional context..." rows={2} />
+                <div>
+                  <label htmlFor="vacate-date-input" className="pp-label" style={{ color: '#94a3b8', marginBottom: 4, display: 'block' }}>Date <span style={{ opacity: 0.6, fontWeight: 400 }}>(DD/MM/YYYY)</span></label>
+                  <input
+                    id="vacate-date-input"
+                    type="text"
+                    className="pp-input"
+                    value={vacateDate}
+                    onChange={e => setVacateDate(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    placeholder="DD/MM/YYYY"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="vacate-notes-input" className="pp-label" style={{ color: '#94a3b8', marginBottom: 4, display: 'block' }}>Notes</label>
+                  <textarea
+                    id="vacate-notes-input"
+                    className="pp-textarea"
+                    value={vacateNotes}
+                    onChange={e => setVacateNotes(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    placeholder="Optional context..."
+                    rows={2}
+                  />
+                </div>
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  <button className="pp-btn" style={{ flex: 1 }} onClick={() => setShowVacateForm(false)}>Cancel</button>
-                  <button className="pp-btn pp-btn--danger" style={{ flex: 1 }} onClick={handleVacate}>Confirm</button>
+                  <button
+                    type="button"
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+                    onClick={() => setShowVacateForm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', background: '#f43f5e', border: 'none', color: '#ffffff', fontWeight: 600, cursor: 'pointer', fontSize: '12px', boxShadow: '0 2px 8px rgba(244, 63, 94, 0.3)' }}
+                    onClick={handleVacate}
+                  >
+                    Confirm Vacate
+                  </button>
                 </div>
               </div>
             )}
