@@ -1,5 +1,5 @@
 {
-  "name": "gdt-organizetional-chart",
+  "name": "gdt-organizational-chart",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,24 +7,19 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node --test",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
     "@dagrejs/dagre": "^3.0.0",
-    "@hello-pangea/dnd": "^18.0.1",
     "@supabase/supabase-js": "^2.110.0",
-    "@tailwindcss/vite": "^4.3.2",
     "@xyflow/react": "^12.11.2",
     "dotenv": "^17.4.2",
     "html-to-image": "^1.11.13",
-    "jspdf": "^4.2.1",
     "lucide-react": "^1.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1",
-    "tailwindcss": "^4.3.2",
-    "uuid": "^14.0.1"
+    "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

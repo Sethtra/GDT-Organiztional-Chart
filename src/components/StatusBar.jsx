@@ -1,4 +1,4 @@
-import { Layers, GitBranch, ZoomIn, CheckCircle2, Loader2, Clock } from "lucide-react";
+import { Layers, GitBranch, ZoomIn, CheckCircle2, Loader2, Clock, AlertCircle } from "lucide-react";
 
 export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus, onOpenVersionHistory }) {
   const zoomPct = Math.round((zoom ?? 1) * 100);
@@ -29,11 +29,15 @@ export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus, onOp
         <span>History</span>
       </button>
       <div className="status-spacer" />
-      <div className={`status-save ${saveStatus === "saving" ? "status-save--saving" : saveStatus === "saved" ? "status-save--saved" : ""}`}>
+      <div
+        className={`status-save ${saveStatus === "saving" ? "status-save--saving" : saveStatus === "saved" ? "status-save--saved" : ""}`}
+        title={saveStatus === "error" ? "Save failed. Your local backup is intact; edit again or press Save to retry." : undefined}
+      >
         {saveStatus === "saving" && <Loader2 size={11} className="status-spin" />}
         {saveStatus === "saved" && <CheckCircle2 size={11} />}
+        {saveStatus === "error" && <AlertCircle size={11} color="#ef4444" />}
         <span>
-          {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : ""}
+          {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : saveStatus === "error" ? "Save failed" : ""}
         </span>
       </div>
     </div>

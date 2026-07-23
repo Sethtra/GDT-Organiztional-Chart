@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 export default function ConfirmModal({ title, message, confirmLabel = "Confirm", onConfirm, onCancel, danger = false }) {
   // Close on Escape

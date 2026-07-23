@@ -87,13 +87,6 @@ export function AuthProvider({ children }) {
     return { data, error };
   }, []);
 
-  const deleteAccount = useCallback(async () => {
-    // Must be done server-side via a Supabase Function or admin API
-    // For now we sign out
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  }, []);
-
   const displayName =
     user?.user_metadata?.display_name ||
     user?.user_metadata?.full_name ||
@@ -119,7 +112,6 @@ export function AuthProvider({ children }) {
     updatePassword,
     updateProfile,
     resendVerificationEmail,
-    deleteAccount,
   };
 
   return React.createElement(AuthContext.Provider, { value }, children);

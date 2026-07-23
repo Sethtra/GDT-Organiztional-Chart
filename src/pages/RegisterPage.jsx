@@ -43,7 +43,7 @@ export default function RegisterPage() {
     if (!agreed) { setError('You must agree to the terms to continue.'); return; }
 
     setLoading(true);
-    const { error, data } = await signUp({ email, password, displayName: displayName.trim() });
+    const { error } = await signUp({ email, password, displayName: displayName.trim() });
     setLoading(false);
 
     if (error) {

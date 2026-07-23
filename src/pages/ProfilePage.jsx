@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle, ArrowLeft, Trash2, User, Lock } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, ArrowLeft, Trash2, User } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import ConfirmModal from '../components/ConfirmModal';
 
 export default function ProfilePage() {
-  const { user, displayName, avatarUrl, updateProfile, updatePassword, deleteAccount } = useAuth();
-  const navigate = useNavigate();
+  const { user, displayName, avatarUrl, updateProfile } = useAuth();
 
   // Profile form
   const [name, setName] = useState(displayName || '');
@@ -15,18 +13,6 @@ export default function ProfilePage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileError, setProfileError] = useState('');
-
-  // Password form
-  const [newPass, setNewPass] = useState('');
-  const [confirmPass, setConfirmPass] = useState('');
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [passLoading, setPassLoading] = useState(false);
-  const [passSuccess, setPassSuccess] = useState(false);
-  const [passError, setPassError] = useState('');
-
-  // Delete modal
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
@@ -42,24 +28,6 @@ export default function ProfilePage() {
     setProfileLoading(false);
     if (error) setProfileError(error.message);
     else setProfileSuccess(true);
-  };
-
-  const handlePasswordSave = async (e) => {
-    e.preventDefault();
-    setPassError('');
-    setPassSuccess(false);
-    if (newPass.length < 6) { setPassError('Password must be at least 6 characters.'); return; }
-    if (newPass !== confirmPass) { setPassError('Passwords do not match.'); return; }
-    setPassLoading(true);
-    const { error } = await updatePassword(newPass);
-    setPassLoading(false);
-    if (error) setPassError(error.message);
-    else { setPassSuccess(true); setNewPass(''); setConfirmPass(''); }
-  };
-
-  const handleDeleteAccount = async () => {
-    await deleteAccount();
-    navigate('/');
   };
 
   return (
@@ -144,28 +112,21 @@ export default function ProfilePage() {
               <h2>Danger Zone</h2>
             </div>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-              Permanently delete your account and all associated org charts. This action cannot be undone.
+              Account deletion is temporarily unavailable. It requires a secure
+              server-side deletion function before the authentication account
+              and all associated chart data can be removed safely.
             </p>
             <button
               className="tb-btn tb-btn--danger"
-              style={{ padding: '10px 20px', fontSize: 14 }}
-              onClick={() => setShowDeleteModal(true)}
+              style={{ padding: '10px 20px', fontSize: 14, opacity: 0.55, cursor: 'not-allowed' }}
+              disabled
+              title="A secure server-side account deletion function has not been configured yet."
             >
-              <Trash2 size={15} /> Delete My Account
+              <Trash2 size={15} /> Account Deletion Unavailable
             </button>
           </section>
         </div>
       </div>
-
-      {showDeleteModal && (
-        <ConfirmModal
-          title="Delete Account"
-          message="This will permanently delete your account and ALL your org charts. This cannot be undone."
-          danger
-          onConfirm={handleDeleteAccount}
-          onCancel={() => setShowDeleteModal(false)}
-        />
-      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { X, Trash2, Plus, ChevronDown, Copy, User, Tag, Palette, Zap, Minus, Link as LinkIcon, ExternalLink, RotateCcw, Contact, Check, UserMinus } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
-import { ARROWHEAD_OPTIONS } from "./CustomEdge";
-import { TYPE_META, TYPE_OPTIONS } from "../data/nodeTypes";
+import { useOrgStructure } from "../hooks/useOrgStructure";
+import { ARROWHEAD_OPTIONS } from "../data/edgeOptions";
+import { TYPE_META, TYPE_OPTIONS, POSITION_OPTIONS } from "../data/nodeTypes";
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
@@ -21,7 +22,7 @@ const COLOR_PRESETS = [
 ];
 
 // ── Arrow preview SVG ─────────────────────────────────────────────────────────
-function ArrowPreview({ type, color, selected }) {
+function ArrowPreview({ type, color }) {
   const previews = {
     'closed':       <polygon points="28,10 18,6 18,14" fill={color} />,
     'open':         <polyline points="18,6 28,10 18,14" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />,
@@ -56,9 +57,14 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
   const [cornerRadius, setCornerRadius] = useState(d.cornerRadius ?? 10);
   const [dynamic, setDynamic] = useState(d.dynamic ?? !(edge.sourceHandle || edge.targetHandle));
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const edgeRef = useRef(edge);
+  const onUpdateRef = useRef(onUpdate);
+  edgeRef.current = edge;
+  onUpdateRef.current = onUpdate;
 
   useEffect(() => {
-    const d2 = edge.data || {};
+    const currentEdge = edgeRef.current;
+    const d2 = currentEdge.data || {};
     setStrokeColor(d2.strokeColor || "#4b8fd4");
     setStrokeWidth(d2.strokeWidth || 2);
     setArrowType(d2.arrowType   || "closed");
@@ -67,15 +73,16 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
     setLabel(d2.label          || "");
     setLineStyle(d2.lineStyle  || "elbow");
     setCornerRadius(d2.cornerRadius ?? 10);
-    setDynamic(d2.dynamic ?? !(edge.sourceHandle || edge.targetHandle));
+    setDynamic(d2.dynamic ?? !(currentEdge.sourceHandle || currentEdge.targetHandle));
     setConfirmDelete(false);
   }, [edge.id]);
 
   useEffect(() => {
     const t = setTimeout(() => {
-      onUpdate(edge.id, {
+      const currentEdge = edgeRef.current;
+      onUpdateRef.current(currentEdge.id, {
         data: {
-          ...edge.data,
+          ...currentEdge.data,
           strokeColor,
           strokeWidth: Number(strokeWidth),
           arrowType,
@@ -337,6 +344,73 @@ function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose }) {
   );
 }
 
+// ── Department & Office Cascading Dropdowns ───────────────────────────────────
+function DepartmentSelect({ value, onChange }) {
+  const { units, loading } = useOrgStructure();
+
+  return (
+    <select
+      className="pp-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ colorScheme: 'dark' }}
+    >
+      <option value="">-- Select Department --</option>
+      {loading && <option disabled>Loading...</option>}
+      {units.map((unit) => (
+        <option key={unit.id} value={unit.name}>
+          {unit.name}
+        </option>
+      ))}
+      {/* Backward compat: show existing value even if not in DB */}
+      {value && !units.find(u => u.name === value) && (
+        <option value={value}>{value} (custom)</option>
+      )}
+    </select>
+  );
+}
+
+function OfficeSelect({ department, value, onChange }) {
+  const { getOfficesForUnit } = useOrgStructure();
+  const offices = useMemo(() => getOfficesForUnit(department), [department, getOfficesForUnit]);
+
+  // Auto-clear office if department changed and current office doesn't belong
+  const prevDeptRef = useRef(department);
+  useEffect(() => {
+    if (prevDeptRef.current !== department) {
+      prevDeptRef.current = department;
+      if (value && offices.length > 0 && !offices.find(o => o.name === value)) {
+        onChange('');
+      }
+    }
+  }, [department, value, offices, onChange]);
+
+  const disabled = !department;
+
+  return (
+    <select
+      className="pp-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      style={{ colorScheme: 'dark', opacity: disabled ? 0.5 : 1 }}
+    >
+      <option value="">
+        {disabled ? '-- Select department first --' : offices.length === 0 ? '-- No offices available --' : '-- Select Office --'}
+      </option>
+      {offices.map((office) => (
+        <option key={office.id} value={office.name}>
+          {office.name}
+        </option>
+      ))}
+      {/* Backward compat */}
+      {value && offices.length > 0 && !offices.find(o => o.name === value) && (
+        <option value={value}>{value} (custom)</option>
+      )}
+    </select>
+  );
+}
+
 // ── Node Panel ────────────────────────────────────────────────────────────────
 export default function PropertiesPanel({ nodes, edge, onUpdateNodes, onUpdateEdge, onDelete, onAddChild, onDuplicate, onClose, onSave }) {
   if (edge) {
@@ -359,6 +433,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   const [textColor, setTextColor]     = useState(firstNode.data.textColor || "#ffffff");
   const [badgeText, setBadgeText]     = useState(firstNode.data.badgeText || "");
   const [badgeColor, setBadgeColor]   = useState(firstNode.data.badgeColor || "#38bdf8");
+  const [position, setPosition]       = useState(firstNode.data.position || firstNode.data.badgeText || "");
   const [linkedChartId, setLinkedChartId] = useState(firstNode.data.linkedChartId || "");
   const [fontSize, setFontSize]           = useState(firstNode.data.fontSize || 13);
   const [textAlign, setTextAlign]         = useState(firstNode.data.textAlign || "center");
@@ -386,6 +461,9 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
 
   const meta = TYPE_META[orgType] || TYPE_META.orgNode;
   const isMultiSelect = nodes && nodes.length > 1;
+  const panelNodesRef = useRef(nodes);
+  panelNodesRef.current = nodes;
+  const selectedNodeIds = (nodes || []).map((node) => node.id).join(",");
 
   // Fetch user's charts for chart linking
   useEffect(() => {
@@ -414,13 +492,15 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   isMultiSelectRef.current = isMultiSelect;
 
   useEffect(() => {
-    const fresh = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
+    const currentNodes = panelNodesRef.current;
+    const fresh = currentNodes && currentNodes.length > 0 ? currentNodes[0] : { data: {} };
     setName(fresh.data.name || "");
     setNameEn(fresh.data.nameEn || "");
     setDescription(fresh.data.description || "");
     setOrgType(fresh.data.orgType || "orgNode");
     setBadgeText(fresh.data.badgeText || "");
     setBadgeColor(fresh.data.badgeColor || "#38bdf8");
+    setPosition(fresh.data.position || fresh.data.badgeText || "");
     setColor(fresh.data.color || "var(--default-node-bg)");
     setTextColor(fresh.data.textColor || "#ffffff");
     setLinkedChartId(fresh.data.linkedChartId || "");
@@ -442,21 +522,23 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setShowAddChild(false);
     setShowVacateForm(false);
     skipNextSave.current = true;
-  }, [nodes?.map(n => n.id).join(",")]);
+  }, [selectedNodeIds]);
 
   // Multi-select writes ONLY the bulk-editable fields — per-node data
   // (identity, chart link, personal details) must never be copied from the
   // first node onto the whole selection.
   const buildPayload = () => {
-    const payload = { orgType, color, textColor, badgeText, badgeColor, fontSize, textAlign, textVerticalAlign };
+    const payload = { orgType, color, textColor, badgeText: meta.isPerson ? (position || badgeText) : badgeText, badgeColor, fontSize, textAlign, textVerticalAlign };
     if (!isMultiSelectRef.current) {
       Object.assign(payload, {
         name, nameEn, description, linkedChartId,
-        staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill, history,
+        staffId, department, office, position, joinDate, phone, address, maritalStatus, siblings, education, skill, history,
       });
     }
     return payload;
   };
+  const buildPayloadRef = useRef(buildPayload);
+  buildPayloadRef.current = buildPayload;
 
   const handleVacate = () => {
     if (!name && !nameEn && !staffId) {
@@ -490,6 +572,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     setStaffId("");
     setDepartment("");
     setOffice("");
+    setPosition("");
     setJoinDate("");
     setPhone("");
     setAddress("");
@@ -511,6 +594,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
     payload.staffId = "";
     payload.department = "";
     payload.office = "";
+    payload.position = "";
     payload.joinDate = "";
     payload.phone = "";
     payload.address = "";
@@ -525,9 +609,11 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
   // button just flushes immediately and finishes editing.
   useEffect(() => {
     if (skipNextSave.current) { skipNextSave.current = false; return; }
-    const t = setTimeout(() => { onUpdateNodesRef.current(buildPayload()); }, 250);
+    const t = setTimeout(() => {
+      onUpdateNodesRef.current(buildPayloadRef.current());
+    }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, badgeText, badgeColor, linkedChartId, fontSize, textAlign, textVerticalAlign,
+  }, [name, nameEn, description, orgType, color, textColor, badgeText, badgeColor, position, linkedChartId, fontSize, textAlign, textVerticalAlign,
       staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill, history]);
 
   const handleSave = () => {
@@ -580,14 +666,36 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
         <div className="pp-section">
           <div className="pp-section-label"><Contact size={11} /> Personal Details</div>
 
+          <label className="pp-label">Position / តួនាទី</label>
+          <select
+            className="pp-input"
+            value={position}
+            onChange={(e) => {
+              const val = e.target.value;
+              setPosition(val);
+              setBadgeText(val);
+            }}
+            style={{ colorScheme: 'dark' }}
+          >
+            <option value="">-- ជ្រើសរើសតួនាទី / Select Position --</option>
+            {POSITION_OPTIONS.map((posOpt) => (
+              <option key={posOpt} value={posOpt}>
+                {posOpt}
+              </option>
+            ))}
+            {position && !POSITION_OPTIONS.includes(position) && (
+              <option value={position}>{position}</option>
+            )}
+          </select>
+
           <label className="pp-label">Staff ID</label>
           <input className="pp-input" value={staffId} onChange={(e) => setStaffId(e.target.value)} placeholder="e.g. GDT-0421" />
 
           <label className="pp-label">Department</label>
-          <input className="pp-input" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. IT Department" />
+          <DepartmentSelect value={department} onChange={(val) => { setDepartment(val); /* auto-clear office if it doesn't belong */ }} />
 
           <label className="pp-label">Office</label>
-          <input className="pp-input" value={office} onChange={(e) => setOffice(e.target.value)} placeholder="e.g. Software Dev Office" />
+          <OfficeSelect department={department} value={office} onChange={setOffice} onDepartmentChange={setOffice} />
 
           <label className="pp-label">Join Date</label>
           <input type="date" className="pp-input" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} style={{ colorScheme: "dark" }} />
@@ -748,6 +856,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
         </div>
 
         {/* Custom Badge */}
+        {!meta.isPerson && (
         <div className="pp-section">
           <div className="pp-section-label"><Tag size={11} /> Badge Settings</div>
           <label className="pp-label">Badge Text</label>
@@ -775,6 +884,7 @@ function NodePropertiesPanel({ nodes, onUpdateNodes, onDelete, onAddChild, onDup
           </div>
           <div className="pp-color-preview" style={{ background: badgeColor }}><span>{badgeColor}</span></div>
         </div>
+        )}
 
         {/* Background/Text Color — not applicable to person cards, which are
             a fixed dark card matching design turn 11b (see OrgNode.jsx) */}

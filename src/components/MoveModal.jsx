@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { X, Folder, ChevronRight, ArrowLeft, Star, HardDrive } from 'lucide-react';
+import { X, Folder, ChevronRight, ArrowLeft, HardDrive } from 'lucide-react';
 import './MoveModal.css';
 
 export default function MoveModal({ chart, currentFolderId, folders, onClose, onMove }) {

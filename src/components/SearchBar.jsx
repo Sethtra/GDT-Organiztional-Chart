@@ -30,7 +30,7 @@ export default function SearchBar({ nodes, onFlyTo, onHighlight, onClose }) {
     setResults(matched);
     setActiveIdx(0);
     onHighlight(matched.map((n) => n.id));
-  }, [query, nodes]);
+  }, [query, nodes, onHighlight]);
 
   const flyTo = useCallback((idx) => {
     if (results[idx]) onFlyTo(results[idx]);

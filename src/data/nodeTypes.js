@@ -7,3 +7,11 @@ export const TYPE_META = {
 };
 
 export const TYPE_OPTIONS = Object.keys(TYPE_META);
+
+export const POSITION_OPTIONS = [
+  "ប្រធាននាយកដ្ឋាន",
+  "អនុប្រធាននាយកដ្ឋាន",
+  "ប្រធានការិយាល័យ",
+  "អនុប្រធានការិយាល័យ",
+  "មន្ត្រី",
+];

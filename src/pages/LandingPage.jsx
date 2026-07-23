@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
+import { useTheme } from '../contexts/ThemeContext';
 import { Sun, Moon, LayoutDashboard, ChevronDown, User, LogOut } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 

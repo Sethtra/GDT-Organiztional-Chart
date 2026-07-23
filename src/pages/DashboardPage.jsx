@@ -10,7 +10,6 @@ import ShareModal from "../components/ShareModal";
 import MoveModal from "../components/MoveModal";
 import {
   Plus,
-  Search,
   Loader2,
   LayoutGrid,
   LayoutList,
@@ -22,7 +21,6 @@ import {
   Folder,
   FolderPlus,
   Home,
-  Trash2,
 } from "lucide-react";
 
 /* ── New-chart modal ─────────────────────────────── */
@@ -308,8 +306,6 @@ export default function DashboardPage() {
     setDeleteFolderTarget(null);
     if (currentFolderId === deleteFolderTarget) navigate("/dashboard");
   };
-
-  const totalOwned = ownedCharts.length + visibleFolders.length;
 
   return (
     <div className="dashboard-page">

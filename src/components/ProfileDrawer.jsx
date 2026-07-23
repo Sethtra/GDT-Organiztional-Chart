@@ -144,10 +144,10 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
   const marital = d.maritalStatus === "married" ? "Married"
     : d.maritalStatus === "single" ? "Single" : "";
     
-  const rawHistory = d.history || [];
+  const rawHistory = d.history;
   const history = useMemo(() => {
     const seen = new Set();
-    return rawHistory.filter(item => {
+    return (Array.isArray(rawHistory) ? rawHistory : []).filter(item => {
       if (!item || typeof item !== 'object') return false;
       // Filter out junk/empty history records
       if (!item.name && !item.nameEn && !item.staffId && !item.dateLeft && !item.exitStatus) return false;
@@ -226,6 +226,7 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
         <div className="pp-section">
           <div className="pp-section-label"><Briefcase size={11} /> Work</div>
           <Row icon={<Hash size={12} />}     label="ID"         value={d.staffId} />
+          <Row icon={<Briefcase size={12} />} label="Position"   value={d.position || d.badgeText} />
           <Row icon={<Briefcase size={12} />} label="Department" value={d.department} />
           <Row icon={<MapPin size={12} />}   label="Office"     value={d.office} />
           <Row icon={<Calendar size={12} />} label="Joined"     value={formatJoinDate(d.joinDate)} />

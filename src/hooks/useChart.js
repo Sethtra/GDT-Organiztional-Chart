@@ -3,22 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from './useAuth';
 import { initialNodes, initialEdges } from '../data/initialData';
 
-/**
- * Walk up the folder tree and return the ancestry chain from root → current.
- * e.g. getFolderAncestors('q1-id', allFolders)
- *   → [{ id: 'reports-id', name: '2025 Reports' }, { id: 'q1-id', name: 'Q1' }]
- */
-export function getFolderAncestors(folderId, allFolders) {
-  if (!folderId || !allFolders?.length) return [];
-  const map = Object.fromEntries(allFolders.map(f => [f.id, f]));
-  const chain = [];
-  let current = map[folderId];
-  while (current) {
-    chain.unshift(current);
-    current = current.parent_id ? map[current.parent_id] : null;
-  }
-  return chain;
-}
+export { getFolderAncestors } from '../utils/folderUtils';
 
 export function useChart() {
   const { user } = useAuth();

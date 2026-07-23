@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { X, Clock, RotateCcw, Trash2 } from 'lucide-react';
 
@@ -6,13 +6,7 @@ export default function VersionHistoryModal({ isOpen, onClose, chartId, onRestor
   const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && chartId) {
-      loadVersions();
-    }
-  }, [isOpen, chartId]);
-
-  const loadVersions = async () => {
+  const loadVersions = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('chart_versions')
@@ -27,7 +21,13 @@ export default function VersionHistoryModal({ isOpen, onClose, chartId, onRestor
       setVersions(data || []);
     }
     setLoading(false);
-  };
+  }, [chartId]);
+
+  useEffect(() => {
+    if (isOpen && chartId) {
+      loadVersions();
+    }
+  }, [isOpen, chartId, loadVersions]);
 
   const handleRestore = (version) => {
     if (window.confirm(`Are you sure you want to restore the version from ${new Date(version.created_at).toLocaleString()}? Your current unsaved changes will be lost.`)) {

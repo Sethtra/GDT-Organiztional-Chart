@@ -1,7 +1,8 @@
 ﻿import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
-const envContent = fs.readFileSync('.env', 'utf8');
+const envPath = fs.existsSync('.env.local') ? '.env.local' : '.env';
+const envContent = fs.readFileSync(envPath, 'utf8');
 let supabaseUrl = '';
 let supabaseKey = '';
 envContent.split('\n').forEach(line => {

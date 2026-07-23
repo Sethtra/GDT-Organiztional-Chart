@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Edit2, Plus, Copy, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 
-export default function ContextMenu({ x, y, node, isCollapsed, onEdit, onAddChild, onDuplicate, onToggleCollapse, onDelete, onClose }) {
+export default function ContextMenu({ x, y, isCollapsed, onEdit, onAddChild, onDuplicate, onToggleCollapse, onDelete, onClose }) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") onClose();

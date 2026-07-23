@@ -7,7 +7,7 @@ import {
   Link as LinkIcon,
   History,
 } from "lucide-react";
-import { ChartContext } from "../App";
+import { ChartContext } from "../contexts/ChartContext";
 import { TYPE_META } from "../data/nodeTypes";
 
 const OrgNode = memo(({ id, data, selected }) => {
@@ -92,13 +92,6 @@ const OrgNode = memo(({ id, data, selected }) => {
 
 
 
-        <span
-          className="person-node__badge"
-          style={{ "--badge-color": badgeAccent }}
-        >
-          {badgeText}
-        </span>
-
         {data.linkedChartId && (
           <span
             title="Linked to another chart"
@@ -135,6 +128,11 @@ const OrgNode = memo(({ id, data, selected }) => {
               data.name
             )}
           </div>
+          {(data.position || badgeText) && (
+            <div className="person-node__position">
+              {data.position || badgeText}
+            </div>
+          )}
         </div>
 
         {teamSize > 0 && data.type !== 'officer' && (
