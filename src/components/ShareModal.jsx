@@ -9,7 +9,6 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
 
   // Link sharing
   const [isPublic, setIsPublic] = useState(initialIsPublic || false);
-  const [accessLevel, setAccessLevel] = useState('view'); // 'view' | 'edit'
   const [linkCopied, setLinkCopied] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
 
@@ -39,11 +38,10 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
     loadShares();
 
     // Load current public settings
-    supabase.from('charts').select('is_public, public_access_level').eq('id', chartId).single()
+    supabase.from('charts').select('is_public').eq('id', chartId).single()
       .then(({ data }) => {
         if (data) {
           setIsPublic(data.is_public);
-          setAccessLevel(data.public_access_level || 'view');
         }
       });
   }, [chartId]);
@@ -51,7 +49,7 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
   const togglePublic = async (val) => {
     setLinkLoading(true);
     const { error } = await supabase.from('charts')
-      .update({ is_public: val, public_access_level: accessLevel })
+      .update({ is_public: val, public_access_level: 'view' })
       .eq('id', chartId);
     setLinkLoading(false);
     if (error) {
@@ -60,21 +58,6 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
       return;
     }
     setIsPublic(val);
-  };
-
-  const updateAccessLevel = async (level) => {
-    const previous = accessLevel;
-    setAccessLevel(level);
-    if (isPublic) {
-      const { error } = await supabase.from('charts')
-        .update({ public_access_level: level })
-        .eq('id', chartId);
-      if (error) {
-        console.error('Failed to update access level:', error);
-        window.alert('Failed to update access level. Please try again.');
-        setAccessLevel(previous);
-      }
-    }
   };
 
   const copyLink = () => {
@@ -174,16 +157,10 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
                 <span className="share-access-label">Permission:</span>
                 <div className="share-access-pills">
                   <button
-                    className={`share-access-pill ${accessLevel === 'view' ? 'share-access-pill--active' : ''}`}
-                    onClick={() => updateAccessLevel('view')}
+                    className="share-access-pill share-access-pill--active"
+                    disabled
                   >
                     <Eye size={13} /> View Only
-                  </button>
-                  <button
-                    className={`share-access-pill ${accessLevel === 'edit' ? 'share-access-pill--active' : ''}`}
-                    onClick={() => updateAccessLevel('edit')}
-                  >
-                    <Edit3 size={13} /> Can Edit
                   </button>
                 </div>
               </div>

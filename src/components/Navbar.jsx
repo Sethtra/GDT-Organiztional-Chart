@@ -1,7 +1,10 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../contexts/ThemeContext";
+import { useHrAdmin } from "../hooks/useHrAdmin";
 import {
+  Building2,
+  BriefcaseBusiness,
   LayoutDashboard,
   LogIn,
   UserPlus,
@@ -11,12 +14,14 @@ import {
   Sun,
   Moon,
   Search,
+  UsersRound,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export default function Navbar({ search, setSearch }) {
   const { user, displayName, avatarUrl, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { isHrAdmin } = useHrAdmin();
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -119,6 +124,32 @@ export default function Navbar({ search, setSearch }) {
                     >
                       <User size={14} /> Profile Settings
                     </Link>
+                    {isHrAdmin && (
+                      <>
+                        <div className="navbar__drop-divider" />
+                        <Link
+                          to="/admin/staff"
+                          className="navbar__drop-item"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <UsersRound size={14} /> Staff Directory
+                        </Link>
+                        <Link
+                          to="/admin/org-structure"
+                          className="navbar__drop-item"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <Building2 size={14} /> Organization Setup
+                        </Link>
+                        <Link
+                          to="/admin/job-architecture"
+                          className="navbar__drop-item"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <BriefcaseBusiness size={14} /> Job Architecture
+                        </Link>
+                      </>
+                    )}
                     <div className="navbar__drop-divider" />
                     <button
                       className="navbar__drop-item navbar__drop-item--danger"

@@ -1,6 +1,12 @@
 import { useState, useMemo } from "react";
-import { X, Pencil, Hash, Calendar, Users, Phone, MapPin, Heart, GraduationCap, Sparkles, Briefcase, Contact, ChevronDown, ChevronUp, Clock, FileText } from "lucide-react";
+import { Pencil, Hash, Calendar, Users, Phone, MapPin, Heart, GraduationCap, Sparkles, Briefcase, Contact, ChevronDown, ChevronUp, Clock, FileText } from "lucide-react";
 import { TYPE_META } from "../data/nodeTypes";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "./ui/dialog";
 
 // Read-only staff profile drawer — what clicking a person node opens first.
 // Editing goes through the full PropertiesPanel via the Edit button, so the
@@ -162,15 +168,23 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
   const [activeTab, setActiveTab] = useState(isVacant && history.length > 0 ? "history" : "current");
 
   return (
-    <div className="properties-panel profile-drawer">
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] max-w-[760px] grid-rows-none flex-col p-0">
       {/* Header */}
       <div className="pp-header">
         <div className="pp-header-left">
           <Contact size={14} style={{ color: "#e9dca6" }} />
-          <span className="pp-title">Staff Profile</span>
+          <DialogTitle className="pp-title">Staff Profile</DialogTitle>
         </div>
-        <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
+      <DialogDescription className="sr-only">
+        Current staff details and previous position history.
+      </DialogDescription>
 
       {/* Hero — mirrors the person card's dark/gold look */}
       <div className="profile-hero">
@@ -267,6 +281,7 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
           </button>
         </div>
       )}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

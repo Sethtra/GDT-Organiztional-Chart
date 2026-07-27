@@ -546,7 +546,7 @@ CREATE POLICY "View staff through accessible positions"
       SELECT 1
       FROM public.position_assignments AS assignment
       JOIN public.positions AS position ON position.id = assignment.position_id
-      WHERE assignment.staff_id = id
+      WHERE assignment.staff_id = staff.id
         AND public.can_view_chart(position.chart_id)
     )
   );
@@ -574,7 +574,7 @@ CREATE POLICY "Editors update staff"
       SELECT 1
       FROM public.position_assignments AS assignment
       JOIN public.positions AS position ON position.id = assignment.position_id
-      WHERE assignment.staff_id = id
+      WHERE assignment.staff_id = staff.id
         AND public.can_edit_chart(position.chart_id)
     )
   )
@@ -593,7 +593,7 @@ CREATE POLICY "View assignments for accessible charts"
   USING (
     EXISTS (
       SELECT 1 FROM public.positions AS position
-      WHERE position.id = position_id
+      WHERE position.id = position_assignments.position_id
         AND public.can_view_chart(position.chart_id)
     )
   );
@@ -605,14 +605,14 @@ CREATE POLICY "Editors manage assignments"
   USING (
     EXISTS (
       SELECT 1 FROM public.positions AS position
-      WHERE position.id = position_id
+      WHERE position.id = position_assignments.position_id
         AND public.can_edit_chart(position.chart_id)
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.positions AS position
-      WHERE position.id = position_id
+      WHERE position.id = position_assignments.position_id
         AND public.can_edit_chart(position.chart_id)
     )
   );
@@ -621,7 +621,8 @@ CREATE POLICY "Editors manage assignments"
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('thumbnails', 'thumbnails', true)
-ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
+ON CONFLICT ON CONSTRAINT buckets_pkey
+DO UPDATE SET public = EXCLUDED.public;
 
 DROP POLICY IF EXISTS "Public thumbnail reads" ON storage.objects;
 CREATE POLICY "Public thumbnail reads"

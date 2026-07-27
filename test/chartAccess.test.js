@@ -24,13 +24,13 @@ test('public view charts are read-only for visitors', () => {
   assert.equal(access.canEdit, false);
 });
 
-test('public edit charts are editable for visitors', () => {
+test('legacy public edit charts remain read-only without an invitation', () => {
   const access = getChartAccess(
     { ...baseChart, is_public: true, public_access_level: 'edit' },
     null,
   );
   assert.equal(access.canView, true);
-  assert.equal(access.canEdit, true);
+  assert.equal(access.canEdit, false);
 });
 
 test('pending invitations do not grant access', () => {

@@ -11,6 +11,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+backups/
+coverage/
+playwright-report/
+test-results/
 
 # Local environment files
 .env

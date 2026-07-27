@@ -20,7 +20,6 @@ export function getChartAccess(chart, user) {
   const canView = isOwner || !!chart.is_public || !!acceptedShare;
   const canEdit =
     isOwner ||
-    (!!chart.is_public && chart.public_access_level === 'edit') ||
     acceptedShare?.access_level === 'edit';
 
   return { canView, canEdit, isOwner, acceptedShare };

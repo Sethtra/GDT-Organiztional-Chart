@@ -23,7 +23,6 @@ import {
   ConnectionMode,
   useReactFlow,
   getNodesBounds,
-  getViewportForBounds,
   reconnectEdge,
   useViewport,
 } from "@xyflow/react";
@@ -47,6 +46,7 @@ import {
   CheckCircle2,
   Loader2,
   Share2,
+  Upload,
   X,
 } from "lucide-react";
 
@@ -54,32 +54,48 @@ import OrgNode from "./components/OrgNode";
 import CustomEdge from "./components/CustomEdge";
 import PropertiesPanel from "./components/PropertiesPanel";
 import ProfileDrawer from "./components/ProfileDrawer";
+import StaffProfileDialog from "./components/staff/StaffProfileDialog";
 import ConfirmModal from "./components/ConfirmModal";
 import ShareModal from "./components/ShareModal";
 import SearchBar from "./components/SearchBar";
 import ContextMenu from "./components/ContextMenu";
+import HrAdminRoute from "./components/HrAdminRoute";
 import ShortcutsModal from "./components/ShortcutsModal";
 import StatusBar from "./components/StatusBar";
 import { getLayoutedElements } from "./utils/layoutUtils";
 import { shouldOfferLocalRecovery } from "./utils/backupUtils";
 import { getChartAccess } from "./utils/chartAccess";
+import {
+  DEFAULT_EDGE_OPTIONS,
+  normalizeEdges,
+  withoutRelationalIds,
+} from "./utils/chartData";
+import {
+  chartBackupFilename,
+  createChartBackup,
+  parseChartBackup,
+  serializeChartBackup,
+} from "./utils/chartBackup";
+import { loadChartForViewer } from "./services/chartService";
+import { mergeChartStaffProjection } from "./services/chartStaffProjectionService";
+import { HR_FEATURES_ENABLED } from "./config/hrFeatures";
+import { CHART_VERSION_WRITES_ENABLED } from "./config/chartFeatures";
 import { supabase } from "./supabaseClient";
 import { TYPE_META } from "./data/nodeTypes";
-import {
-  deleteHRDataForNodes,
-  mergeHRDataIntoNodes,
-  syncNodeToHRDatabase,
-} from "./utils/hrUtils";
 import ErrorBoundary from "./components/ErrorBoundary";
 import VersionHistoryModal from "./components/VersionHistoryModal";
 import ChartTabBar from "./components/ChartTabBar";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { ThemeProvider } from "./hooks/useTheme";
 import { useTheme } from "./contexts/ThemeContext";
+import { useChartHistory } from "./hooks/useChartHistory";
+import { useChartShortcuts } from "./hooks/useChartShortcuts";
+import { useChartPersistence } from "./hooks/useChartPersistence";
 import { ChartContext } from "./contexts/ChartContext";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import LoginTestPage from "./pages/LoginTestPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -88,21 +104,11 @@ import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import AdminOrgStructurePage from "./pages/AdminOrgStructurePage";
+import StaffDirectoryPage from "./pages/StaffDirectoryPage";
+import JobArchitecturePage from "./pages/JobArchitecturePage";
 
 const nodeTypes = { orgNode: OrgNode };
 const edgeTypes = { custom: CustomEdge };
-
-const DEFAULT_EDGE_OPTIONS = {
-  type: "custom",
-  animated: false,
-  data: {
-    strokeColor: "#4b8fd4",
-    strokeWidth: 2,
-    arrowType: "closed",
-    arrowStart: "none",
-    label: "",
-  },
-};
 
 // Older/legacy charts (e.g. anything seeded before the GDT template edges
 // carried a `type`) can have edges missing `type: "custom"`. Without it,
@@ -110,40 +116,6 @@ const DEFAULT_EDGE_OPTIONS = {
 // ignores every custom style/dynamic-glue field — the connector renders but
 // none of the Properties Panel controls do anything. Backfill on every load
 // so old charts self-heal instead of needing a manual data migration.
-function normalizeEdges(edges) {
-  return (edges || []).map((e) =>
-    e.type === "custom"
-      ? e
-      : {
-          ...e,
-          type: "custom",
-          data: { ...DEFAULT_EDGE_OPTIONS.data, ...e.data },
-        },
-  );
-}
-
-function withoutRelationalIds(data = {}) {
-  const {
-    positionId: _positionId,
-    dbStaffId: _dbStaffId,
-    dbAssignmentId: _dbAssignmentId,
-    ...detached
-  } = data;
-
-  if (Array.isArray(detached.history)) {
-    detached.history = detached.history.map((record) => {
-      const {
-        dbStaffId: _historyStaffId,
-        dbAssignmentId: _historyAssignmentId,
-        ...historyRecord
-      } = record || {};
-      return historyRecord;
-    });
-  }
-
-  return detached;
-}
-
 // ── Tab management context ─────────────────────────────────────
 // Lives above the router so tab state survives Dashboard↔Chart navigations.
 const TabContext = createContext(null);
@@ -209,9 +181,8 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   }, [chartName, onChartName]);
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
-  // Person nodes open as a read-only profile first; Edit switches to the
-  // properties panel. Resets to profile view whenever the selection changes.
-  const [editingPerson, setEditingPerson] = useState(false);
+  const [profileNodeId, setProfileNodeId] = useState(null);
+  const [profileStaffId, setProfileStaffId] = useState(null);
   const [layoutDir, setLayoutDir] = useState("TB");
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
@@ -227,24 +198,16 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const [showShare, setShowShare] = useState(false);
   const [chartIsPublic, setChartIsPublic] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
+  const [canViewProfiles, setCanViewProfiles] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [chartOwnerId, setChartOwnerId] = useState(null);
   const [linkedChartPopup, setLinkedChartPopup] = useState(null); // { node, x, y }
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+  const backupFileInputRef = useRef(null);
 
   // Tracks what's currently saved on the server so the persist effect can
   // tell "nothing changed" from "needs saving" without re-sending identical data.
   const lastSyncData = useRef({ nodes: "[]", edges: "[]" });
-  // Serialize chart writes so an older, slower request can never finish after
-  // a newer one and overwrite it. Calls made while saving are folded into the
-  // same loop and always use the latest node/edge refs.
-  const saveInFlight = useRef(false);
-  const saveRequested = useRef(false);
-
   // ── Undo/Redo ─────────────────────────────────────────────────
-  const [past, setPast] = useState([]);
-  const [future, setFuture] = useState([]);
-
   // ── Clipboard ─────────────────────────────────────────────────
   const [clipboard, setClipboard] = useState(null);
 
@@ -255,36 +218,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   // a result, which cascaded into consumers whose effects list those
   // callbacks as a dependency — e.g. the Properties Panel's autosave effect,
   // which could then fire from selection changes alone, not just real edits.
-  const nodesRef = useRef(nodes);
-  const edgesRef = useRef(edges);
-  nodesRef.current = nodes;
-  edgesRef.current = edges;
-
-  const takeSnapshot = useCallback(() => {
-    setPast((p) => [
-      ...p.slice(-30),
-      { nodes: nodesRef.current, edges: edgesRef.current },
-    ]);
-    setFuture([]);
-  }, []);
-
-  const undo = useCallback(() => {
-    if (past.length === 0) return;
-    const previous = past[past.length - 1];
-    setPast((p) => p.slice(0, p.length - 1));
-    setFuture((f) => [{ nodes, edges }, ...f]);
-    setNodes(previous.nodes);
-    setEdges(previous.edges);
-  }, [past, nodes, edges, setNodes, setEdges]);
-
-  const redo = useCallback(() => {
-    if (future.length === 0) return;
-    const next = future[0];
-    setFuture((f) => f.slice(1));
-    setPast((p) => [...p, { nodes, edges }]);
-    setNodes(next.nodes);
-    setEdges(next.edges);
-  }, [future, nodes, edges, setNodes, setEdges]);
+  const {
+    nodesRef,
+    edgesRef,
+    takeSnapshot,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useChartHistory(nodes, edges, setNodes, setEdges);
 
   // ── Copy/Paste ────────────────────────────────────────────────
   const copyNode = useCallback(() => {
@@ -336,175 +278,19 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   // Shared by the debounced autosave effect and the manual Save button, so
   // both a passive edit and a deliberate click go through the same guarded
   // path and report real (not simulated) save status.
-  const performSave = useCallback(async () => {
-    if (saveInFlight.current) {
-      saveRequested.current = true;
-      return;
-    }
-
-    saveInFlight.current = true;
-
-    try {
-      while (true) {
-        saveRequested.current = false;
-
-        const nodesToSave = nodesRef.current;
-        const edgesToSave = edgesRef.current;
-        const nodesStr = JSON.stringify(nodesToSave);
-        const edgesStr = JSON.stringify(edgesToSave);
-
-        if (
-          nodesStr === lastSyncData.current.nodes &&
-          edgesStr === lastSyncData.current.edges
-        ) {
-          break;
-        }
-
-        const prevNodes = JSON.parse(lastSyncData.current.nodes || "[]");
-        const prevNodeCount = prevNodes.length;
-        const currNodeCount = nodesToSave.length;
-
-        // Guard against accidentally saving a near-empty chart over real data
-        // (e.g. a bulk-select-delete misfire).
-        if (
-          prevNodeCount > 5 &&
-          (currNodeCount < 3 || currNodeCount < prevNodeCount * 0.3)
-        ) {
-          if (
-            !window.confirm(
-              `Warning: You are about to save a state with only ${currNodeCount} nodes (down from ${prevNodeCount}). This will overwrite your data in the database. Are you absolutely sure you want to proceed?`,
-            )
-          ) {
-            setNodes(prevNodes);
-            setEdges(JSON.parse(lastSyncData.current.edges || "[]"));
-            setSaveStatus("saved");
-            return;
-          }
-        }
-
-        setSaveStatus("saving");
-        const { data: savedChart, error: saveError } = await supabase
-          .from("charts")
-          .update({
-            nodes: nodesToSave,
-            edges: edgesToSave,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", chartId)
-          .select("id")
-          .maybeSingle();
-
-        if (saveError) throw saveError;
-        if (!savedChart) {
-          throw new Error("The chart could not be saved or is no longer accessible.");
-        }
-
-        // Only mark this snapshot as synchronized after Supabase confirms it.
-        lastSyncData.current = { nodes: nodesStr, edges: edgesStr };
-
-        // Auto-save version history every 5 minutes
-        const lastVersionTimeStr = localStorage.getItem(
-          `last_version_time_${chartId}`,
-        );
-        const lastVersionTime = lastVersionTimeStr
-          ? parseInt(lastVersionTimeStr, 10)
-          : 0;
-        if (Date.now() - lastVersionTime > 5 * 60 * 1000) {
-          const { error: versionError } = await supabase
-            .from("chart_versions")
-            .insert({
-              chart_id: chartId,
-              nodes: nodesToSave,
-              edges: edgesToSave,
-            });
-          if (versionError) {
-            console.warn("Version snapshot failed (non-critical):", versionError);
-          } else {
-            localStorage.setItem(
-              `last_version_time_${chartId}`,
-              Date.now().toString(),
-            );
-          }
-        }
-
-        // Auto-save thumbnail every 5 minutes (throttled separately)
-        const lastThumbTimeStr = localStorage.getItem(`last_thumb_time_${chartId}`);
-        const lastThumbTime = lastThumbTimeStr ? parseInt(lastThumbTimeStr, 10) : 0;
-        if (Date.now() - lastThumbTime > 5 * 60 * 1000) {
-          try {
-            const el = document.querySelector(".react-flow__viewport");
-            if (el && nodesToSave.length > 0) {
-              const { toPng } = await import("html-to-image");
-              const nodesBounds = getNodesBounds(nodesToSave);
-              const thumbW = 640, thumbH = 360;
-              const viewport = getViewportForBounds(nodesBounds, thumbW, thumbH, 0.05, 2, 0.05);
-              const dataUrl = await toPng(el, {
-                backgroundColor: "#0f2044",
-                width: thumbW,
-                height: thumbH,
-                style: {
-                  width: `${thumbW}px`,
-                  height: `${thumbH}px`,
-                  transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-                },
-              });
-              // Convert dataUrl to Blob
-              const res = await fetch(dataUrl);
-              const blob = await res.blob();
-              const filePath = `${chartId}.png`;
-              const { error: uploadError } = await supabase.storage
-                .from("thumbnails")
-                .upload(filePath, blob, {
-                  contentType: "image/png",
-                  upsert: true,
-                });
-              if (uploadError) throw uploadError;
-
-              const { data: urlData } = supabase.storage
-                .from("thumbnails")
-                .getPublicUrl(filePath);
-              if (urlData?.publicUrl) {
-                const { error: thumbnailError } = await supabase
-                  .from("charts")
-                  .update({ thumbnail_url: urlData.publicUrl })
-                  .eq("id", chartId);
-                if (thumbnailError) throw thumbnailError;
-              }
-              localStorage.setItem(`last_thumb_time_${chartId}`, Date.now().toString());
-            }
-          } catch (thumbErr) {
-            console.warn("Thumbnail capture failed (non-critical):", thumbErr);
-          }
-        }
-
-        // If edits arrived while this request was running, immediately save
-        // the newest snapshot. Otherwise this serialized save is complete.
-        const latestNodesStr = JSON.stringify(nodesRef.current);
-        const latestEdgesStr = JSON.stringify(edgesRef.current);
-        if (
-          !saveRequested.current &&
-          latestNodesStr === nodesStr &&
-          latestEdgesStr === edgesStr
-        ) {
-          // This exact browser snapshot is now confirmed in Supabase, so it
-          // is no longer an unsaved recovery backup.
-          try {
-            localStorage.removeItem(`chart_backup_${chartId}`);
-          } catch (backupError) {
-            console.warn("Failed to clear synchronized local backup", backupError);
-          }
-          break;
-        }
-      }
-
-      setSaveStatus("saved");
-    } catch (saveError) {
-      console.error("Chart save failed:", saveError);
-      setSaveStatus("error");
-    } finally {
-      saveInFlight.current = false;
-    }
-  }, [chartId, setNodes, setEdges]);
+  const { performSave } = useChartPersistence({
+    chartId,
+    nodes,
+    edges,
+    nodesRef,
+    edgesRef,
+    lastSyncData,
+    setNodes,
+    setEdges,
+    setSaveStatus,
+    loading,
+    canEdit,
+  });
 
   // ── Load data ────────────────────────────────────────────────
   useEffect(() => {
@@ -514,18 +300,28 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     }
 
     async function loadData() {
-      const { data } = await supabase
-        .from("charts")
-        .select("*, chart_shares(access_level, shared_email, status)")
-        .eq("id", chartId)
-        .single();
+      let loadResult;
+      try {
+        loadResult = await loadChartForViewer(chartId, {
+          allowLegacyAuthenticatedFallback: Boolean(user),
+        });
+      } catch (error) {
+        console.error("Chart load contract failed:", error);
+        navigate(user ? "/dashboard" : "/login", { replace: true });
+        return;
+      }
+      const data = loadResult.chart;
 
       if (data) {
-        const {
-          canView,
-          canEdit: editAccess,
-          isOwner: ownerStatus,
-        } = getChartAccess(data, user);
+        const rpcAccess = data.viewer_access;
+        const legacyAccess = getChartAccess(data, user);
+        const canView = rpcAccess ? true : legacyAccess.canView;
+        const editAccess = rpcAccess
+          ? rpcAccess === "owner" || rpcAccess === "edit"
+          : legacyAccess.canEdit;
+        const ownerStatus = rpcAccess
+          ? rpcAccess === "owner"
+          : legacyAccess.isOwner;
 
         // Frontend visibility complements Supabase RLS. Public links may
         // render without a session; private charts still require an owner or
@@ -537,9 +333,13 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
         setChartName(data.name || "Untitled Chart");
         setChartIsPublic(data.is_public);
-        setChartOwnerId(data.owner_id);
 
         setCanEdit(editAccess);
+        setCanViewProfiles(
+          rpcAccess
+            ? rpcAccess !== "public"
+            : legacyAccess.isOwner || !!legacyAccess.acceptedShare,
+        );
         setIsOwner(ownerStatus);
         if (!editAccess) setPreviewMode(true);
 
@@ -548,7 +348,10 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         // so the persist effect sees a diff and re-saves the normalized edges,
         // permanently healing any chart saved before edges carried a `type`.
         // Load HR data from relational tables and merge it into the visual nodes
-        const mergedNodes = await mergeHRDataIntoNodes(chartId, data.nodes || []);
+        const mergedNodes =
+          rpcAccess === "public" || !HR_FEATURES_ENABLED
+            ? data.nodes || []
+            : await mergeChartStaffProjection(chartId, data.nodes || []);
         const normalizedEdges = normalizeEdges(data.edges);
 
         setNodes(mergedNodes);
@@ -604,49 +407,6 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     }
     loadData();
   }, [chartId, navigate, setNodes, setEdges, user]);
-
-  // ── Persist on change ─────────────────────────────────────────
-  useEffect(() => {
-    if (loading || !canEdit) return;
-    const nodesStr = JSON.stringify(nodes);
-    const edgesStr = JSON.stringify(edges);
-
-    if (
-      nodesStr === lastSyncData.current.nodes &&
-      edgesStr === lastSyncData.current.edges
-    )
-      return;
-
-    // Save to local storage as a safety net — happens immediately (not
-    // debounced) so even an edit that hasn't reached the DB yet is
-    // recoverable via the load-time backup check.
-    try {
-      localStorage.setItem(
-        `chart_backup_${chartId}`,
-        JSON.stringify({ nodes, edges, timestamp: Date.now() }),
-      );
-    } catch (e) {
-      console.warn("Failed to save to localStorage", e);
-    }
-
-    const timeoutId = setTimeout(() => {
-      performSave();
-    }, 350);
-    return () => clearTimeout(timeoutId);
-  }, [nodes, edges, loading, canEdit, chartId, performSave]);
-
-  // Five-minute safety save. Normal edits are still backed up locally
-  // immediately and saved to Supabase after the short debounce above; this
-  // timer is an additional fallback for a long-running editor session.
-  useEffect(() => {
-    if (loading || !canEdit) return;
-
-    const intervalId = setInterval(() => {
-      performSave();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [loading, canEdit, performSave]);
 
   // ── Sync selected nodes ────────────────────────────────────────
   useEffect(() => {
@@ -749,7 +509,6 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   const onSelectionChange = useCallback(({ nodes, edges }) => {
     setSelectedNodes(nodes);
     setSelectedEdge(edges.length === 1 ? edges[0] : null);
-    setEditingPerson(false);
   }, []);
 
   const onNodeClick = useCallback((evt, node) => {
@@ -799,14 +558,11 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         document.activeElement.blur();
       }
       evt.preventDefault();
+      const isPerson = !!TYPE_META[node.data?.orgType]?.isPerson;
+      if (!canEdit && !isPerson) return;
       setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
-      if (!node.selected) {
-        setNodes((nds) =>
-          nds.map((n) => ({ ...n, selected: n.id === node.id })),
-        );
-      }
     },
-    [setNodes],
+    [canEdit],
   );
 
   const updateSelectedNodes = useCallback(
@@ -815,11 +571,9 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
 
       // Keep React's state update pure. Running database writes inside a state
       // updater can execute them more than once under Strict Mode.
-      const updatedSelectedNodes = [];
       const nextNodes = nodesRef.current.map((n) => {
         if (!n.selected) return n;
         const updatedNode = { ...n, data: { ...n.data, ...data } };
-        updatedSelectedNodes.push(updatedNode);
         return updatedNode;
       });
 
@@ -828,17 +582,8 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
       nodesRef.current = nextNodes;
       setNodes(nextNodes);
 
-      // The HR helper serializes/coalesces writes for each node. Staff records
-      // remain owned by the chart owner when a collaborator edits the chart.
-      updatedSelectedNodes.forEach((updatedNode) => {
-        syncNodeToHRDatabase(
-          chartId,
-          chartOwnerId || user?.id,
-          updatedNode,
-        );
-      });
     },
-    [setNodes, takeSnapshot, chartId, chartOwnerId, user?.id],
+    [setNodes, takeSnapshot, nodesRef],
   );
 
   const updateEdgeProperties = useCallback(
@@ -858,10 +603,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     setEdges((eds) =>
       eds.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
     );
-    deleteHRDataForNodes(chartId, [...ids]).catch((error) => {
-      console.error("Failed to clean up deleted HR positions:", error);
-    });
-  }, [selectedNodes, setNodes, setEdges, takeSnapshot, chartId]);
+  }, [selectedNodes, setNodes, setEdges, takeSnapshot]);
 
   const duplicateNodes = useCallback(
     (nodesToDuplicate) => {
@@ -904,104 +646,42 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   );
 
   // ── Keyboard shortcuts ────────────────────────────────────────
-  const handleKeyDownRef = useRef();
-
-  // Update the ref to the latest closure on every render
-  useEffect(() => {
-    handleKeyDownRef.current = (e) => {
-      // Every open chart remains mounted to preserve its editor state, but
-      // only the visible tab may respond to document-level shortcuts.
-      if (activeTabId !== chartId) return;
-
-      if (e.key === "Shift") setShiftHeld(true);
-      const inInput =
-        e.target.tagName === "INPUT" ||
-        e.target.tagName === "TEXTAREA" ||
-        e.target.isContentEditable;
-
-      // Ignore all diagram shortcuts if typing in a text field
-      if (inInput) {
-        if (e.key === "Escape") {
-          setShowSearch(false);
-          setShowShortcuts(false);
-          setContextMenu(null);
-          if (document.activeElement) document.activeElement.blur();
-        }
-        return;
+  useChartShortcuts(activeTabId === chartId, {
+    undo,
+    redo,
+    save: () => void performSave(),
+    toggleSearch: () => setShowSearch((visible) => !visible),
+    toggleHelp: () => setShowShortcuts((visible) => !visible),
+    closeOverlays: () => {
+      setShowSearch(false);
+      setShowShortcuts(false);
+      setContextMenu(null);
+    },
+    duplicateSelection: () => {
+      if (selectedNodes.length > 0) duplicateNodes(selectedNodes);
+    },
+    copySelection: copyNode,
+    pasteSelection: pasteNode,
+    deleteSelection: () => {
+      if (selectedNodes.length > 0) {
+        showConfirm(
+          "Delete Nodes",
+          `Delete ${selectedNodes.length} node(s) and all connections?`,
+          () => {
+            deleteNodes();
+            setConfirmModal(null);
+          },
+          true,
+        );
+      } else if (selectedEdge) {
+        takeSnapshot();
+        setEdges((currentEdges) =>
+          currentEdges.filter((edge) => edge.id !== selectedEdge.id),
+        );
       }
-
-      const key = e.key ? e.key.toLowerCase() : "";
-      const code = e.code || "";
-
-      if (e.ctrlKey || e.metaKey) {
-        if (key === "z" || code === "KeyZ") {
-          e.preventDefault();
-          if (e.shiftKey) redo();
-          else undo();
-        } else if (key === "y" || code === "KeyY") {
-          e.preventDefault();
-          redo();
-        } else if (key === "s" || code === "KeyS") {
-          e.preventDefault();
-          performSave();
-        } else if (key === "f" || code === "KeyF") {
-          e.preventDefault();
-          setShowSearch((v) => !v);
-        } else if (key === "d" || code === "KeyD") {
-          e.preventDefault();
-          if (selectedNodes.length > 0) duplicateNodes(selectedNodes);
-        } else if (key === "c" || code === "KeyC") {
-          e.preventDefault();
-          copyNode();
-        } else if (key === "v" || code === "KeyV") {
-          e.preventDefault();
-          pasteNode();
-        }
-        return;
-      }
-
-      if (e.key === "?" || e.key === "/") {
-        e.preventDefault();
-        setShowShortcuts((v) => !v);
-      }
-      if (e.key === "Escape") {
-        setShowSearch(false);
-        setShowShortcuts(false);
-        setContextMenu(null);
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedNodes.length > 0) {
-          showConfirm(
-            "Delete Nodes",
-            `Delete ${selectedNodes.length} node(s) and all connections?`,
-            () => {
-              deleteNodes();
-              setConfirmModal(null);
-            },
-            true,
-          );
-        } else if (selectedEdge) {
-          takeSnapshot();
-          setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
-        }
-      }
-    };
+    },
+    setShiftHeld,
   });
-
-  useEffect(() => {
-    if (activeTabId !== chartId) setShiftHeld(false);
-
-    const handleKeyDown = (e) => handleKeyDownRef.current?.(e);
-    const handleKeyUp = (e) => {
-      if (activeTabId === chartId && e.key === "Shift") setShiftHeld(false);
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("keyup", handleKeyUp);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("keyup", handleKeyUp);
-    };
-  }, [activeTabId, chartId]);
 
   const addChildNode = useCallback(
     (parentId, orgType) => {
@@ -1105,6 +785,85 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
     setConfirmModal({ title, message, onConfirm, danger });
   };
 
+  const downloadChartBackup = useCallback(() => {
+    try {
+      const snapshot = createChartBackup({
+        chartId,
+        chartName: chartName || "Untitled Chart",
+        nodes: nodesRef.current,
+        edges: edgesRef.current,
+      });
+      const url = URL.createObjectURL(
+        new Blob([serializeChartBackup(snapshot)], {
+          type: "application/json",
+        }),
+      );
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = chartBackupFilename(snapshot.chartName);
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Chart backup export failed:", error);
+      setSaveStatus("error");
+    }
+  }, [chartId, chartName, nodesRef, edgesRef]);
+
+  const restoreChartBackup = useCallback(
+    async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+
+      try {
+        const snapshot = parseChartBackup(await file.text());
+        const belongsToAnotherChart = snapshot.chartId !== chartId;
+        setConfirmModal({
+          title: "Restore chart backup?",
+          message:
+            `Replace the current in-memory chart with ${snapshot.nodes.length} node(s) and ${snapshot.edges.length} edge(s) from “${snapshot.chartName}”?` +
+            (belongsToAnotherChart
+              ? " This backup was created from a different chart."
+              : ""),
+          danger: true,
+          onConfirm: () => {
+            takeSnapshot();
+            setSelectedNodes([]);
+            setSelectedEdge(null);
+            setNodes(snapshot.nodes);
+            setEdges(normalizeEdges(snapshot.edges));
+            lastSyncData.current = { nodes: "[]", edges: "[]" };
+            try {
+              localStorage.setItem(
+                `chart_backup_${chartId}`,
+                JSON.stringify({
+                  nodes: snapshot.nodes,
+                  edges: snapshot.edges,
+                  timestamp: Date.now(),
+                }),
+              );
+            } catch (error) {
+              console.warn("Failed to save restored chart backup locally", error);
+            }
+            setSaveStatus("idle");
+            setConfirmModal(null);
+          },
+        });
+      } catch (error) {
+        setConfirmModal({
+          title: "Backup cannot be restored",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The selected backup is invalid.",
+          danger: true,
+          onConfirm: () => setConfirmModal(null),
+        });
+      }
+    },
+    [chartId, setEdges, setNodes, takeSnapshot],
+  );
+
   const onEdgeDoubleClick = useCallback(
     (evt, edge) => {
       takeSnapshot();
@@ -1169,18 +928,29 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
   // Only shift canvas right when the edit PropertiesPanel is actually visible.
   // When viewing a person node profile (read-only drawer on the right), the
   // left side has nothing, so we must NOT add the margin-left offset.
-  const personNode = useMemo(() => {
-    if (selectedEdge || selectedNodes.length !== 1) return null;
-    const live = nodes.find((n) => n.id === selectedNodes[0].id);
+  const profileNode = useMemo(() => {
+    if (!profileNodeId || !canViewProfiles) return null;
+    const live = nodes.find((node) => node.id === profileNodeId);
     if (!live || !TYPE_META[live.data?.orgType]?.isPerson) return null;
     return live;
-  }, [selectedNodes, selectedEdge, nodes]);
+  }, [profileNodeId, canViewProfiles, nodes]);
 
   // Shift canvas left only when the edit PropertiesPanel is rendered.
   // Profile-view (personNode && !editingPerson) shows a right-side drawer only
   // — nothing fills the left, so no margin shift needed.
-  const showingProfileOnly = !!(personNode && !editingPerson && !previewMode);
-  const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge) && !showingProfileOnly;
+  const panelOpen =
+    !previewMode && (selectedNodes.length > 0 || selectedEdge);
+  const contextNode = contextMenu
+    ? nodes.find((node) => node.id === contextMenu.nodeId)
+    : null;
+  const contextNodeIsPerson =
+    !!contextNode && !!TYPE_META[contextNode.data?.orgType]?.isPerson;
+  const relationalProfileStaffId = HR_FEATURES_ENABLED
+    ? profileStaffId ||
+      (typeof profileNode?.data?.dbStaffId === "string"
+        ? profileNode.data.dbStaffId
+        : null)
+    : null;
 
   // Memoized so OrgNode (wrapped in memo()) doesn't re-render on every
   // unrelated render of FlowApp — without this, a new object here every
@@ -1264,7 +1034,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
             <button
               className="tb-btn tb-btn--icon"
               onClick={undo}
-              disabled={past.length === 0}
+              disabled={!canUndo}
               title="Undo (Ctrl+Z)"
             >
               <Undo2 size={15} />
@@ -1272,7 +1042,7 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
             <button
               className="tb-btn tb-btn--icon"
               onClick={redo}
-              disabled={future.length === 0}
+              disabled={!canRedo}
               title="Redo (Ctrl+Y)"
             >
               <Redo2 size={15} />
@@ -1306,6 +1076,24 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
               >
                 <Share2 size={14} /> Share
               </button>
+            )}
+            {canEdit && (
+              <>
+                <button
+                  className="tb-btn tb-btn--primary"
+                  onClick={downloadChartBackup}
+                  title="Download a recoverable chart backup"
+                >
+                  <Download size={14} /> Backup JSON
+                </button>
+                <button
+                  className="tb-btn tb-btn--primary"
+                  onClick={() => backupFileInputRef.current?.click()}
+                  title="Restore nodes and edges from a chart backup"
+                >
+                  <Upload size={14} /> Restore JSON
+                </button>
+              </>
             )}
             <button
               className="tb-btn tb-btn--primary"
@@ -1557,27 +1345,39 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         {/* Staff profile drawer — the read-only view a person node opens
             first (and the only view in preview mode). Edit Details switches
             to the full properties panel below. */}
-        {personNode && (!editingPerson || previewMode) ? (
-          <ProfileDrawer
-            node={personNode}
-            teamSize={teamSizes[personNode.id] || 0}
-            canEdit={canEdit && !previewMode}
-            onEdit={() => setEditingPerson(true)}
+        {relationalProfileStaffId ? (
+          <StaffProfileDialog
+            staffId={relationalProfileStaffId}
             onClose={() => {
-              setSelectedNodes([]);
+              setProfileStaffId(null);
+              setProfileNodeId(null);
+            }}
+          />
+        ) : profileNode ? (
+          <ProfileDrawer
+            node={profileNode}
+            teamSize={teamSizes[profileNode.id] || 0}
+            canEdit={canEdit && !previewMode}
+            onEdit={() => {
+              setProfileNodeId(null);
+              setSelectedNodes([profileNode]);
               setSelectedEdge(null);
               setNodes((nds) =>
-                nds.map((n) => (n.selected ? { ...n, selected: false } : n)),
+                nds.map((node) => ({
+                  ...node,
+                  selected: node.id === profileNode.id,
+                })),
               );
             }}
+            onClose={() => setProfileNodeId(null)}
           />
         ) : null}
 
         {/* Properties Panel (Outside canvas-wrapper) */}
         {(selectedNodes.length > 0 || selectedEdge) &&
-          !previewMode &&
-          !(personNode && !editingPerson) && (
+          !previewMode && (
             <PropertiesPanel
+              chartId={chartId}
               nodes={selectedNodes}
               edge={selectedEdge}
               onUpdateNodes={updateSelectedNodes}
@@ -1609,18 +1409,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
               onSave={() => {
                 // Person node → back to its read-only profile; anything else →
                 // just deselect. Edits are already committed to node state.
-                if (personNode) {
-                  setEditingPerson(false);
-                } else {
-                  setSelectedNodes([]);
-                  setSelectedEdge(null);
-                  setNodes((nds) =>
-                    nds.map((n) =>
-                      n.selected ? { ...n, selected: false } : n,
-                    ),
-                  );
-                }
+                setSelectedNodes([]);
+                setSelectedEdge(null);
+                setNodes((nds) =>
+                  nds.map((n) =>
+                    n.selected ? { ...n, selected: false } : n,
+                  ),
+                );
               }}
+              onViewStaffProfile={setProfileStaffId}
               charts={[]}
             />
           )}
@@ -1632,13 +1429,25 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           x={contextMenu.x}
           y={contextMenu.y}
           isCollapsed={collapsedNodes.has(contextMenu.nodeId)}
-          onEdit={() => {
-            const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
-            if (n) {
-              setSelectedNodes([n]);
-              setSelectedEdge(null);
-            }
-          }}
+          onViewDetails={
+            contextNodeIsPerson && canViewProfiles
+              ? () => setProfileNodeId(contextMenu.nodeId)
+              : undefined
+          }
+          profileRestricted={contextNodeIsPerson && !canViewProfiles}
+          onEdit={
+            canEdit
+              ? () => {
+                  const n = nodes.find(
+                    (nd) => nd.id === contextMenu.nodeId,
+                  );
+                  if (n) {
+                    setSelectedNodes([n]);
+                    setSelectedEdge(null);
+                  }
+                }
+              : undefined
+          }
           onAddChild={() => addChildNode(contextMenu.nodeId, "orgNode")}
           onDuplicate={() => {
             const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
@@ -1658,9 +1467,6 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
                     (e) => e.source !== targetId && e.target !== targetId,
                   ),
                 );
-                deleteHRDataForNodes(chartId, [targetId]).catch((error) => {
-                  console.error("Failed to clean up deleted HR position:", error);
-                });
                 setConfirmModal(null);
               },
               true,
@@ -1708,6 +1514,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
           danger={confirmModal.danger}
         />
       )}
+      <input
+        ref={backupFileInputRef}
+        type="file"
+        accept=".json,.gdt-chart.json,application/json"
+        onChange={restoreChartBackup}
+        style={{ display: "none" }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
       {/* ── Linked Chart Popup ───────────────────────────── */}
       {linkedChartPopup && (
         <div
@@ -1839,13 +1654,15 @@ function FlowApp({ chartId, openLinkedChart, onChartName }) {
         onRestore={(restoredNodes, restoredEdges) => {
           takeSnapshot();
           // Snapshot the pre-restore state too, so restoring the wrong version is itself recoverable.
-          supabase
-            .from("chart_versions")
-            .insert({ chart_id: chartId, nodes, edges })
-            .then(({ error }) => {
-              if (error)
-                console.error("Failed to snapshot before restore", error);
-            });
+          if (CHART_VERSION_WRITES_ENABLED) {
+            supabase
+              .from("chart_versions")
+              .insert({ chart_id: chartId, nodes, edges })
+              .then(({ error }) => {
+                if (error)
+                  console.error("Failed to snapshot before restore", error);
+              });
+          }
           setNodes(restoredNodes || []);
           setEdges(restoredEdges || []);
           lastSyncData.current = { nodes: "[]", edges: "[]" }; // Force re-sync
@@ -1987,6 +1804,7 @@ function AppLayout() {
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/test-login" element={<LoginTestPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -2030,7 +1848,29 @@ function AppLayout() {
             path="/admin/org-structure"
             element={
               <ProtectedRoute>
-                <AdminOrgStructurePage />
+                <HrAdminRoute>
+                  <AdminOrgStructurePage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/staff"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <StaffDirectoryPage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/job-architecture"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <JobArchitecturePage />
+                </HrAdminRoute>
               </ProtectedRoute>
             }
           />
