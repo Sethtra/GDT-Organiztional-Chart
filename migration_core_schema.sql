@@ -395,16 +395,15 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF TG_TABLE_NAME = 'positions' AND (
-    NEW.chart_id IS DISTINCT FROM OLD.chart_id
-    OR NEW.node_id IS DISTINCT FROM OLD.node_id
-  ) THEN
-    RAISE EXCEPTION 'A position cannot be moved to another chart or node';
-  END IF;
-
-  IF TG_TABLE_NAME = 'staff'
-    AND NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
-    RAISE EXCEPTION 'Staff ownership cannot be changed';
+  IF TG_TABLE_NAME = 'positions' THEN
+    IF NEW.chart_id IS DISTINCT FROM OLD.chart_id
+      OR NEW.node_id IS DISTINCT FROM OLD.node_id THEN
+      RAISE EXCEPTION 'A position cannot be moved to another chart or node';
+    END IF;
+  ELSIF TG_TABLE_NAME = 'staff' THEN
+    IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+      RAISE EXCEPTION 'Staff ownership cannot be changed';
+    END IF;
   END IF;
 
   RETURN NEW;

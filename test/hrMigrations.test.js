@@ -29,6 +29,32 @@ test('HR migrations are transactional and contain no destructive data cleanup', 
   }
 });
 
+test('shared identity trigger only resolves fields for its active table branch', async () => {
+  const coreMigration = await readFile(
+    new URL('../migration_core_schema.sql', import.meta.url),
+    'utf8',
+  );
+  const functionMatch = coreMigration.match(
+    /CREATE OR REPLACE FUNCTION public\.protect_hr_identity_fields\(\)([\s\S]*?)\$\$;/,
+  );
+
+  assert.ok(functionMatch, 'shared identity trigger function must exist');
+  const functionSql = functionMatch[1];
+
+  assert.match(functionSql, /IF TG_TABLE_NAME = 'positions' THEN/);
+  assert.match(functionSql, /ELSIF TG_TABLE_NAME = 'staff' THEN/);
+  assert.doesNotMatch(
+    functionSql,
+    /IF TG_TABLE_NAME = 'positions'\s+AND/,
+    'position-only NEW fields must not be resolved for staff rows',
+  );
+  assert.doesNotMatch(
+    functionSql,
+    /IF TG_TABLE_NAME = 'staff'\s+AND/,
+    'staff-only NEW fields must not be resolved for position rows',
+  );
+});
+
 test('public chart RPC removes legacy private node fields', async () => {
   const sql = await readMigration(migrationFiles[0]);
   for (const field of [
