@@ -14,6 +14,7 @@ const migrationFiles = [
   '2026072710_add_position_configuration_api.sql',
   '2026072912_refine_staff_profile_and_positions.sql',
   '2026072913_add_staff_placements.sql',
+  '2026072914_normalize_assignment_dates.sql',
 ];
 
 async function readMigration(filename) {
@@ -197,6 +198,31 @@ test('staff placement keeps department and office relational and augments HR API
     sql,
     /ALTER TABLE public\.staff ADD COLUMN IF NOT EXISTS (department|office)/i,
   );
+});
+
+test('legacy assignment dates are normalized for the staff profile history API', async () => {
+  const sql = await readMigration(
+    '2026072914_normalize_assignment_dates.sql',
+  );
+
+  assert.match(
+    sql,
+    /ALTER COLUMN start_date TYPE DATE[\s\S]*start_date::TEXT/i,
+  );
+  assert.match(
+    sql,
+    /ALTER COLUMN end_date TYPE DATE[\s\S]*end_date::TEXT/i,
+  );
+  assert.match(
+    sql,
+    /DROP TRIGGER IF EXISTS position_assignments_one_active[\s\S]*CREATE TRIGGER position_assignments_one_active/i,
+  );
+  assert.match(
+    sql,
+    /BEFORE INSERT OR UPDATE OF staff_id, position_id, end_date/i,
+  );
+  assert.doesNotMatch(sql, /\bUPDATE\s+public\./i);
+  assert.doesNotMatch(sql, /\bDELETE\b/i);
 });
 
 test('job fit reports met, missing, and below-minimum requirements', async () => {

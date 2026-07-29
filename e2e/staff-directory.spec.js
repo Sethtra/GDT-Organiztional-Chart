@@ -120,6 +120,45 @@ test.beforeEach(async ({ page }) => {
       body: JSON.stringify(jobTitles),
     }),
   );
+  await page.route('**/rest/v1/rpc/get_staff_profile', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access: 'hr',
+        id: userId,
+        employeeId: 'GDT-001',
+        name: 'មន្ត្រីសាកល្បង',
+        nameEn: 'Test Officer',
+        dateOfBirth: '1996-01-15',
+        joinedDate: '2020-03-01',
+        retiredDate: null,
+        gender: 'unspecified',
+        status: 'active',
+        jobTitle: {
+          id: jobTitles[4].id,
+          name: jobTitles[4].name,
+          nameEn: jobTitles[4].nameEn,
+          rankOrder: 50,
+          positionScope: 'individual',
+        },
+        currentPosition: null,
+        organizationalPlacement: {
+          departmentId: '00000000-0000-4000-8000-000000000004',
+          departmentName: 'Finance and Personnel',
+          officeId: null,
+          officeName: null,
+        },
+        phone: null,
+        address: null,
+        maritalStatus: 'unspecified',
+        education: null,
+        otherInformation: null,
+        assignmentHistory: [],
+        skills: [],
+      }),
+    }),
+  );
 });
 
 test('staff directory and ordered position dropdown render cleanly in dark mode', async ({
@@ -145,6 +184,13 @@ test('staff directory and ordered position dropdown render cleanly in dark mode'
     (element) => getComputedStyle(element).color,
   );
   expect(iconColor).not.toBe('rgb(0, 0, 0)');
+
+  await viewButton.click();
+  await expect(
+    page.getByRole('dialog', { name: 'Officer profile' }),
+  ).toBeVisible();
+  await expect(page.getByText('Finance and Personnel').last()).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
 
   await page.getByRole('button', { name: 'Add officer' }).click();
   const positionSelect = page.getByRole('combobox', { name: 'Position *' });

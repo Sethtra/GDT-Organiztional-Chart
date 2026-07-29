@@ -125,6 +125,11 @@ const migrations = [
     name: 'add_staff_placements',
     file: 'migrations/2026072913_add_staff_placements.sql',
   },
+  {
+    version: '20260727000017',
+    name: 'normalize_assignment_dates',
+    file: 'migrations/2026072914_normalize_assignment_dates.sql',
+  },
 ]
 
 function jsonReplacer(_key, value) {
