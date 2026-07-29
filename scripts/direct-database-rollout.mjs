@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url'
 
 import pg from 'pg'
 
+import {
+  executeStaffWorkbookImport,
+  parseStaffWorkbookImport,
+} from './staff-workbook-import.mjs'
+
 const { Client } = pg
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(scriptDirectory, '..')
@@ -14,6 +19,11 @@ const applyChanges = process.argv.includes('--apply')
 const backupArgumentIndex = process.argv.indexOf('--backup-directory')
 const backupDirectory =
   backupArgumentIndex >= 0 ? process.argv[backupArgumentIndex + 1] : ''
+const staffImportArgumentIndex = process.argv.indexOf('--staff-import-file')
+const staffImportFile =
+  staffImportArgumentIndex >= 0
+    ? process.argv[staffImportArgumentIndex + 1]
+    : ''
 const databaseUrl = process.env.GDT_DATABASE_URL
 const hrAdminEmail = process.env.GDT_HR_ADMIN_EMAIL
 const certificatePath =
@@ -28,8 +38,15 @@ if (!databaseUrl) {
   throw new Error('GDT_DATABASE_URL is required.')
 }
 
-if (applyChanges && !hrAdminEmail) {
+if ((applyChanges || staffImportFile) && !hrAdminEmail) {
   throw new Error('GDT_HR_ADMIN_EMAIL is required for a full rollout.')
+}
+
+let staffImportPayload = null
+if (staffImportFile) {
+  staffImportPayload = parseStaffWorkbookImport(
+    await readFile(path.resolve(staffImportFile), 'utf8'),
+  )
 }
 
 const migrations = [
@@ -102,6 +119,11 @@ const migrations = [
     version: '20260727000015',
     name: 'refine_staff_profile_and_positions',
     file: 'migrations/2026072912_refine_staff_profile_and_positions.sql',
+  },
+  {
+    version: '20260727000016',
+    name: 'add_staff_placements',
+    file: 'migrations/2026072913_add_staff_placements.sql',
   },
 ]
 
@@ -529,6 +551,7 @@ async function executeRollout(client, loadedMigrations) {
       await recordMigration(client, migration)
     }
 
+    let provisionedUserId = null
     if (hrAdminEmail) {
       const userResult = await client.query(
         `
@@ -548,6 +571,7 @@ async function executeRollout(client, loadedMigrations) {
       }
 
       const userId = userResult.rows[0].id
+      provisionedUserId = userId
       await client.query(
         `
           INSERT INTO public.user_roles (user_id, role, granted_by)
@@ -564,11 +588,21 @@ async function executeRollout(client, loadedMigrations) {
       })
     }
 
+    const staffImport = staffImportPayload
+      ? await executeStaffWorkbookImport(
+          client,
+          staffImportPayload,
+          provisionedUserId,
+        )
+      : null
+
     if (applyChanges) {
       await client.query('COMMIT')
     } else {
       await client.query('ROLLBACK')
     }
+
+    return { staffImport }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
     throw error
@@ -632,7 +666,7 @@ try {
       ? 'Applying all migrations in one database transaction...\n'
       : 'Validating all migrations in a rollback-only transaction...\n',
   )
-  await executeRollout(client, loadedMigrations)
+  const rollout = await executeRollout(client, loadedMigrations)
 
   await writeJson(path.join(backupDirectory, 'rollout-result.json'), {
     status: applyChanges ? 'applied' : 'validated',
@@ -641,11 +675,14 @@ try {
     backup_row_count: backup.rowCount,
     migration_count: loadedMigrations.length,
     hr_admin_provisioned: applyChanges && Boolean(hrAdminEmail),
+    staff_import: rollout.staffImport,
   })
 
   process.stdout.write(
     applyChanges
-      ? 'Database rollout committed successfully.\n'
+      ? staffImportPayload
+        ? `Database rollout committed successfully; ${rollout.staffImport.insertedStaff} staff records imported.\n`
+        : 'Database rollout committed successfully.\n'
       : 'Migration validation succeeded; all test changes were rolled back.\n',
   )
 } finally {

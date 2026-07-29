@@ -121,6 +121,13 @@ export const StaffJobTitleSchema = z.object({
   ]),
 });
 
+export const StaffOrganizationalPlacementSchema = z.object({
+  departmentId: UuidSchema,
+  departmentName: z.string().trim().min(1).max(300),
+  officeId: UuidSchema.nullable(),
+  officeName: z.string().trim().min(1).max(300).nullable(),
+});
+
 export const StaffDirectorySummarySchema = z.object({
   id: UuidSchema,
   employeeId: LegacyEmployeeIdSchema,
@@ -133,6 +140,8 @@ export const StaffDirectorySummarySchema = z.object({
   status: StaffStatusSchema,
   jobTitle: StaffJobTitleSchema.nullable(),
   currentPosition: PositionSummarySchema.nullable(),
+  organizationalPlacement:
+    StaffOrganizationalPlacementSchema.nullable().default(null),
 });
 
 export const HrStaffDirectoryRecordSchema = StaffDirectorySummarySchema.extend({
@@ -278,6 +287,9 @@ export type StaffRecord = z.infer<typeof StaffRecordSchema>;
 export type PositionSummary = z.infer<typeof PositionSummarySchema>;
 export type PublicChartOccupant = z.infer<typeof PublicChartOccupantSchema>;
 export type StaffJobTitle = z.infer<typeof StaffJobTitleSchema>;
+export type StaffOrganizationalPlacement = z.infer<
+  typeof StaffOrganizationalPlacementSchema
+>;
 export type StaffDirectorySummary = z.infer<
   typeof StaffDirectorySummarySchema
 >;

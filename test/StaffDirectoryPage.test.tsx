@@ -24,6 +24,12 @@ vi.mock("../src/services/staffService", () => ({
         positionScope: "individual",
       },
       currentPosition: null,
+      organizationalPlacement: {
+        departmentId: "00000000-0000-4000-8000-000000000004",
+        departmentName: "Finance and Personnel",
+        officeId: null,
+        officeName: null,
+      },
       education: null,
       phone: null,
       address: null,
@@ -55,6 +61,12 @@ vi.mock("../src/services/staffProfileService", () => ({
       positionScope: "individual",
     },
     currentPosition: null,
+    organizationalPlacement: {
+      departmentId: "00000000-0000-4000-8000-000000000004",
+      departmentName: "Finance and Personnel",
+      officeId: null,
+      officeName: null,
+    },
     phone: null,
     address: null,
     maritalStatus: "unspecified",
@@ -151,6 +163,9 @@ describe("Staff Directory profile action", () => {
       await screen.findByRole("dialog", { name: "Officer profile" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Test Officer").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Finance and Personnel").length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows the approved positions in the requested dropdown order", async () => {

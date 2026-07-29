@@ -96,6 +96,12 @@ test.beforeEach(async ({ page }) => {
             positionScope: 'individual',
           },
           currentPosition: null,
+          organizationalPlacement: {
+            departmentId: '00000000-0000-4000-8000-000000000004',
+            departmentName: 'Finance and Personnel',
+            officeId: null,
+            officeName: null,
+          },
           education: null,
           phone: null,
           address: null,
@@ -129,6 +135,7 @@ test('staff directory and ordered position dropdown render cleanly in dark mode'
     page.getByRole('heading', { name: 'GDT Staff Directory' }),
   ).toBeVisible();
   await expect(page.getByText('Test Officer')).toBeVisible();
+  await expect(page.getByText('Finance and Personnel')).toBeVisible();
 
   const viewButton = page.getByRole('button', {
     name: 'View profile for មន្ត្រីសាកល្បង',

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   BriefcaseBusiness,
+  Building2,
   CalendarDays,
   GraduationCap,
   Hash,
@@ -156,11 +157,14 @@ export default function StaffProfileDialog({
                     <BriefcaseBusiness className="size-4 shrink-0" />
                     {profile.jobTitle?.name ?? "Position not selected"}
                   </p>
-                  {profile.currentPosition && (
+                  {(profile.currentPosition ||
+                    profile.organizationalPlacement) && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[
-                        profile.currentPosition.departmentName,
-                        profile.currentPosition.officeName,
+                        profile.currentPosition?.departmentName ??
+                          profile.organizationalPlacement?.departmentName,
+                        profile.currentPosition?.officeName ??
+                          profile.organizationalPlacement?.officeName,
                       ]
                         .filter(Boolean)
                         .join(" → ")}
@@ -227,6 +231,23 @@ export default function StaffProfileDialog({
                     icon={<BriefcaseBusiness className="size-3.5" />}
                     label="Position"
                     value={profile.jobTitle?.name}
+                  />
+                  <ValueRow
+                    icon={<Building2 className="size-3.5" />}
+                    label="Department"
+                    value={
+                      profile.currentPosition?.departmentName ??
+                      profile.organizationalPlacement?.departmentName
+                    }
+                  />
+                  <ValueRow
+                    icon={<Building2 className="size-3.5" />}
+                    label="Office"
+                    value={
+                      profile.currentPosition?.officeName ??
+                      profile.organizationalPlacement?.officeName ??
+                      "Not assigned"
+                    }
                   />
                   <ValueRow
                     icon={<CalendarDays className="size-3.5" />}

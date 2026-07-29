@@ -13,6 +13,7 @@ const migrationFiles = [
   '2026072709_add_job_architecture_api.sql',
   '2026072710_add_position_configuration_api.sql',
   '2026072912_refine_staff_profile_and_positions.sql',
+  '2026072913_add_staff_placements.sql',
 ];
 
 async function readMigration(filename) {
@@ -166,6 +167,36 @@ test('refined staff API uses the approved position order and excludes deprecated
   assert.doesNotMatch(sql, /'nationalId'/i);
   assert.doesNotMatch(sql, /'email', staff\.email/i);
   assert.doesNotMatch(sql, /'age', staff\.age/i);
+});
+
+test('staff placement keeps department and office relational and augments HR APIs', async () => {
+  const sql = await readMigration('2026072913_add_staff_placements.sql');
+
+  assert.match(
+    sql,
+    /CREATE TABLE IF NOT EXISTS public\.staff_placements/i,
+  );
+  assert.match(
+    sql,
+    /office\.unit_id = NEW\.org_unit_id/i,
+  );
+  assert.match(
+    sql,
+    /unit\.type = 'department'/i,
+  );
+  assert.match(sql, /'organizationalPlacement'/i);
+  assert.match(
+    sql,
+    /CREATE UNIQUE INDEX IF NOT EXISTS staff_employee_id_uidx/i,
+  );
+  assert.match(
+    sql,
+    /CREATE POLICY "HR administrators create staff placements"[\s\S]*public\.is_hr_admin\(\)/i,
+  );
+  assert.doesNotMatch(
+    sql,
+    /ALTER TABLE public\.staff ADD COLUMN IF NOT EXISTS (department|office)/i,
+  );
 });
 
 test('job fit reports met, missing, and below-minimum requirements', async () => {

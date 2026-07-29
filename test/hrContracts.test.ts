@@ -45,6 +45,7 @@ const sharedProfile = {
   status: 'active',
   jobTitle,
   currentPosition: position,
+  organizationalPlacement: null,
   phone: '012345678',
   address: 'Phnom Penh',
   maritalStatus: 'single',

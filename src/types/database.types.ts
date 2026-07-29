@@ -56,6 +56,8 @@ export type Database = {
       positions: GenericTable;
       position_assignments: GenericTable;
       staff: GenericTable;
+      staff_import_batches: GenericTable;
+      staff_placements: GenericTable;
       staff_sensitive: GenericTable;
       job_titles: GenericTable;
       skills: GenericTable;

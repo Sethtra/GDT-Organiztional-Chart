@@ -25,10 +25,19 @@ import { archiveStaff, listHrStaff } from "../services/staffService";
 
 function chartLocation(staff: HrStaffDirectoryRecord): string {
   const position = staff.currentPosition;
-  if (!position) return "Chart location not assigned";
-  return [position.departmentName, position.officeName]
+  if (position) {
+    return (
+      [position.departmentName, position.officeName]
+        .filter(Boolean)
+        .join(" → ") || "Assigned on chart"
+    );
+  }
+
+  const placement = staff.organizationalPlacement;
+  if (!placement) return "Department not assigned";
+  return [placement.departmentName, placement.officeName]
     .filter(Boolean)
-    .join(" → ") || "Assigned on chart";
+    .join(" → ");
 }
 
 function positionTitle(staff: HrStaffDirectoryRecord): string {
@@ -102,13 +111,15 @@ export default function StaffDirectoryPage() {
         person.currentPosition?.title,
         person.currentPosition?.departmentName,
         person.currentPosition?.officeName,
+        person.organizationalPlacement?.departmentName,
+        person.organizationalPlacement?.officeName,
       ].some((value) => value?.toLocaleLowerCase().includes(query)),
     );
   }, [search, staff]);
 
   const activeCount = staff.filter((person) => person.status === "active").length;
   const assignedCount = staff.filter(
-    (person) => person.currentPosition !== null,
+    (person) => Boolean(person.organizationalPlacement),
   ).length;
 
   const openNewOfficer = () => {
@@ -195,7 +206,7 @@ export default function StaffDirectoryPage() {
             <div>
               <div className="text-lg font-semibold">{assignedCount}</div>
               <div className="text-xs text-muted-foreground">
-                Assigned to chart
+                Department assigned
               </div>
             </div>
           </div>

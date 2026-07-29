@@ -452,9 +452,9 @@ export default function StaffFormDialog({
               </div>
               <div className="flex gap-2 rounded-lg border border-border bg-secondary/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
                 <CalendarDays className="mt-0.5 size-4 shrink-0 text-foreground" />
-                Department, office, and reporting officer are assigned through
-                the organizational chart. They are not duplicated in this
-                staff record.
+                Department and office placement are managed separately from
+                personal information. A reporting officer is assigned only
+                when the officer occupies an organizational-chart position.
               </div>
             </section>
 

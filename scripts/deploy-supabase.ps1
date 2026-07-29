@@ -2,7 +2,8 @@
 param(
   [switch]$Apply,
   [string]$DatabaseUrl = $env:GDT_DATABASE_URL,
-  [string]$HrAdminEmail = $env:GDT_HR_ADMIN_EMAIL
+  [string]$HrAdminEmail = $env:GDT_HR_ADMIN_EMAIL,
+  [string]$StaffImportFile
 )
 
 Set-StrictMode -Version Latest
@@ -81,6 +82,13 @@ if (-not [string]::IsNullOrWhiteSpace($HrAdminEmail)) {
   }
 }
 
+if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
+  if (-not (Test-Path -LiteralPath $StaffImportFile -PathType Leaf)) {
+    throw "Staff import file does not exist: $StaffImportFile"
+  }
+  $StaffImportFile = (Resolve-Path -LiteralPath $StaffImportFile).Path
+}
+
 function Invoke-Supabase {
   param(
     [Parameter(Mandatory)]
@@ -110,8 +118,16 @@ $dataBackup = Join-Path $backupDirectory 'data.sql'
 Write-Host "Creating pre-rollout database backup in $backupDirectory"
 
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
-if ($null -eq $dockerCommand) {
-  Write-Host 'Docker is unavailable; using the direct PostgreSQL backup and rollout.'
+if (
+  $null -eq $dockerCommand -or
+  -not [string]::IsNullOrWhiteSpace($StaffImportFile)
+) {
+  if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
+    Write-Host 'Using the transactional direct rollout for the validated staff import.'
+  }
+  else {
+    Write-Host 'Docker is unavailable; using the direct PostgreSQL backup and rollout.'
+  }
   $directRolloutScript =
     Join-Path $projectRoot 'scripts\direct-database-rollout.mjs'
   $previousDatabaseUrl = $env:GDT_DATABASE_URL
@@ -128,6 +144,9 @@ if ($null -eq $dockerCommand) {
     )
     if ($Apply) {
       $directArguments += '--apply'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
+      $directArguments += @('--staff-import-file', $StaffImportFile)
     }
 
     $directLog = Join-Path $backupDirectory 'direct-rollout.log'
@@ -156,6 +175,9 @@ if ($null -eq $dockerCommand) {
     Write-Host 'Database migrations applied successfully.'
     Write-Host 'The verified first HR administrator was assigned.'
     Write-Host 'The role is stored in Table Editor > public > user_roles.'
+    if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
+      Write-Host 'The validated staff workbook was imported successfully.'
+    }
   }
   else {
     Write-Host 'Backup and migration validation completed.'
@@ -252,6 +274,10 @@ $migrationSources = @(
   @{
     Source = Join-Path $projectRoot 'migrations\2026072912_refine_staff_profile_and_positions.sql'
     Target = '20260727000015_refine_staff_profile_and_positions.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026072913_add_staff_placements.sql'
+    Target = '20260727000016_add_staff_placements.sql'
   }
 )
 
