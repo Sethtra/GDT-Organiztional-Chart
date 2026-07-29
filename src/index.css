@@ -173,6 +173,21 @@ input, textarea, select { font-family: 'Kantumruy Pro', 'Inter', sans-serif; }
 input[type="date"] { color-scheme: dark; }
 :root[data-theme="light"] input[type="date"] { color-scheme: light; }
 
+/* Native select popups do not consistently inherit Tailwind text utilities.
+   Opt staff form controls into the active application theme explicitly. */
+select.theme-field {
+  color: var(--text-primary);
+  color-scheme: dark;
+}
+select.theme-field option,
+select.theme-field optgroup {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+}
+:root[data-theme="light"] select.theme-field {
+  color-scheme: light;
+}
+
 /* ============================================================
    APP LAYOUT
    ============================================================ */

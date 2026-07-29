@@ -29,7 +29,7 @@ interface StaffSkillsDialogProps {
 
 const today = () => new Date().toISOString().slice(0, 10);
 const fieldClass =
-  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
+  "theme-field min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground caret-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function StaffSkillsDialog({
   open,
@@ -258,7 +258,7 @@ export default function StaffSkillsDialog({
                   placeholder="Optional assessment notes"
                 />
                 <button
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:border disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   disabled={!skillId || saving}
                   type="button"
                   onClick={() => void handleSaveProficiency()}

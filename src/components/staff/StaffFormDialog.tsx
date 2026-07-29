@@ -89,7 +89,7 @@ const emptyDraft: StaffDraft = {
 };
 
 const inputClass =
-  "min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "theme-field min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
 const sectionTitleClass =
   "flex items-center gap-2 border-b border-border pb-2 text-sm font-semibold text-foreground";
