@@ -72,7 +72,44 @@ vi.mock("../src/services/staffProfileService", () => ({
     address: null,
     education: null,
     otherInformation: null,
-    assignmentHistory: [],
+    assignmentHistory: [
+      {
+        id: "00000000-0000-4000-8000-000000000020",
+        staffId: "00000000-0000-4000-8000-000000000001",
+        position: {
+          positionId: "00000000-0000-4000-8000-000000000030",
+          chartId: "00000000-0000-4000-8000-000000000040",
+          nodeId: "node-department-director",
+          title: "Department Director Node",
+          departmentId: "00000000-0000-4000-8000-000000000004",
+          departmentName: "Wrong Chart Department",
+          officeId: "00000000-0000-4000-8000-000000000005",
+          officeName: "Wrong Chart Office",
+        },
+        joinedDate: "2026-07-29",
+        leftDate: null,
+        reason: "assigned",
+        notes: null,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000021",
+        staffId: "00000000-0000-4000-8000-000000000001",
+        position: {
+          positionId: "00000000-0000-4000-8000-000000000031",
+          chartId: "00000000-0000-4000-8000-000000000041",
+          nodeId: "node-office-chief",
+          title: "Office Chief Node",
+          departmentId: null,
+          departmentName: "Another Wrong Chart Department",
+          officeId: null,
+          officeName: null,
+        },
+        joinedDate: "2026-07-29",
+        leftDate: null,
+        reason: "assigned",
+        notes: null,
+      },
+    ],
     skills: [],
   })),
 }));
@@ -192,6 +229,39 @@ describe("Staff Directory profile action", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("locates assigned nodes without showing chart filters as staff history", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "View profile for Test Officer",
+      }),
+    );
+
+    const duplicateWarning = await screen.findByRole("alert");
+    expect(duplicateWarning).toHaveTextContent(
+      "Multiple active node assignments found",
+    );
+    expect(duplicateWarning).toHaveTextContent("linked to 2 current nodes");
+    expect(screen.queryByText("Wrong Chart Department")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Another Wrong Chart Department"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Go to node for Department Director Node",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/chart/00000000-0000-4000-8000-000000000040?focusNode=node-department-director",
+    );
+  });
+
   it("shows the approved positions in the requested dropdown order", async () => {
     const user = userEvent.setup();
     render(
@@ -270,6 +340,6 @@ describe("Staff Directory profile action", () => {
     const skillsButton = await screen.findByRole("button", {
       name: "Manage skills for Test Officer",
     });
-    expect(skillsButton).toHaveTextContent("Skills");
+    expect(skillsButton).toHaveAttribute("title", "Manage Skills");
   });
 });

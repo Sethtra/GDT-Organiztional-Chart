@@ -68,8 +68,8 @@ export function mergeSafeStaffProjection(
 
     const data = { ...(node.data ?? {}) };
     fillMissing(data, "badgeText", position.title);
-    fillMissing(data, "department", position.department);
-    fillMissing(data, "office", position.office);
+    delete data.department;
+    delete data.office;
     data.positionId = position.id;
 
     const activeAssignment = (position.position_assignments ?? []).find(
@@ -78,11 +78,13 @@ export function mergeSafeStaffProjection(
     const staff = singleStaff(activeAssignment?.staff ?? null);
 
     if (activeAssignment && staff) {
-      fillMissing(data, "name", staff.name);
-      fillMissing(data, "nameEn", staff.name_en);
+      data.name = staff.name ?? "";
+      data.nameEn = staff.name_en ?? "";
       data.dbStaffId = staff.id;
       data.dbAssignmentId = activeAssignment.id;
     } else {
+      data.name = "";
+      data.nameEn = "";
       data.dbStaffId = null;
       data.dbAssignmentId = null;
     }

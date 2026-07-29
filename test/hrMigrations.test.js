@@ -16,6 +16,7 @@ const migrationFiles = [
   '2026072913_add_staff_placements.sql',
   '2026072914_normalize_assignment_dates.sql',
   '2026072915_add_staff_placement_save_api.sql',
+  '2026072916_refine_assignment_candidates.sql',
 ];
 
 async function readMigration(filename) {
@@ -248,6 +249,22 @@ test('officer save atomically validates placement and omits marital status from 
     /REVOKE EXECUTE ON FUNCTION public\.save_staff_record\([\s\S]*FROM authenticated/i,
   );
   assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
+});
+
+test('assignment candidates expose safe staff-table filters without private HR data', async () => {
+  const sql = await readMigration(
+    '2026072916_refine_assignment_candidates.sql',
+  );
+
+  assert.match(sql, /'jobTitle'/i);
+  assert.match(sql, /'organizationalPlacement'/i);
+  assert.match(sql, /staff_title\.id = staff\.job_title_id/i);
+  assert.match(sql, /placement\.staff_id = staff\.id/i);
+  assert.match(sql, /public\.can_manage_position_assignment/i);
+  assert.doesNotMatch(sql, /'phone'/i);
+  assert.doesNotMatch(sql, /'address'/i);
+  assert.doesNotMatch(sql, /'education'/i);
+  assert.doesNotMatch(sql, /'dateOfBirth'/i);
 });
 
 test('job fit reports met, missing, and below-minimum requirements', async () => {

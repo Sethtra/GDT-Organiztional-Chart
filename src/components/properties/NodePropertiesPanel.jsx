@@ -158,8 +158,6 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
         Object.assign(payload, {
           description,
           linkedChartId,
-          department,
-          office,
           position,
         });
       } else {

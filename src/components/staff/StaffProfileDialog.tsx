@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
+  Award,
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
@@ -9,15 +12,17 @@ import {
   History,
   Info,
   Loader2,
+  LocateFixed,
   MapPin,
   Phone,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 
 import type { StaffProfile } from "../../contracts/hr";
 import { loadStaffProfile } from "../../services/staffProfileService";
+import { buildChartNodePath } from "../../utils/chartNodeNavigation";
+import { getDisplayedStaffPlacement } from "../../utils/staffDisplay";
 import {
   Dialog,
   DialogContent,
@@ -109,6 +114,16 @@ export default function StaffProfileDialog({
     () => profile?.skills.filter((skill) => skill.effectiveTo === null) ?? [],
     [profile],
   );
+  const activeAssignments = useMemo(
+    () =>
+      profile?.assignmentHistory.filter(
+        (assignment) => assignment.leftDate === null,
+      ) ?? [],
+    [profile],
+  );
+  const displayedPlacement = profile
+    ? getDisplayedStaffPlacement(profile)
+    : null;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -157,14 +172,11 @@ export default function StaffProfileDialog({
                     <BriefcaseBusiness className="size-4 shrink-0" />
                     {profile.jobTitle?.name ?? "Position not selected"}
                   </p>
-                  {(profile.currentPosition ||
-                    profile.organizationalPlacement) && (
+                  {displayedPlacement && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[
-                        profile.currentPosition?.departmentName ??
-                          profile.organizationalPlacement?.departmentName,
-                        profile.currentPosition?.officeName ??
-                          profile.organizationalPlacement?.officeName,
+                        displayedPlacement.departmentName,
+                        displayedPlacement.officeName,
                       ]
                         .filter(Boolean)
                         .join(" → ")}
@@ -230,19 +242,12 @@ export default function StaffProfileDialog({
                   <ValueRow
                     icon={<Building2 className="size-3.5" />}
                     label="Department"
-                    value={
-                      profile.currentPosition?.departmentName ??
-                      profile.organizationalPlacement?.departmentName
-                    }
+                    value={displayedPlacement?.departmentName}
                   />
                   <ValueRow
                     icon={<Building2 className="size-3.5" />}
                     label="Office"
-                    value={
-                      profile.currentPosition?.officeName ??
-                      profile.organizationalPlacement?.officeName ??
-                      "Not assigned"
-                    }
+                    value={displayedPlacement?.officeName ?? "Not assigned"}
                   />
                   <ValueRow
                     icon={<CalendarDays className="size-3.5" />}
@@ -264,7 +269,7 @@ export default function StaffProfileDialog({
 
               <section className="rounded-xl border border-border bg-card p-4">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="size-4 text-foreground" />
+                  <Award className="size-4 text-primary" />
                   Current skills
                 </h3>
                 {activeSkills.length === 0 ? (
@@ -295,6 +300,24 @@ export default function StaffProfileDialog({
                   <History className="size-4 text-foreground" />
                   Position history
                 </h3>
+                {activeAssignments.length > 1 && (
+                  <div
+                    role="alert"
+                    className="mb-3 flex gap-3 rounded-lg border border-destructive/45 bg-destructive/10 p-3"
+                  >
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                    <div>
+                      <div className="text-sm font-semibold">
+                        Multiple active node assignments found
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        This officer is linked to {activeAssignments.length}{" "}
+                        current nodes. Open each node and vacate the incorrect
+                        assignment.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {profile.assignmentHistory.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No position history has been recorded.
@@ -308,16 +331,29 @@ export default function StaffProfileDialog({
                       >
                         <div className="mt-1.5 size-2 rounded-full bg-primary ring-4 ring-primary/15" />
                         <div className="rounded-lg border border-border bg-secondary/30 p-3">
-                          <div className="font-medium">
-                            {assignment.position.title}
-                          </div>
-                          <div className="mt-1 text-sm text-muted-foreground">
-                            {[
-                              assignment.position.departmentName,
-                              assignment.position.officeName,
-                            ]
-                              .filter(Boolean)
-                              .join(" → ") || "Chart position"}
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="font-medium">
+                                {assignment.position.title}
+                              </div>
+                              {assignment.leftDate === null && (
+                                <span className="mt-1 inline-flex rounded-full border border-primary/35 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                                  Current assignment
+                                </span>
+                              )}
+                            </div>
+                            <Link
+                              to={buildChartNodePath(
+                                assignment.position.chartId,
+                                assignment.position.nodeId,
+                              )}
+                              onClick={onClose}
+                              aria-label={`Go to node for ${assignment.position.title}`}
+                              className="inline-flex min-h-9 items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                            >
+                              <LocateFixed className="size-3.5 text-primary" />
+                              Go to node
+                            </Link>
                           </div>
                           <div className="mt-2 text-xs text-muted-foreground">
                             {formatDate(assignment.joinedDate)} —{" "}

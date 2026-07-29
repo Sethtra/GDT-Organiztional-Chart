@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mergeSafeStaffProjection } from "./safeStaffProjection";
+import { mergeSafeStaffProjection } from "../src/utils/safeStaffProjection";
 
 describe("mergeSafeStaffProjection", () => {
   it("adds safe occupant labels and relational IDs without copying private data", () => {
@@ -30,8 +30,6 @@ describe("mergeSafeStaffProjection", () => {
 
     expect(node?.data).toMatchObject({
       badgeText: "Officer",
-      department: "Tax",
-      office: "Operations",
       name: "Sokha",
       nameEn: "Sokha",
       positionId: "position-1",
@@ -42,9 +40,11 @@ describe("mergeSafeStaffProjection", () => {
     expect(node?.data).not.toHaveProperty("address");
     expect(node?.data).not.toHaveProperty("nationalId");
     expect(node?.data).not.toHaveProperty("history");
+    expect(node?.data).not.toHaveProperty("department");
+    expect(node?.data).not.toHaveProperty("office");
   });
 
-  it("preserves recovery data while clearing stale relational references", () => {
+  it("preserves recovery-only data while clearing a stale node occupant", () => {
     const [node] = mergeSafeStaffProjection(
       [
         {
@@ -70,7 +70,8 @@ describe("mergeSafeStaffProjection", () => {
     );
 
     expect(node?.data).toMatchObject({
-      name: "Recovery copy",
+      name: "",
+      nameEn: "",
       phone: "legacy-backup-value",
       history: [{ name: "Previous occupant" }],
       dbStaffId: null,
