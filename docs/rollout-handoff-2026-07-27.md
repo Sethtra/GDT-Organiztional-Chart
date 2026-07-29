@@ -1,48 +1,56 @@
-# Database Rollout Handoff — 2026-07-27
+# Database Rollout Handoff — 2026-07-29
 
-## Safe current state
+## Live state
 
-- No rollout process is running.
-- No migration was committed to the live Supabase database.
-- The last rollout was executed inside one transaction and rolled back.
-- The latest verified backup is:
-  `backups/database/pre-rollout-20260727T101648Z/`
-- That backup contains all 10 `public` tables, 782 rows, database metadata,
-  per-table JSON files, migration hashes, and SHA-256 checksums.
+- All 13 schema and HR migrations are applied to the live Supabase database.
+- `sethtragame@gmail.com` is provisioned as the first `hr_admin`.
+- The protected legacy cleanup completed at `2026-07-29T03:29:21Z`.
+- The verified pre-cleanup backup is:
+  `backups/database/pre-rollout-20260729T032823Z/`
+- That backup contains all 16 public tables, 791 rows, database metadata,
+  per-table JSON, migration hashes, and SHA-256 checksums.
 
-## Completed during live validation
+## Legacy dummy cleanup
 
-- Supabase session-pooler connectivity works.
-- TLS is verified with the Supabase Root 2021 CA.
-- The first core-schema RLS ambiguity was fixed by qualifying outer table
-  references in staff and assignment policies.
-- The core schema, organizational structure, and HR RBAC migrations now pass
-  live validation before the transaction reaches migration 4.
+The pre-cleanup database contained:
 
-## Exact next blocker
+- 342 imported staff rows, all marked `created_by IS NULL`
+- 237 assignments linked to those imported rows
+- 0 HR-created staff rows
+- 180 positions
+- 5 charts
+- 10 departments
+- 12 offices
 
-Migration:
-`migrations/2026072702_secure_global_staff_directory.sql`
+Migration `migrations/2026072911_cleanup_legacy_dummy_staff.sql`:
 
-Failure:
+- copied every targeted staff, assignment, sensitive, skill, and chart row to
+  private recovery tables;
+- removed only imported dummy staff and their dummy assignment history;
+- removed occupant-only fields from individual chart nodes;
+- preserved chart nodes, node positions, edges, positions, departments, and
+  offices;
+- verified position and chart counts before committing.
 
-```text
-statement 10/66, near source line 20
-record "new" has no field "chart_id"
-PL/pgSQL function protect_hr_identity_fields() line 3 at IF
-```
+Emergency database restoration is available in:
+`scripts/sql/restore_legacy_dummy_cleanup.sql`.
 
-The shared trigger function evaluates position-only `NEW.chart_id` fields while
-running for a legacy `staff` row. Split the `TG_TABLE_NAME` branches into nested
-conditionals so PostgreSQL never resolves position-only fields for `staff`.
+## Verification
 
-## Resume workflow
+- Node tests: 33 passed
+- Vitest tests: 33 passed
+- TypeScript typecheck: passed
+- Oxlint: passed
+- Production build: passed
+- Staff Directory profile action has a regression test confirming that a real
+  HR-created staff profile opens from the directory.
 
-1. Fix and test the trigger function compatibility.
-2. Rerun the protected rollout prompt.
-3. Confirm the backup succeeds.
-4. Continue statement-level live validation.
-5. Commit only when all 12 migrations and first-HR-admin provisioning pass in
-   the same transaction.
-6. Enable `VITE_HR_FEATURES_ENABLED=true`, restart the app, and perform browser
-   authorization and officer-entry verification.
+## Operator workflow
+
+1. Open `/admin/staff` as the HR administrator.
+2. Refresh the directory; it should be empty until HR adds real staff.
+3. Use **Add staff** to enter a real officer.
+4. Use the person icon to open the new staff profile.
+5. Assign the person to a position separately through the chart’s HR
+   Assignment panel. Department and office are inherited from the position;
+   they are not stored on the staff record.

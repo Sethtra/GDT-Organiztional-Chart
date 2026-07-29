@@ -244,6 +244,10 @@ $migrationSources = @(
   @{
     Source = Join-Path $projectRoot 'migrations\2026072710_add_position_configuration_api.sql'
     Target = '20260727000012_add_position_configuration_api.sql'
+  },
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026072911_cleanup_legacy_dummy_staff.sql'
+    Target = '20260727000014_cleanup_legacy_dummy_staff.sql'
   }
 )
 

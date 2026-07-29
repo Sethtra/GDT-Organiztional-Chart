@@ -93,6 +93,11 @@ const migrations = [
     name: 'add_position_configuration_api',
     file: 'migrations/2026072710_add_position_configuration_api.sql',
   },
+  {
+    version: '20260727000014',
+    name: 'cleanup_legacy_dummy_staff',
+    file: 'migrations/2026072911_cleanup_legacy_dummy_staff.sql',
+  },
 ]
 
 function jsonReplacer(_key, value) {

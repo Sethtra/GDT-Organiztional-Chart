@@ -223,21 +223,24 @@ export default function StaffDirectoryPage() {
                   </div>
                   <div className="flex justify-end gap-1 max-md:justify-start">
                     <button
-                      className="grid size-9 place-items-center rounded-md hover:bg-accent"
+                      type="button"
+                      className="grid size-9 place-items-center rounded-md text-foreground hover:bg-accent hover:text-primary"
                       aria-label={`View profile for ${person.name}`}
                       onClick={() => setProfileTarget(person)}
                     >
                       <UserRound className="size-4" />
                     </button>
                     <button
-                      className="grid size-9 place-items-center rounded-md hover:bg-accent"
+                      type="button"
+                      className="grid size-9 place-items-center rounded-md text-foreground hover:bg-accent hover:text-primary"
                       aria-label={`Manage skills for ${person.name}`}
                       onClick={() => setSkillsTarget(person)}
                     >
                       <Sparkles className="size-4" />
                     </button>
                     <button
-                      className="grid size-9 place-items-center rounded-md hover:bg-accent"
+                      type="button"
+                      className="grid size-9 place-items-center rounded-md text-foreground hover:bg-accent hover:text-primary"
                       aria-label={`Edit ${person.name}`}
                       onClick={() => {
                         setEditing(person);
@@ -248,6 +251,7 @@ export default function StaffDirectoryPage() {
                     </button>
                     {person.status !== "archived" && (
                       <button
+                        type="button"
                         className="grid size-9 place-items-center rounded-md text-destructive hover:bg-destructive/10"
                         aria-label={`Archive ${person.name}`}
                         onClick={() => setArchiveTarget(person)}

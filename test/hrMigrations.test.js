@@ -156,3 +156,38 @@ test('position configuration stores reporting by position ID behind editor autho
   );
   assert.match(sql, /'occupantName'/i);
 });
+
+test('dummy staff cleanup is privately recoverable and preserves org structure', async () => {
+  const sql = await readMigration(
+    '2026072911_cleanup_legacy_dummy_staff.sql',
+  );
+
+  assert.match(sql, /^\s*--[\s\S]*\bBEGIN;/i);
+  assert.match(sql, /\bCOMMIT;\s*$/i);
+  assert.match(sql, /private\.legacy_hr_cleanup_staff/i);
+  assert.match(sql, /private\.legacy_hr_cleanup_assignments/i);
+  assert.match(sql, /private\.legacy_hr_cleanup_charts/i);
+  assert.match(sql, /legacy_hr_cleanup_control/i);
+  assert.match(sql, /NOT EXISTS[\s\S]*legacy_hr_cleanup_audit/i);
+  assert.match(sql, /WHERE staff\.created_by IS NULL/i);
+  assert.match(
+    sql,
+    /DELETE FROM public\.position_assignments[\s\S]*legacy_hr_cleanup_staff/i,
+  );
+  assert.match(
+    sql,
+    /DELETE FROM public\.staff[\s\S]*staff\.created_by IS NULL/i,
+  );
+  assert.doesNotMatch(sql, /DELETE FROM public\.positions/i);
+  assert.doesNotMatch(sql, /DELETE FROM public\.org_units/i);
+  assert.doesNotMatch(sql, /DELETE FROM public\.org_offices/i);
+  assert.doesNotMatch(sql, /DELETE FROM public\.charts/i);
+  assert.doesNotMatch(
+    sql,
+    /^\s*'department',?\s*$/im,
+  );
+  assert.doesNotMatch(
+    sql,
+    /^\s*'office',?\s*$/im,
+  );
+});
