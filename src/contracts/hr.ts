@@ -5,6 +5,13 @@ const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 export const UuidSchema = z.string().uuid();
 export const IsoDateSchema = z.string().regex(isoDatePattern, 'Use YYYY-MM-DD');
 export const NullableIsoDateSchema = IsoDateSchema.nullable();
+export const DatabaseTimestampSchema = z.string().datetime({ offset: true });
+export const LegacyEmployeeIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .nullable();
 
 export const AppRoleSchema = z.enum(['hr_admin']);
 export const GenderSchema = z.enum([
@@ -57,8 +64,8 @@ export const StaffInputSchema = z.object({
 export const StaffRecordSchema = StaffInputSchema.extend({
   id: UuidSchema,
   status: StaffStatusSchema,
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: DatabaseTimestampSchema,
+  updatedAt: DatabaseTimestampSchema,
 });
 
 export const PositionSummarySchema = z.object({
@@ -81,7 +88,7 @@ export const PublicChartOccupantSchema = z.object({
 
 export const StaffDirectorySummarySchema = z.object({
   id: UuidSchema,
-  employeeId: z.string().trim().min(1).max(64),
+  employeeId: LegacyEmployeeIdSchema,
   name: z.string().trim().min(1).max(200),
   nameEn: z.string().trim().max(200).nullable(),
   age: z.number().int().min(0).max(120).nullable(),
@@ -97,13 +104,13 @@ export const HrStaffDirectoryRecordSchema = StaffDirectorySummarySchema.extend({
   address: z.string().trim().max(4_000).nullable(),
   maritalStatus: MaritalStatusSchema,
   nationalId: z.string().trim().max(64).nullable(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: DatabaseTimestampSchema,
+  updatedAt: DatabaseTimestampSchema,
 });
 
 export const StaffDuplicateSchema = z.object({
   staffId: UuidSchema,
-  employeeId: z.string().trim().min(1).max(64),
+  employeeId: LegacyEmployeeIdSchema,
   name: z.string().trim().min(1).max(200),
   nameEn: z.string().trim().max(200).nullable(),
   matchedFields: z.array(

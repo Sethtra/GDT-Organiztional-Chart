@@ -312,7 +312,9 @@ export default function HRAssignmentTab({
             {summary.occupant.name}
           </button>
           <div className="mt-1 text-xs text-muted-foreground">
-            {summary.occupant.nameEn || summary.occupant.employeeId}
+            {summary.occupant.nameEn ||
+              summary.occupant.employeeId ||
+              "ID required"}
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
             Joined: {summary.occupant.joinedDate || "Not recorded"}
@@ -385,7 +387,7 @@ export default function HRAssignmentTab({
         <option value="">Select from HR directory…</option>
         {filteredCandidates.map((candidate) => (
           <option key={candidate.id} value={candidate.id}>
-            {candidate.name} · {candidate.employeeId} ·{" "}
+            {candidate.name} · {candidate.employeeId ?? "ID required"} ·{" "}
             {locationLabel(candidate)}
           </option>
         ))}

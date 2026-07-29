@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AssignmentHistorySchema,
+  HrStaffDirectoryRecordSchema,
   HrStaffProfileSchema,
   InvitedStaffProfileSchema,
   PublicChartOccupantSchema,
@@ -64,6 +65,19 @@ describe('HR contracts', () => {
 
     expect(valid.success).toBe(true);
     expect(invalid.success).toBe(false);
+  });
+
+  it('accepts preserved legacy staff and PostgreSQL timestamp offsets', () => {
+    const result = HrStaffDirectoryRecordSchema.safeParse({
+      ...sharedProfile,
+      employeeId: null,
+      education: null,
+      nationalId: null,
+      createdAt: '2026-07-21T09:32:44.530936+00:00',
+      updatedAt: '2026-07-29T02:36:10+00:00',
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it('masks national ID for invited users and keeps the full value HR-only', () => {

@@ -1,11 +1,15 @@
 import { z } from "zod";
 
-import { PositionSummarySchema, UuidSchema } from "../contracts/hr";
+import {
+  LegacyEmployeeIdSchema,
+  PositionSummarySchema,
+  UuidSchema,
+} from "../contracts/hr";
 import { supabase } from "../supabaseClient";
 
 const CandidateSchema = z.object({
   id: UuidSchema,
-  employeeId: z.string().min(1),
+  employeeId: LegacyEmployeeIdSchema,
   name: z.string().min(1),
   nameEn: z.string().nullable(),
   currentPosition: PositionSummarySchema.nullable(),
@@ -14,7 +18,7 @@ const CandidateSchema = z.object({
 const OccupantSchema = z.object({
   assignmentId: UuidSchema,
   staffId: UuidSchema,
-  employeeId: z.string().min(1),
+  employeeId: LegacyEmployeeIdSchema,
   name: z.string().min(1),
   nameEn: z.string().nullable(),
   joinedDate: z.string().nullable(),

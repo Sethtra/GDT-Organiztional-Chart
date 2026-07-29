@@ -211,7 +211,13 @@ export default function StaffDirectoryPage() {
                       {person.nameEn || person.email || "—"}
                     </div>
                   </div>
-                  <div className="text-sm">{person.employeeId}</div>
+                  <div
+                    className={`text-sm ${
+                      person.employeeId ? "" : "text-amber-500"
+                    }`}
+                  >
+                    {person.employeeId ?? "ID required"}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {positionLabel(person)}
                   </div>

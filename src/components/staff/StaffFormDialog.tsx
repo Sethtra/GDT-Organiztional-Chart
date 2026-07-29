@@ -61,7 +61,7 @@ const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
 function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
   if (!staff) return emptyDraft;
   return {
-    employeeId: staff.employeeId,
+    employeeId: staff.employeeId ?? "",
     name: staff.name,
     nameEn: staff.nameEn ?? "",
     age: staff.age === null ? "" : String(staff.age),
@@ -208,7 +208,7 @@ export default function StaffFormDialog({
                       {duplicate.nameEn ? ` (${duplicate.nameEn})` : ""}
                     </div>
                     <div className="mt-1 text-muted-foreground">
-                      ID: {duplicate.employeeId} · Matched:{" "}
+                      ID: {duplicate.employeeId ?? "ID required"} · Matched:{" "}
                       {duplicate.matchedFields.join(", ")}
                     </div>
                     <div className="mt-1 text-muted-foreground">
