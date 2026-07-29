@@ -6,23 +6,31 @@ import {
   InvitedStaffProfileSchema,
   PublicChartOccupantSchema,
   StaffInputSchema,
-  maskNationalId,
 } from '../src/contracts/hr';
 
 const staffId = '00000000-0000-4000-8000-000000000001';
 const chartId = '00000000-0000-4000-8000-000000000002';
 const positionId = '00000000-0000-4000-8000-000000000003';
 const departmentId = '00000000-0000-4000-8000-000000000004';
+const jobTitleId = '00000000-0000-4000-8000-000000000006';
 
 const position = {
   positionId,
   chartId,
   nodeId: 'node-1',
-  title: 'Officer',
+  title: 'មន្ត្រី',
   departmentId,
   departmentName: 'Department',
   officeId: null,
   officeName: null,
+};
+
+const jobTitle = {
+  id: jobTitleId,
+  name: 'មន្ត្រី',
+  nameEn: 'Officer',
+  rankOrder: 50,
+  positionScope: 'individual',
 };
 
 const sharedProfile = {
@@ -30,49 +38,82 @@ const sharedProfile = {
   employeeId: 'GDT-001',
   name: 'មន្ត្រី',
   nameEn: 'Officer',
-  age: 30,
+  dateOfBirth: '1996-01-15',
+  joinedDate: '2020-03-01',
+  retiredDate: null,
   gender: 'unspecified',
   status: 'active',
+  jobTitle,
   currentPosition: position,
   phone: '012345678',
-  email: 'officer@example.com',
   address: 'Phnom Penh',
   maritalStatus: 'single',
   education: 'Degree',
+  otherInformation: null,
   assignmentHistory: [],
   skills: [],
 };
 
 describe('HR contracts', () => {
-  it('requires an integer age entered by HR', () => {
+  it('requires position, date of birth, and joined date', () => {
     const valid = StaffInputSchema.safeParse({
       employeeId: 'GDT-001',
       name: 'Officer',
       nameEn: null,
-      age: 30,
+      jobTitleId,
+      dateOfBirth: '1996-01-15',
+      joinedDate: '2020-03-01',
+      retiredDate: null,
       gender: 'unspecified',
       education: null,
       phone: null,
-      email: null,
       address: null,
       maritalStatus: 'unspecified',
-      nationalId: null,
+      otherInformation: null,
     });
     const invalid = StaffInputSchema.safeParse({
       ...valid.data,
-      age: 30.5,
+      jobTitleId: '',
     });
 
     expect(valid.success).toBe(true);
     expect(invalid.success).toBe(false);
   });
 
-  it('accepts preserved legacy staff and PostgreSQL timestamp offsets', () => {
+  it('rejects joined and retired dates in the wrong order', () => {
+    const baseInput = {
+      employeeId: 'GDT-001',
+      name: 'Officer',
+      nameEn: null,
+      jobTitleId,
+      dateOfBirth: '1996-01-15',
+      joinedDate: '2020-03-01',
+      retiredDate: null,
+      gender: 'unspecified' as const,
+      education: null,
+      phone: null,
+      address: null,
+      maritalStatus: 'unspecified' as const,
+      otherInformation: null,
+    };
+    const invalidJoin = StaffInputSchema.safeParse({
+      ...baseInput,
+      joinedDate: '1995-01-01',
+    });
+    const invalidRetirement = StaffInputSchema.safeParse({
+      ...baseInput,
+      retiredDate: '2019-12-31',
+    });
+
+    expect(invalidJoin.success).toBe(false);
+    expect(invalidRetirement.success).toBe(false);
+  });
+
+  it('accepts PostgreSQL timestamp offsets in directory records', () => {
     const result = HrStaffDirectoryRecordSchema.safeParse({
       ...sharedProfile,
       employeeId: null,
       education: null,
-      nationalId: null,
       createdAt: '2026-07-21T09:32:44.530936+00:00',
       updatedAt: '2026-07-29T02:36:10+00:00',
     });
@@ -80,21 +121,15 @@ describe('HR contracts', () => {
     expect(result.success).toBe(true);
   });
 
-  it('masks national ID for invited users and keeps the full value HR-only', () => {
-    const fullNationalId = '123456789012';
-    const invited = InvitedStaffProfileSchema.parse({
-      ...sharedProfile,
-      nationalIdMasked: maskNationalId(fullNationalId),
-      nationalId: fullNationalId,
-    });
-    const hr = HrStaffProfileSchema.parse({
-      ...sharedProfile,
-      nationalId: fullNationalId,
-    });
+  it('uses the same refined profile fields for HR and invited viewers', () => {
+    const invited = InvitedStaffProfileSchema.parse(sharedProfile);
+    const hr = HrStaffProfileSchema.parse(sharedProfile);
 
-    expect(invited.nationalIdMasked).toBe('••••••••9012');
-    expect('nationalId' in invited).toBe(false);
-    expect(hr.nationalId).toBe(fullNationalId);
+    expect(invited.access).toBe('invited');
+    expect(hr.access).toBe('hr');
+    expect('nationalId' in hr).toBe(false);
+    expect('email' in hr).toBe(false);
+    expect('age' in hr).toBe(false);
   });
 
   it('removes private fields from the public chart occupant contract', () => {
@@ -103,12 +138,12 @@ describe('HR contracts', () => {
       name: 'Officer',
       nameEn: null,
       positionTitle: 'Officer',
-      nationalId: '123456789012',
       phone: '012345678',
-      email: 'officer@example.com',
       address: 'Private',
       maritalStatus: 'single',
       education: 'Private',
+      dateOfBirth: '1996-01-15',
+      joinedDate: '2020-03-01',
     });
 
     expect(publicOccupant).toEqual({

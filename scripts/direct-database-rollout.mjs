@@ -98,6 +98,11 @@ const migrations = [
     name: 'cleanup_legacy_dummy_staff',
     file: 'migrations/2026072911_cleanup_legacy_dummy_staff.sql',
   },
+  {
+    version: '20260727000015',
+    name: 'refine_staff_profile_and_positions',
+    file: 'migrations/2026072912_refine_staff_profile_and_positions.sql',
+  },
 ]
 
 function jsonReplacer(_key, value) {

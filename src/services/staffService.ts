@@ -42,8 +42,8 @@ export async function findStaffDuplicates(
   const validated = StaffInputSchema.parse(input);
   const { data, error } = await supabase.rpc("find_staff_duplicates", {
     candidate_employee_id: validated.employeeId,
-    candidate_email: nullable(validated.email),
-    candidate_national_id: nullable(validated.nationalId),
+    candidate_name: validated.name,
+    candidate_date_of_birth: validated.dateOfBirth,
     excluded_staff_id: excludedStaffId,
   });
   if (error) throw error;
@@ -65,14 +65,16 @@ export async function saveStaff(
     employee_id_value: validated.employeeId,
     name_value: validated.name,
     name_en_value: nullable(validated.nameEn),
-    age_value: validated.age,
+    job_title_id_value: validated.jobTitleId,
+    date_of_birth_value: validated.dateOfBirth,
+    joined_date_value: validated.joinedDate,
+    retired_date_value: validated.retiredDate,
     gender_value: validated.gender,
     education_value: nullable(validated.education),
     phone_value: nullable(validated.phone),
-    email_value: nullable(validated.email),
     address_value: nullable(validated.address),
     marital_status_value: validated.maritalStatus,
-    national_id_value: nullable(validated.nationalId),
+    other_information_value: nullable(validated.otherInformation),
   });
   if (error) throw error;
   if (typeof data !== "string") {

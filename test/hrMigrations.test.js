@@ -12,6 +12,7 @@ const migrationFiles = [
   '2026072708_add_profile_and_skill_api.sql',
   '2026072709_add_job_architecture_api.sql',
   '2026072710_add_position_configuration_api.sql',
+  '2026072912_refine_staff_profile_and_positions.sql',
 ];
 
 async function readMigration(filename) {
@@ -136,6 +137,35 @@ test('profile API returns full national ID only for HR and a mask otherwise', as
     /ELSE jsonb_build_object\([\s\S]*'nationalIdMasked'[\s\S]*masked_staff_national_id/i,
   );
   assert.match(sql, /public\.can_view_staff_profile\(target_staff_id\)/i);
+});
+
+test('refined staff API uses the approved position order and excludes deprecated fields', async () => {
+  const sql = await readMigration(
+    '2026072912_refine_staff_profile_and_positions.sql',
+  );
+
+  const titles = [
+    'ប្រធាននាយកដ្ឋាន',
+    'អនុប្រធាននាយកដ្ឋាន',
+    'ប្រធានការិយាល័យ',
+    'អនុប្រធានការិយាល័យ',
+    'មន្ត្រី',
+    'មន្ត្រីកិច្ចសន្យា',
+  ];
+  let previousIndex = -1;
+  for (const title of titles) {
+    const nextIndex = sql.indexOf(title);
+    assert.ok(nextIndex > previousIndex, `${title} must be in position order`);
+    previousIndex = nextIndex;
+  }
+
+  assert.match(sql, /'dateOfBirth', staff\.date_of_birth/i);
+  assert.match(sql, /'joinedDate', staff\.join_date/i);
+  assert.match(sql, /'retiredDate', staff\.retired_date/i);
+  assert.match(sql, /'jobTitle'/i);
+  assert.doesNotMatch(sql, /'nationalId'/i);
+  assert.doesNotMatch(sql, /'email', staff\.email/i);
+  assert.doesNotMatch(sql, /'age', staff\.age/i);
 });
 
 test('job fit reports met, missing, and below-minimum requirements', async () => {

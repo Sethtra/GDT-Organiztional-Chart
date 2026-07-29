@@ -170,6 +170,8 @@ body {
 
 button { cursor: pointer; font-family: inherit; border: none; background: none; }
 input, textarea, select { font-family: 'Kantumruy Pro', 'Inter', sans-serif; }
+input[type="date"] { color-scheme: dark; }
+:root[data-theme="light"] input[type="date"] { color-scheme: light; }
 
 /* ============================================================
    APP LAYOUT

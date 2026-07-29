@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Loader2, Save, UserRoundPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  BriefcaseBusiness,
+  CalendarDays,
+  Loader2,
+  Save,
+  UserRoundPlus,
+} from "lucide-react";
 
 import { StaffInputSchema } from "../../contracts/hr";
 import type {
   HrStaffDirectoryRecord,
+  JobTitle,
   StaffDuplicate,
   StaffInput,
 } from "../../contracts/hr";
+import { listJobArchitecture } from "../../services/jobArchitectureService";
 import {
   findStaffDuplicates,
   saveStaff,
@@ -30,33 +39,52 @@ interface StaffDraft {
   employeeId: string;
   name: string;
   nameEn: string;
-  age: string;
+  jobTitleId: string;
+  dateOfBirth: string;
+  joinedDate: string;
+  retiredDate: string;
   gender: StaffInput["gender"];
   education: string;
   phone: string;
-  email: string;
   address: string;
   maritalStatus: StaffInput["maritalStatus"];
-  nationalId: string;
+  otherInformation: string;
 }
+
+const approvedPositionNames = [
+  "ប្រធាននាយកដ្ឋាន",
+  "អនុប្រធាននាយកដ្ឋាន",
+  "ប្រធានការិយាល័យ",
+  "អនុប្រធានការិយាល័យ",
+  "មន្ត្រី",
+  "មន្ត្រីកិច្ចសន្យា",
+] as const;
+
+const positionOrder = new Map<string, number>(
+  approvedPositionNames.map((name, index) => [name, index]),
+);
 
 const emptyDraft: StaffDraft = {
   employeeId: "",
   name: "",
   nameEn: "",
-  age: "",
+  jobTitleId: "",
+  dateOfBirth: "",
+  joinedDate: "",
+  retiredDate: "",
   gender: "unspecified",
   education: "",
   phone: "",
-  email: "",
   address: "",
   maritalStatus: "unspecified",
-  nationalId: "",
+  otherInformation: "",
 };
 
 const inputClass =
-  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-ring disabled:opacity-60";
+  "min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
+const sectionTitleClass =
+  "flex items-center gap-2 border-b border-border pb-2 text-sm font-semibold text-foreground";
 
 function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
   if (!staff) return emptyDraft;
@@ -64,14 +92,16 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     employeeId: staff.employeeId ?? "",
     name: staff.name,
     nameEn: staff.nameEn ?? "",
-    age: staff.age === null ? "" : String(staff.age),
+    jobTitleId: staff.jobTitle?.id ?? "",
+    dateOfBirth: staff.dateOfBirth ?? "",
+    joinedDate: staff.joinedDate ?? "",
+    retiredDate: staff.retiredDate ?? "",
     gender: staff.gender,
     education: staff.education ?? "",
     phone: staff.phone ?? "",
-    email: staff.email ?? "",
     address: staff.address ?? "",
     maritalStatus: staff.maritalStatus,
-    nationalId: staff.nationalId ?? "",
+    otherInformation: staff.otherInformation ?? "",
   };
 }
 
@@ -81,7 +111,13 @@ function duplicateLocation(duplicate: StaffDuplicate): string {
     duplicate.location.office,
     duplicate.location.position,
   ].filter(Boolean);
-  return values.length > 0 ? values.join(" → ") : "No active position";
+  return values.length > 0 ? values.join(" → ") : "No active chart position";
+}
+
+function duplicateMatchLabel(value: StaffDuplicate["matchedFields"][number]) {
+  return value === "employeeId"
+    ? "Employee ID"
+    : "Name and date of birth";
 }
 
 export default function StaffFormDialog({
@@ -91,6 +127,8 @@ export default function StaffFormDialog({
   onSaved,
 }: StaffFormDialogProps) {
   const [draft, setDraft] = useState<StaffDraft>(emptyDraft);
+  const [positions, setPositions] = useState<JobTitle[]>([]);
+  const [loadingPositions, setLoadingPositions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<StaffDuplicate[]>([]);
@@ -102,7 +140,44 @@ export default function StaffFormDialog({
     setDuplicates([]);
   }, [open, staff]);
 
-  const title = staff ? "Edit staff record" : "Add staff member";
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingPositions(true);
+    void listJobArchitecture()
+      .then((items) => {
+        if (cancelled) return;
+        setPositions(
+          items
+            .filter(
+              (item) =>
+                item.isActive && positionOrder.has(item.name),
+            )
+            .sort(
+              (left, right) =>
+                (positionOrder.get(left.name) ?? 999) -
+                (positionOrder.get(right.name) ?? 999),
+            ),
+        );
+      })
+      .catch((loadError) => {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load positions.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPositions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const title = staff ? "Edit officer record" : "Add officer";
   const fieldError = useMemo(() => {
     if (!error?.startsWith("VALIDATION:")) return null;
     return error.slice("VALIDATION:".length);
@@ -123,18 +198,22 @@ export default function StaffFormDialog({
       employeeId: draft.employeeId,
       name: draft.name,
       nameEn: draft.nameEn || null,
-      age: draft.age === "" ? Number.NaN : Number(draft.age),
+      jobTitleId: draft.jobTitleId,
+      dateOfBirth: draft.dateOfBirth,
+      joinedDate: draft.joinedDate,
+      retiredDate: draft.retiredDate || null,
       gender: draft.gender,
       education: draft.education || null,
       phone: draft.phone || null,
-      email: draft.email || null,
       address: draft.address || null,
       maritalStatus: draft.maritalStatus,
-      nationalId: draft.nationalId || null,
+      otherInformation: draft.otherInformation || null,
     });
 
     if (!parsed.success) {
-      setError(`VALIDATION:${parsed.error.issues[0]?.message ?? "Check the form values."}`);
+      setError(
+        `VALIDATION:${parsed.error.issues[0]?.message ?? "Check the form values."}`,
+      );
       return;
     }
 
@@ -154,7 +233,7 @@ export default function StaffFormDialog({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Unable to save the staff record.",
+          : "Unable to save the officer record.",
       );
     } finally {
       setSaving(false);
@@ -163,27 +242,30 @@ export default function StaffFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="max-w-4xl p-0">
-        <div className="border-b border-border px-6 py-5">
-          <DialogTitle className="flex items-center gap-2">
-            <UserRoundPlus className="size-5 text-primary" />
-            {title}
-          </DialogTitle>
-          <DialogDescription className="mt-2">
-            HR maintains this organization-wide record. Position assignment is
-            managed separately from the chart position.
-          </DialogDescription>
+      <DialogContent className="max-w-3xl overflow-hidden p-0">
+        <div className="border-b border-border bg-secondary/35 px-6 py-5">
+          <div className="flex items-start gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-primary/35 bg-primary/15 text-foreground">
+              <UserRoundPlus className="size-5" />
+            </div>
+            <div>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription className="mt-1.5">
+                Enter the officer’s HR record and select their position title.
+              </DialogDescription>
+            </div>
+          </div>
         </div>
 
         <form
-          className="grid max-h-[calc(100vh-10rem)] overflow-y-auto"
+          className="grid max-h-[calc(100vh-8rem)] overflow-y-auto"
           onSubmit={handleSubmit}
         >
-          <div className="grid gap-5 px-6 py-5">
+          <div className="grid gap-7 px-6 py-6">
             {(fieldError || (error && !fieldError)) && (
               <div
                 role="alert"
-                className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-foreground"
+                className="rounded-lg border border-destructive/45 bg-destructive/10 px-4 py-3 text-sm text-foreground"
               >
                 {fieldError ?? error}
               </div>
@@ -192,24 +274,26 @@ export default function StaffFormDialog({
             {duplicates.length > 0 && (
               <div
                 role="alert"
-                className="grid gap-3 rounded-md border border-amber-500/50 bg-amber-500/10 p-4"
+                className="grid gap-3 rounded-lg border border-amber-400/45 bg-amber-400/10 p-4"
               >
-                <div className="flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="size-4 text-amber-500" />
-                  This person may already exist
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                  <AlertTriangle className="size-4 text-amber-300" />
+                  This officer may already exist
                 </div>
                 {duplicates.map((duplicate) => (
                   <div
                     key={duplicate.staffId}
                     className="rounded-md border border-border bg-card p-3 text-sm"
                   >
-                    <div className="font-medium">
+                    <div className="font-medium" dir="auto">
                       {duplicate.name}
                       {duplicate.nameEn ? ` (${duplicate.nameEn})` : ""}
                     </div>
                     <div className="mt-1 text-muted-foreground">
-                      ID: {duplicate.employeeId ?? "ID required"} · Matched:{" "}
-                      {duplicate.matchedFields.join(", ")}
+                      ID: {duplicate.employeeId ?? "Not set"} · Matched:{" "}
+                      {duplicate.matchedFields
+                        .map(duplicateMatchLabel)
+                        .join(", ")}
                     </div>
                     <div className="mt-1 text-muted-foreground">
                       Location: {duplicateLocation(duplicate)}
@@ -220,7 +304,8 @@ export default function StaffFormDialog({
             )}
 
             <section className="grid gap-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className={sectionTitleClass}>
+                <UserRoundPlus className="size-4 text-foreground" />
                 Personal information
               </h3>
               <div className="grid gap-4 md:grid-cols-2">
@@ -234,17 +319,18 @@ export default function StaffFormDialog({
                     }
                     required
                     maxLength={64}
+                    autoComplete="off"
                   />
                 </label>
                 <label className={labelClass}>
-                  Age *
+                  Date of birth *
                   <input
                     className={inputClass}
-                    type="number"
-                    min={0}
-                    max={120}
-                    value={draft.age}
-                    onChange={(event) => update("age", event.target.value)}
+                    type="date"
+                    value={draft.dateOfBirth}
+                    onChange={(event) =>
+                      update("dateOfBirth", event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -306,6 +392,75 @@ export default function StaffFormDialog({
                     <option value="other">Other</option>
                   </select>
                 </label>
+              </div>
+            </section>
+
+            <section className="grid gap-4">
+              <h3 className={sectionTitleClass}>
+                <BriefcaseBusiness className="size-4 text-foreground" />
+                Employment
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className={`${labelClass} md:col-span-2`}>
+                  Position *
+                  <select
+                    className={inputClass}
+                    value={draft.jobTitleId}
+                    onChange={(event) =>
+                      update("jobTitleId", event.target.value)
+                    }
+                    required
+                    disabled={loadingPositions}
+                  >
+                    <option value="">
+                      {loadingPositions
+                        ? "Loading positions…"
+                        : "Select a position"}
+                    </option>
+                    {positions.map((position) => (
+                      <option key={position.id} value={position.id}>
+                        {position.name}
+                        {position.nameEn ? ` — ${position.nameEn}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Joined date *
+                  <input
+                    className={inputClass}
+                    type="date"
+                    value={draft.joinedDate}
+                    onChange={(event) =>
+                      update("joinedDate", event.target.value)
+                    }
+                    required
+                  />
+                </label>
+                <label className={labelClass}>
+                  Retired date
+                  <input
+                    className={inputClass}
+                    type="date"
+                    min={draft.joinedDate || undefined}
+                    value={draft.retiredDate}
+                    onChange={(event) =>
+                      update("retiredDate", event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+              <div className="flex gap-2 rounded-lg border border-border bg-secondary/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
+                <CalendarDays className="mt-0.5 size-4 shrink-0 text-foreground" />
+                Department, office, and reporting officer are assigned through
+                the organizational chart. They are not duplicated in this
+                staff record.
+              </div>
+            </section>
+
+            <section className="grid gap-4">
+              <h3 className={sectionTitleClass}>Contact and background</h3>
+              <div className="grid gap-4 md:grid-cols-2">
                 <label className={labelClass}>
                   Phone
                   <input
@@ -313,28 +468,7 @@ export default function StaffFormDialog({
                     value={draft.phone}
                     onChange={(event) => update("phone", event.target.value)}
                     maxLength={50}
-                  />
-                </label>
-                <label className={labelClass}>
-                  Email
-                  <input
-                    className={inputClass}
-                    type="email"
-                    value={draft.email}
-                    onChange={(event) => update("email", event.target.value)}
-                    maxLength={320}
-                  />
-                </label>
-                <label className={labelClass}>
-                  National ID
-                  <input
-                    className={inputClass}
-                    value={draft.nationalId}
-                    onChange={(event) =>
-                      update("nationalId", event.target.value)
-                    }
-                    maxLength={64}
-                    autoComplete="off"
+                    autoComplete="tel"
                   />
                 </label>
                 <label className={`${labelClass} md:col-span-2`}>
@@ -359,14 +493,26 @@ export default function StaffFormDialog({
                     dir="auto"
                   />
                 </label>
+                <label className={`${labelClass} md:col-span-2`}>
+                  Other information
+                  <textarea
+                    className={`${inputClass} min-h-24 resize-y`}
+                    value={draft.otherInformation}
+                    onChange={(event) =>
+                      update("otherInformation", event.target.value)
+                    }
+                    maxLength={4_000}
+                    dir="auto"
+                  />
+                </label>
               </div>
             </section>
           </div>
 
-          <DialogFooter className="border-t border-border bg-secondary/40 px-6 py-4">
+          <DialogFooter className="border-t border-border bg-secondary/35 px-6 py-4">
             <button
               type="button"
-              className="min-h-10 rounded-md border border-border px-4 text-sm font-medium hover:bg-accent"
+              className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-foreground transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               onClick={() => onOpenChange(false)}
               disabled={saving}
             >
@@ -374,15 +520,15 @@ export default function StaffFormDialog({
             </button>
             <button
               type="submit"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60"
-              disabled={saving}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+              disabled={saving || loadingPositions || positions.length === 0}
             >
               {saving ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
                 <Save className="size-4" />
               )}
-              Save staff
+              Save officer
             </button>
           </DialogFooter>
         </form>

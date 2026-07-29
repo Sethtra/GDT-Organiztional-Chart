@@ -47,19 +47,41 @@ export const AssignmentChangeReasonSchema = z.enum([
   'corrected',
 ]);
 
-export const StaffInputSchema = z.object({
-  employeeId: z.string().trim().min(1).max(64),
-  name: z.string().trim().min(1).max(200),
-  nameEn: z.string().trim().max(200).nullable(),
-  age: z.number().int().min(0).max(120),
-  gender: GenderSchema,
-  education: z.string().trim().max(4_000).nullable(),
-  phone: z.string().trim().max(50).nullable(),
-  email: z.string().trim().email().max(320).nullable(),
-  address: z.string().trim().max(4_000).nullable(),
-  maritalStatus: MaritalStatusSchema,
-  nationalId: z.string().trim().min(5).max(64).nullable(),
-});
+export const StaffInputSchema = z
+  .object({
+    employeeId: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(200),
+    nameEn: z.string().trim().max(200).nullable(),
+    jobTitleId: UuidSchema,
+    dateOfBirth: IsoDateSchema,
+    joinedDate: IsoDateSchema,
+    retiredDate: NullableIsoDateSchema,
+    gender: GenderSchema,
+    education: z.string().trim().max(4_000).nullable(),
+    phone: z.string().trim().max(50).nullable(),
+    address: z.string().trim().max(4_000).nullable(),
+    maritalStatus: MaritalStatusSchema,
+    otherInformation: z.string().trim().max(4_000).nullable(),
+  })
+  .superRefine((staff, context) => {
+    if (staff.joinedDate.localeCompare(staff.dateOfBirth) < 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['joinedDate'],
+        message: 'Joined date cannot be before date of birth',
+      });
+    }
+    if (
+      staff.retiredDate &&
+      staff.retiredDate.localeCompare(staff.joinedDate) < 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['retiredDate'],
+        message: 'Retired date cannot be before joined date',
+      });
+    }
+  });
 
 export const StaffRecordSchema = StaffInputSchema.extend({
   id: UuidSchema,
@@ -86,24 +108,39 @@ export const PublicChartOccupantSchema = z.object({
   positionTitle: z.string().trim().min(1).max(300),
 });
 
+export const StaffJobTitleSchema = z.object({
+  id: UuidSchema,
+  name: z.string().trim().min(1).max(300),
+  nameEn: z.string().trim().max(300).nullable(),
+  rankOrder: z.number().int().min(1).max(1_000),
+  positionScope: z.enum([
+    'individual',
+    'office',
+    'department',
+    'organization',
+  ]),
+});
+
 export const StaffDirectorySummarySchema = z.object({
   id: UuidSchema,
   employeeId: LegacyEmployeeIdSchema,
   name: z.string().trim().min(1).max(200),
   nameEn: z.string().trim().max(200).nullable(),
-  age: z.number().int().min(0).max(120).nullable(),
+  dateOfBirth: NullableIsoDateSchema,
+  joinedDate: NullableIsoDateSchema,
+  retiredDate: NullableIsoDateSchema,
   gender: GenderSchema,
   status: StaffStatusSchema,
+  jobTitle: StaffJobTitleSchema.nullable(),
   currentPosition: PositionSummarySchema.nullable(),
 });
 
 export const HrStaffDirectoryRecordSchema = StaffDirectorySummarySchema.extend({
   education: z.string().trim().max(4_000).nullable(),
   phone: z.string().trim().max(50).nullable(),
-  email: z.string().trim().email().max(320).nullable(),
   address: z.string().trim().max(4_000).nullable(),
   maritalStatus: MaritalStatusSchema,
-  nationalId: z.string().trim().max(64).nullable(),
+  otherInformation: z.string().trim().max(4_000).nullable(),
   createdAt: DatabaseTimestampSchema,
   updatedAt: DatabaseTimestampSchema,
 });
@@ -114,7 +151,7 @@ export const StaffDuplicateSchema = z.object({
   name: z.string().trim().min(1).max(200),
   nameEn: z.string().trim().max(200).nullable(),
   matchedFields: z.array(
-    z.enum(['employeeId', 'email', 'nationalId']),
+    z.enum(['employeeId', 'nameAndDateOfBirth']),
   ).min(1),
   location: z.object({
     position: z.string().nullable(),
@@ -207,35 +244,26 @@ export const StaffJobFitSchema = z.object({
 
 const SharedProfileFieldsSchema = StaffDirectorySummarySchema.extend({
   phone: z.string().trim().max(50).nullable(),
-  email: z.string().trim().email().max(320).nullable(),
   address: z.string().trim().max(4_000).nullable(),
   maritalStatus: MaritalStatusSchema,
   education: z.string().trim().max(4_000).nullable(),
+  otherInformation: z.string().trim().max(4_000).nullable(),
   assignmentHistory: z.array(AssignmentHistorySchema),
   skills: z.array(StaffSkillSchema),
 });
 
 export const InvitedStaffProfileSchema = SharedProfileFieldsSchema.extend({
   access: z.literal('invited').default('invited'),
-  nationalIdMasked: z.string().min(1).max(64).nullable(),
 });
 
 export const HrStaffProfileSchema = SharedProfileFieldsSchema.extend({
   access: z.literal('hr').default('hr'),
-  nationalId: z.string().trim().min(5).max(64).nullable(),
 });
 
 export const StaffProfileSchema = z.discriminatedUnion('access', [
   InvitedStaffProfileSchema,
   HrStaffProfileSchema,
 ]);
-
-export function maskNationalId(value: string | null): string | null {
-  if (!value) return null;
-  const normalized = value.trim();
-  if (normalized.length <= 4) return '•'.repeat(normalized.length);
-  return `${'•'.repeat(normalized.length - 4)}${normalized.slice(-4)}`;
-}
 
 export type AppRole = z.infer<typeof AppRoleSchema>;
 export type Gender = z.infer<typeof GenderSchema>;
@@ -249,6 +277,7 @@ export type StaffInput = z.infer<typeof StaffInputSchema>;
 export type StaffRecord = z.infer<typeof StaffRecordSchema>;
 export type PositionSummary = z.infer<typeof PositionSummarySchema>;
 export type PublicChartOccupant = z.infer<typeof PublicChartOccupantSchema>;
+export type StaffJobTitle = z.infer<typeof StaffJobTitleSchema>;
 export type StaffDirectorySummary = z.infer<
   typeof StaffDirectorySummarySchema
 >;
