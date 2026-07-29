@@ -60,22 +60,26 @@ export async function saveStaff(
   staffId: string | null = null,
 ): Promise<string> {
   const validated = StaffInputSchema.parse(input);
-  const { data, error } = await supabase.rpc("save_staff_record", {
-    target_staff_id: staffId,
-    employee_id_value: validated.employeeId,
-    name_value: validated.name,
-    name_en_value: nullable(validated.nameEn),
-    job_title_id_value: validated.jobTitleId,
-    date_of_birth_value: validated.dateOfBirth,
-    joined_date_value: validated.joinedDate,
-    retired_date_value: validated.retiredDate,
-    gender_value: validated.gender,
-    education_value: nullable(validated.education),
-    phone_value: nullable(validated.phone),
-    address_value: nullable(validated.address),
-    marital_status_value: validated.maritalStatus,
-    other_information_value: nullable(validated.otherInformation),
-  });
+  const { data, error } = await supabase.rpc(
+    "save_staff_record_with_placement",
+    {
+      target_staff_id: staffId,
+      employee_id_value: validated.employeeId,
+      name_value: validated.name,
+      name_en_value: nullable(validated.nameEn),
+      job_title_id_value: validated.jobTitleId,
+      department_id_value: validated.departmentId,
+      office_id_value: validated.officeId,
+      date_of_birth_value: validated.dateOfBirth,
+      joined_date_value: validated.joinedDate,
+      retired_date_value: validated.retiredDate,
+      gender_value: validated.gender,
+      education_value: nullable(validated.education),
+      phone_value: nullable(validated.phone),
+      address_value: nullable(validated.address),
+      other_information_value: nullable(validated.otherInformation),
+    },
+  );
   if (error) throw error;
   if (typeof data !== "string") {
     throw new Error("The staff save operation returned an invalid identifier.");

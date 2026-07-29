@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/services/staffService", () => ({
   archiveStaff: vi.fn(),
+  findStaffDuplicates: vi.fn(async () => []),
+  saveStaff: vi.fn(),
   listHrStaff: vi.fn(async () => [
     {
       id: "00000000-0000-4000-8000-000000000001",
@@ -33,7 +35,6 @@ vi.mock("../src/services/staffService", () => ({
       education: null,
       phone: null,
       address: null,
-      maritalStatus: "unspecified",
       otherInformation: null,
       createdAt: "2026-07-29T02:36:10+00:00",
       updatedAt: "2026-07-29T02:36:10+00:00",
@@ -69,12 +70,35 @@ vi.mock("../src/services/staffProfileService", () => ({
     },
     phone: null,
     address: null,
-    maritalStatus: "unspecified",
     education: null,
     otherInformation: null,
     assignmentHistory: [],
     skills: [],
   })),
+}));
+
+vi.mock("../src/hooks/useOrgStructure", () => ({
+  useOrgStructure: () => ({
+    units: [
+      {
+        id: "00000000-0000-4000-8000-000000000004",
+        name: "Finance and Personnel",
+        type: "department",
+        sort_order: 1,
+        offices: [
+          {
+            id: "00000000-0000-4000-8000-000000000005",
+            name: "Personnel Office",
+            sort_order: 1,
+          },
+        ],
+      },
+    ],
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+    getOfficesForUnit: vi.fn(),
+  }),
 }));
 
 vi.mock("../src/services/jobArchitectureService", () => ({
@@ -195,5 +219,57 @@ describe("Staff Directory profile action", () => {
       "មន្ត្រី — Officer",
       "មន្ត្រីកិច្ចសន្យា — Contract Officer",
     ]);
+  });
+
+  it("selects a department first and keeps office optional", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add officer" }),
+    );
+
+    const department = screen.getByRole("combobox", {
+      name: "Department *",
+    });
+    const office = screen.getByRole("combobox", {
+      name: "Office (optional)",
+    });
+
+    expect(office).toBeDisabled();
+    await user.selectOptions(
+      department,
+      "00000000-0000-4000-8000-000000000004",
+    );
+    expect(office).toBeEnabled();
+    expect(
+      screen.getByRole("option", { name: "No office assigned" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Personnel Office" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Marital status" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save & manage skills" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a labeled skills action for every officer", async () => {
+    render(
+      <MemoryRouter>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    const skillsButton = await screen.findByRole("button", {
+      name: "Manage skills for Test Officer",
+    });
+    expect(skillsButton).toHaveTextContent("Skills");
   });
 });

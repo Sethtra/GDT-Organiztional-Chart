@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BriefcaseBusiness,
+  Building2,
   CalendarDays,
   Loader2,
   Save,
+  Sparkles,
   UserRoundPlus,
 } from "lucide-react";
 
@@ -15,6 +17,7 @@ import type {
   StaffDuplicate,
   StaffInput,
 } from "../../contracts/hr";
+import { useOrgStructure } from "../../hooks/useOrgStructure";
 import { listJobArchitecture } from "../../services/jobArchitectureService";
 import {
   findStaffDuplicates,
@@ -32,7 +35,10 @@ interface StaffFormDialogProps {
   open: boolean;
   staff: HrStaffDirectoryRecord | null;
   onOpenChange: (open: boolean) => void;
-  onSaved: () => void | Promise<void>;
+  onSaved: (
+    staffId: string,
+    manageSkills: boolean,
+  ) => void | Promise<void>;
 }
 
 interface StaffDraft {
@@ -40,6 +46,8 @@ interface StaffDraft {
   name: string;
   nameEn: string;
   jobTitleId: string;
+  departmentId: string;
+  officeId: string;
   dateOfBirth: string;
   joinedDate: string;
   retiredDate: string;
@@ -47,7 +55,6 @@ interface StaffDraft {
   education: string;
   phone: string;
   address: string;
-  maritalStatus: StaffInput["maritalStatus"];
   otherInformation: string;
 }
 
@@ -69,6 +76,8 @@ const emptyDraft: StaffDraft = {
   name: "",
   nameEn: "",
   jobTitleId: "",
+  departmentId: "",
+  officeId: "",
   dateOfBirth: "",
   joinedDate: "",
   retiredDate: "",
@@ -76,7 +85,6 @@ const emptyDraft: StaffDraft = {
   education: "",
   phone: "",
   address: "",
-  maritalStatus: "unspecified",
   otherInformation: "",
 };
 
@@ -93,6 +101,8 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     name: staff.name,
     nameEn: staff.nameEn ?? "",
     jobTitleId: staff.jobTitle?.id ?? "",
+    departmentId: staff.organizationalPlacement?.departmentId ?? "",
+    officeId: staff.organizationalPlacement?.officeId ?? "",
     dateOfBirth: staff.dateOfBirth ?? "",
     joinedDate: staff.joinedDate ?? "",
     retiredDate: staff.retiredDate ?? "",
@@ -100,7 +110,6 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     education: staff.education ?? "",
     phone: staff.phone ?? "",
     address: staff.address ?? "",
-    maritalStatus: staff.maritalStatus,
     otherInformation: staff.otherInformation ?? "",
   };
 }
@@ -132,6 +141,20 @@ export default function StaffFormDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<StaffDuplicate[]>([]);
+  const {
+    units,
+    loading: loadingOrganization,
+    error: organizationError,
+  } = useOrgStructure();
+
+  const departments = useMemo(
+    () => units.filter((unit) => unit.type === "department"),
+    [units],
+  );
+  const selectedDepartment = useMemo(
+    () => departments.find((unit) => unit.id === draft.departmentId) ?? null,
+    [departments, draft.departmentId],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -192,13 +215,18 @@ export default function StaffFormDialog({
     setDuplicates([]);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent)
+      .submitter as HTMLButtonElement | null;
+    const manageSkills = submitter?.value === "skills";
     const parsed = StaffInputSchema.safeParse({
       employeeId: draft.employeeId,
       name: draft.name,
       nameEn: draft.nameEn || null,
       jobTitleId: draft.jobTitleId,
+      departmentId: draft.departmentId,
+      officeId: draft.officeId || null,
       dateOfBirth: draft.dateOfBirth,
       joinedDate: draft.joinedDate,
       retiredDate: draft.retiredDate || null,
@@ -206,7 +234,6 @@ export default function StaffFormDialog({
       education: draft.education || null,
       phone: draft.phone || null,
       address: draft.address || null,
-      maritalStatus: draft.maritalStatus,
       otherInformation: draft.otherInformation || null,
     });
 
@@ -226,9 +253,9 @@ export default function StaffFormDialog({
         setDuplicates(matches);
         return;
       }
-      await saveStaff(parsed.data, staff?.id ?? null);
-      await onSaved();
+      const savedStaffId = await saveStaff(parsed.data, staff?.id ?? null);
       onOpenChange(false);
+      await onSaved(savedStaffId, manageSkills);
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -251,7 +278,7 @@ export default function StaffFormDialog({
             <div>
               <DialogTitle>{title}</DialogTitle>
               <DialogDescription className="mt-1.5">
-                Enter the officer’s HR record and select their position title.
+                Enter the officer’s HR record, department, and position.
               </DialogDescription>
             </div>
           </div>
@@ -372,26 +399,6 @@ export default function StaffFormDialog({
                     <option value="other">Other</option>
                   </select>
                 </label>
-                <label className={labelClass}>
-                  Marital status
-                  <select
-                    className={inputClass}
-                    value={draft.maritalStatus}
-                    onChange={(event) =>
-                      update(
-                        "maritalStatus",
-                        event.target.value as StaffDraft["maritalStatus"],
-                      )
-                    }
-                  >
-                    <option value="unspecified">Unspecified</option>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
               </div>
             </section>
 
@@ -401,6 +408,55 @@ export default function StaffFormDialog({
                 Employment
               </h3>
               <div className="grid gap-4 md:grid-cols-2">
+                <label className={labelClass}>
+                  Department *
+                  <select
+                    className={inputClass}
+                    value={draft.departmentId}
+                    onChange={(event) => {
+                      setDraft((current) => ({
+                        ...current,
+                        departmentId: event.target.value,
+                        officeId: "",
+                      }));
+                      setError(null);
+                      setDuplicates([]);
+                    }}
+                    required
+                    disabled={loadingOrganization}
+                  >
+                    <option value="">
+                      {loadingOrganization
+                        ? "Loading departments…"
+                        : "Select a department"}
+                    </option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Office (optional)
+                  <select
+                    className={inputClass}
+                    value={draft.officeId}
+                    onChange={(event) =>
+                      update("officeId", event.target.value)
+                    }
+                    disabled={
+                      loadingOrganization || !draft.departmentId
+                    }
+                  >
+                    <option value="">No office assigned</option>
+                    {selectedDepartment?.offices.map((office) => (
+                      <option key={office.id} value={office.id}>
+                        {office.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className={`${labelClass} md:col-span-2`}>
                   Position *
                   <select
@@ -450,11 +506,19 @@ export default function StaffFormDialog({
                   />
                 </label>
               </div>
+              {organizationError && (
+                <div
+                  role="alert"
+                  className="flex gap-2 rounded-lg border border-destructive/45 bg-destructive/10 px-3.5 py-3 text-xs leading-5 text-foreground"
+                >
+                  <Building2 className="mt-0.5 size-4 shrink-0" />
+                  {organizationError}
+                </div>
+              )}
               <div className="flex gap-2 rounded-lg border border-border bg-secondary/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
                 <CalendarDays className="mt-0.5 size-4 shrink-0 text-foreground" />
-                Department and office placement are managed separately from
-                personal information. A reporting officer is assigned only
-                when the officer occupies an organizational-chart position.
+                Office is optional. When selected, it must belong to the
+                chosen department.
               </div>
             </section>
 
@@ -507,6 +571,21 @@ export default function StaffFormDialog({
                 </label>
               </div>
             </section>
+
+            <section className="grid gap-4">
+              <h3 className={sectionTitleClass}>
+                <Sparkles className="size-4 text-foreground" />
+                Current skills
+              </h3>
+              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
+                Skills are managed separately from Education. Use
+                <span className="font-medium text-foreground">
+                  {" "}Save & manage skills{" "}
+                </span>
+                to add current skills and proficiency levels after this officer
+                record is saved.
+              </div>
+            </section>
           </div>
 
           <DialogFooter className="border-t border-border bg-secondary/35 px-6 py-4">
@@ -520,8 +599,32 @@ export default function StaffFormDialog({
             </button>
             <button
               type="submit"
+              name="saveIntent"
+              value="skills"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-primary/50 px-4 text-sm font-semibold text-foreground transition hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+              disabled={
+                saving ||
+                loadingPositions ||
+                loadingOrganization ||
+                positions.length === 0 ||
+                departments.length === 0
+              }
+            >
+              <Sparkles className="size-4" />
+              Save & manage skills
+            </button>
+            <button
+              type="submit"
+              name="saveIntent"
+              value="save"
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
-              disabled={saving || loadingPositions || positions.length === 0}
+              disabled={
+                saving ||
+                loadingPositions ||
+                loadingOrganization ||
+                positions.length === 0 ||
+                departments.length === 0
+              }
             >
               {saving ? (
                 <Loader2 className="size-4 animate-spin" />

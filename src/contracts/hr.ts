@@ -20,14 +20,6 @@ export const GenderSchema = z.enum([
   'other',
   'unspecified',
 ]);
-export const MaritalStatusSchema = z.enum([
-  'single',
-  'married',
-  'divorced',
-  'widowed',
-  'other',
-  'unspecified',
-]);
 export const StaffStatusSchema = z.enum(['active', 'archived']);
 export const ProficiencyLevelSchema = z.union([
   z.literal(1),
@@ -53,6 +45,8 @@ export const StaffInputSchema = z
     name: z.string().trim().min(1).max(200),
     nameEn: z.string().trim().max(200).nullable(),
     jobTitleId: UuidSchema,
+    departmentId: UuidSchema,
+    officeId: UuidSchema.nullable(),
     dateOfBirth: IsoDateSchema,
     joinedDate: IsoDateSchema,
     retiredDate: NullableIsoDateSchema,
@@ -60,7 +54,6 @@ export const StaffInputSchema = z
     education: z.string().trim().max(4_000).nullable(),
     phone: z.string().trim().max(50).nullable(),
     address: z.string().trim().max(4_000).nullable(),
-    maritalStatus: MaritalStatusSchema,
     otherInformation: z.string().trim().max(4_000).nullable(),
   })
   .superRefine((staff, context) => {
@@ -148,7 +141,6 @@ export const HrStaffDirectoryRecordSchema = StaffDirectorySummarySchema.extend({
   education: z.string().trim().max(4_000).nullable(),
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
-  maritalStatus: MaritalStatusSchema,
   otherInformation: z.string().trim().max(4_000).nullable(),
   createdAt: DatabaseTimestampSchema,
   updatedAt: DatabaseTimestampSchema,
@@ -254,7 +246,6 @@ export const StaffJobFitSchema = z.object({
 const SharedProfileFieldsSchema = StaffDirectorySummarySchema.extend({
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
-  maritalStatus: MaritalStatusSchema,
   education: z.string().trim().max(4_000).nullable(),
   otherInformation: z.string().trim().max(4_000).nullable(),
   assignmentHistory: z.array(AssignmentHistorySchema),
@@ -276,7 +267,6 @@ export const StaffProfileSchema = z.discriminatedUnion('access', [
 
 export type AppRole = z.infer<typeof AppRoleSchema>;
 export type Gender = z.infer<typeof GenderSchema>;
-export type MaritalStatus = z.infer<typeof MaritalStatusSchema>;
 export type StaffStatus = z.infer<typeof StaffStatusSchema>;
 export type ProficiencyLevel = z.infer<typeof ProficiencyLevelSchema>;
 export type AssignmentChangeReason = z.infer<

@@ -146,7 +146,7 @@ export default function StaffSkillsDialog({
         <div className="border-b border-border px-6 py-5">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="size-5 text-primary" />
-            Staff skills · {staff?.name}
+            Officer skills · {staff?.name}
           </DialogTitle>
           <DialogDescription className="mt-2">
             Proficiency uses levels 1–5. Every change closes the previous
@@ -198,7 +198,7 @@ export default function StaffSkillsDialog({
 
               <section className="grid gap-3 rounded-lg border border-border p-4">
                 <h3 className="text-sm font-semibold">
-                  Record proficiency
+                  Add or update a current skill
                 </h3>
                 <select
                   className={fieldClass}
@@ -214,6 +214,12 @@ export default function StaffSkillsDialog({
                       </option>
                     ))}
                 </select>
+                {catalog.filter((skill) => skill.isActive).length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No skills exist yet. Create the first skill below, then
+                    record the officer’s proficiency.
+                  </p>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1.5 text-sm font-medium">
                     Proficiency level
@@ -254,15 +260,18 @@ export default function StaffSkillsDialog({
                 <button
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                   disabled={!skillId || saving}
+                  type="button"
                   onClick={() => void handleSaveProficiency()}
                 >
                   <Save className="size-4" />
-                  Save proficiency
+                  Save current skill
                 </button>
               </section>
 
               <section className="grid gap-3 rounded-lg border border-border p-4">
-                <h3 className="text-sm font-semibold">Add catalog skill</h3>
+                <h3 className="text-sm font-semibold">
+                  Create a skill
+                </h3>
                 <input
                   className={fieldClass}
                   value={newSkillName}
@@ -280,6 +289,7 @@ export default function StaffSkillsDialog({
                 <button
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border px-4 text-sm font-semibold hover:bg-accent disabled:opacity-60"
                   disabled={!newSkillName.trim() || saving}
+                  type="button"
                   onClick={() => void handleCreateSkill()}
                 >
                   <Plus className="size-4" />
@@ -293,6 +303,7 @@ export default function StaffSkillsDialog({
         <DialogFooter className="border-t border-border bg-secondary/40 px-6 py-4">
           <button
             className="min-h-10 rounded-md border border-border px-4 text-sm font-medium hover:bg-accent"
+            type="button"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >

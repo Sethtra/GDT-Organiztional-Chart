@@ -48,7 +48,6 @@ const sharedProfile = {
   organizationalPlacement: null,
   phone: '012345678',
   address: 'Phnom Penh',
-  maritalStatus: 'single',
   education: 'Degree',
   otherInformation: null,
   assignmentHistory: [],
@@ -62,6 +61,8 @@ describe('HR contracts', () => {
       name: 'Officer',
       nameEn: null,
       jobTitleId,
+      departmentId,
+      officeId: null,
       dateOfBirth: '1996-01-15',
       joinedDate: '2020-03-01',
       retiredDate: null,
@@ -69,7 +70,6 @@ describe('HR contracts', () => {
       education: null,
       phone: null,
       address: null,
-      maritalStatus: 'unspecified',
       otherInformation: null,
     });
     const invalid = StaffInputSchema.safeParse({
@@ -87,6 +87,8 @@ describe('HR contracts', () => {
       name: 'Officer',
       nameEn: null,
       jobTitleId,
+      departmentId,
+      officeId: null,
       dateOfBirth: '1996-01-15',
       joinedDate: '2020-03-01',
       retiredDate: null,
@@ -94,7 +96,6 @@ describe('HR contracts', () => {
       education: null,
       phone: null,
       address: null,
-      maritalStatus: 'unspecified' as const,
       otherInformation: null,
     };
     const invalidJoin = StaffInputSchema.safeParse({
@@ -131,6 +132,7 @@ describe('HR contracts', () => {
     expect('nationalId' in hr).toBe(false);
     expect('email' in hr).toBe(false);
     expect('age' in hr).toBe(false);
+    expect('maritalStatus' in hr).toBe(false);
   });
 
   it('removes private fields from the public chart occupant contract', () => {

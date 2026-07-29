@@ -15,6 +15,7 @@ const migrationFiles = [
   '2026072912_refine_staff_profile_and_positions.sql',
   '2026072913_add_staff_placements.sql',
   '2026072914_normalize_assignment_dates.sql',
+  '2026072915_add_staff_placement_save_api.sql',
 ];
 
 async function readMigration(filename) {
@@ -223,6 +224,30 @@ test('legacy assignment dates are normalized for the staff profile history API',
   );
   assert.doesNotMatch(sql, /\bUPDATE\s+public\./i);
   assert.doesNotMatch(sql, /\bDELETE\b/i);
+});
+
+test('officer save atomically validates placement and omits marital status from browser APIs', async () => {
+  const sql = await readMigration(
+    '2026072915_add_staff_placement_save_api.sql',
+  );
+
+  assert.match(
+    sql,
+    /CREATE OR REPLACE FUNCTION public\.save_staff_record_with_placement/i,
+  );
+  assert.match(sql, /department\.type = 'department'/i);
+  assert.match(sql, /office\.unit_id = department_id_value/i);
+  assert.match(
+    sql,
+    /INSERT INTO public\.staff_placements[\s\S]*ON CONFLICT \(staff_id\) DO UPDATE/i,
+  );
+  assert.match(sql, /entry\.record - 'maritalStatus'/i);
+  assert.match(sql, /base_profile - 'maritalStatus'/i);
+  assert.match(
+    sql,
+    /REVOKE EXECUTE ON FUNCTION public\.save_staff_record\([\s\S]*FROM authenticated/i,
+  );
+  assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i);
 });
 
 test('job fit reports met, missing, and below-minimum requirements', async () => {

@@ -6,7 +6,6 @@ export type {
   HrStaffProfile,
   InvitedStaffProfile,
   JobTitleRequirement,
-  MaritalStatus,
   PositionSummary,
   ProficiencyLevel,
   PublicChartOccupant,

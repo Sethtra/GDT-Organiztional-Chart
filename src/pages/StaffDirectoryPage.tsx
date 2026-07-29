@@ -78,17 +78,20 @@ export default function StaffDirectoryPage() {
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<HrStaffDirectoryRecord[]> => {
     setLoading(true);
     setError(null);
     try {
-      setStaff(await listHrStaff(includeArchived));
+      const nextStaff = await listHrStaff(includeArchived);
+      setStaff(nextStaff);
+      return nextStaff;
     } catch (loadError) {
       setError(
         loadError instanceof Error
           ? loadError.message
           : "Unable to load the staff directory.",
       );
+      return [];
     } finally {
       setLoading(false);
     }
@@ -144,6 +147,18 @@ export default function StaffDirectoryPage() {
     } finally {
       setArchiving(false);
     }
+  };
+
+  const handleOfficerSaved = async (
+    savedStaffId: string,
+    manageSkills: boolean,
+  ) => {
+    const nextStaff = await load();
+    if (!manageSkills) return;
+    const savedStaff = nextStaff.find(
+      (person) => person.id === savedStaffId,
+    );
+    if (savedStaff) setSkillsTarget(savedStaff);
   };
 
   return (
@@ -356,9 +371,9 @@ export default function StaffDirectoryPage() {
                       className={actionClass}
                       aria-label={`Manage skills for ${person.name}`}
                       onClick={() => setSkillsTarget(person)}
-                      title="Manage skills"
                     >
                       <Sparkles className="size-3.5" />
+                      Skills
                     </button>
                     <button
                       type="button"
@@ -395,7 +410,7 @@ export default function StaffDirectoryPage() {
         open={formOpen}
         staff={editing}
         onOpenChange={setFormOpen}
-        onSaved={load}
+        onSaved={handleOfficerSaved}
       />
       <StaffSkillsDialog
         open={Boolean(skillsTarget)}

@@ -202,11 +202,6 @@ export default function StaffProfileDialog({
                     value={profile.gender}
                   />
                   <ValueRow
-                    icon={<UserRound className="size-3.5" />}
-                    label="Marital status"
-                    value={profile.maritalStatus}
-                  />
-                  <ValueRow
                     icon={<Phone className="size-3.5" />}
                     label="Phone"
                     value={profile.phone}
