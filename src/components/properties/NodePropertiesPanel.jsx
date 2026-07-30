@@ -718,9 +718,6 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
 
       {/* Sticky footer — Save + Delete */}
       <div className="pp-sticky-footer">
-        <button className="pp-btn pp-btn--save" onClick={handleSave}>
-          <Check size={15} /> {meta.isPerson ? "Save Details" : "Save Changes"}
-        </button>
         {confirmDelete ? (
           <div className="pp-delete-confirm">
             <p>Delete {isMultiSelect ? "these nodes" : "this node"} and connections?</p>
@@ -732,9 +729,14 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
             </div>
           </div>
         ) : (
-          <button className="pp-btn pp-btn--delete-ghost" style={{ width: "100%" }} onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={14} /> {isMultiSelect ? `Delete ${nodes.length} Nodes` : "Delete Node"}
-          </button>
+          <div className="pp-footer-actions">
+            <button className="pp-btn pp-btn--save" onClick={handleSave}>
+              <Check size={14} /> {meta.isPerson ? "Save Details" : "Save Changes"}
+            </button>
+            <button className="pp-btn pp-btn--delete-ghost" onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={13} /> {isMultiSelect ? `Delete ${nodes.length} Nodes` : "Delete Node"}
+            </button>
+          </div>
         )}
       </div>
     </div>

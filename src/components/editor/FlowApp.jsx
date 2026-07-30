@@ -655,20 +655,20 @@ export default function FlowApp({
                   )}
                 </ReactFlow>
               </ChartContext.Provider>
-
-              {/* Status Bar */}
-              {!previewMode && (
-                <StatusBar
-                  nodeCount={nodes.length}
-                  edgeCount={edges.length}
-                  zoom={viewport.zoom}
-                  saveStatus={saveStatus}
-                  onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
-                />
-              )}
             </>
           )}
         </div>
+
+        {/* Status Bar */}
+        {!previewMode && !loading && (
+          <StatusBar
+            nodeCount={nodes.length}
+            edgeCount={edges.length}
+            zoom={viewport.zoom}
+            saveStatus={saveStatus}
+            onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
+          />
+        )}
 
         {/* Staff profile drawer — the read-only view a person node opens
             first (and the only view in preview mode). Edit Details switches
