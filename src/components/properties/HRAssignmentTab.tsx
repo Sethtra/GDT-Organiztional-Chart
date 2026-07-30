@@ -12,6 +12,7 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 
+import { useHrAdmin } from "../../hooks/useHrAdmin";
 import { useOrgStructure } from "../../hooks/useOrgStructure";
 import {
   assignCandidate,
@@ -26,7 +27,13 @@ import type {
   AssignmentSummary,
   ChartPositionNode,
 } from "../../services/positionAssignmentService";
-import { POSITION_OPTIONS } from "../../data/nodeTypes";
+import {
+  loadPositionConfiguration,
+  savePositionConfiguration,
+} from "../../services/positionConfigurationService";
+import type { PositionConfigurationContext } from "../../services/positionConfigurationService";
+import { listJobArchitecture } from "../../services/jobArchitectureService";
+import type { JobTitle } from "../../contracts/hr";
 
 interface HRAssignmentTabProps {
   chartId: string;
@@ -44,6 +51,7 @@ export default function HRAssignmentTab({
   onViewStaffProfile,
 }: HRAssignmentTabProps) {
   const { units } = useOrgStructure();
+  const { isHrAdmin } = useHrAdmin();
 
   const [positionId, setPositionId] = useState<string | null>(null);
   const [allStaff, setAllStaff] = useState<AssignmentCandidate[]>([]);
@@ -52,15 +60,16 @@ export default function HRAssignmentTab({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Department, Office, Search, and Node Position state
-  const initialPosition =
-    typeof node.data?.position === "string" && node.data.position.trim()
-      ? node.data.position.trim()
-      : typeof node.data?.badgeText === "string" && node.data.badgeText.trim()
-        ? node.data.badgeText.trim()
-        : "";
+  // Real job-title identity for this position (replaces the old
+  // free-text "Fixed Node Position" string so candidate matching and
+  // minimum-skill lookups are ID-based, not fragile name comparisons).
+  const [positionConfig, setPositionConfig] =
+    useState<PositionConfigurationContext | null>(null);
+  const [jobTitleId, setJobTitleId] = useState<string>(
+    typeof node.data?.jobTitleId === "string" ? node.data.jobTitleId : "",
+  );
+  const [jobArchitecture, setJobArchitecture] = useState<JobTitle[]>([]);
 
-  const [nodePosition, setNodePosition] = useState(initialPosition);
   const [departmentId, setDepartmentId] = useState("");
   const [officeId, setOfficeId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,18 +77,32 @@ export default function HRAssignmentTab({
 
   // Sync internal state when selecting a different node
   useEffect(() => {
-    const pos =
-      typeof node.data?.position === "string" && node.data.position.trim()
-        ? node.data.position.trim()
-        : typeof node.data?.badgeText === "string" && node.data.badgeText.trim()
-          ? node.data.badgeText.trim()
-          : "";
-    setNodePosition(pos);
+    setJobTitleId(
+      typeof node.data?.jobTitleId === "string" ? node.data.jobTitleId : "",
+    );
     setDepartmentId("");
     setOfficeId("");
     setSearchQuery("");
     setSelectedStaffId("");
-  }, [node.id, node.data?.position, node.data?.badgeText]);
+  }, [node.id, node.data?.jobTitleId]);
+
+  // HR admins manage the minimum-skill catalog; other chart editors can
+  // still assign staff, they just don't see the requirements list (the
+  // underlying RPC is HR-only).
+  useEffect(() => {
+    if (!isHrAdmin) return;
+    let cancelled = false;
+    void listJobArchitecture()
+      .then((titles) => {
+        if (!cancelled) setJobArchitecture(titles);
+      })
+      .catch(() => {
+        /* Requirements are supplementary; a failed fetch just hides them. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isHrAdmin]);
 
   const departments = useMemo(
     () => units.filter((unit) => unit.type === "department"),
@@ -118,23 +141,19 @@ export default function HRAssignmentTab({
     setPositionId(null);
     setSelectedStaffId("");
 
-    void ensurePositionForNode(chartId, {
-      ...selectedNode,
-      data: {
-        ...(selectedNode.data ?? {}),
-        position: nodePosition,
-        badgeText: nodePosition,
-      },
-    })
+    void ensurePositionForNode(chartId, selectedNode)
       .then(async (resolvedPositionId) => {
-        const [staff, nextSummary] = await Promise.all([
+        const [staff, nextSummary, nextConfig] = await Promise.all([
           loadAssignmentCandidates(resolvedPositionId),
           loadAssignmentSummary(resolvedPositionId),
+          loadPositionConfiguration(resolvedPositionId),
         ]);
         if (cancelled) return;
         setPositionId(resolvedPositionId);
         setAllStaff(staff);
         setSummary(nextSummary);
+        setPositionConfig(nextConfig);
+        setJobTitleId(nextConfig.jobTitleId ?? "");
       })
       .catch((loadError) => {
         if (cancelled) return;
@@ -151,18 +170,32 @@ export default function HRAssignmentTab({
     return () => {
       cancelled = true;
     };
-  }, [chartId, nodeId, nodePosition]);
+  }, [chartId, nodeId]);
+
+  const selectedJobTitle = useMemo(
+    () =>
+      positionConfig?.jobTitles.find((title) => title.id === jobTitleId) ??
+      null,
+    [positionConfig, jobTitleId],
+  );
+
+  const selectedJobTitleRequirements = useMemo(
+    () =>
+      jobArchitecture.find((title) => title.id === jobTitleId)
+        ?.requirements ?? [],
+    [jobArchitecture, jobTitleId],
+  );
 
   const filteredStaff = useMemo(() => {
     return filterAssignmentCandidates(allStaff, {
-      positionName: nodePosition,
+      jobTitleId,
       departmentId,
       officeId,
       query: searchQuery,
     });
   }, [
     allStaff,
-    nodePosition,
+    jobTitleId,
     departmentId,
     officeId,
     searchQuery,
@@ -170,11 +203,38 @@ export default function HRAssignmentTab({
 
   const selectedStaff = allStaff.find((s) => s.id === selectedStaffId);
 
-  // Position change handler (sets fixed position on node)
-  const handlePositionChange = (newPos: string) => {
-    setNodePosition(newPos);
+  // Job title change handler — persists to the real position row via
+  // configure_chart_position, then updates the node's display badge.
+  const handleJobTitleChange = async (newJobTitleId: string) => {
+    if (!positionId) return;
+    setJobTitleId(newJobTitleId);
     setSelectedStaffId("");
-    onNodeUpdate({ position: newPos, badgeText: newPos });
+    const title =
+      positionConfig?.jobTitles.find((t) => t.id === newJobTitleId) ?? null;
+    try {
+      await savePositionConfiguration({
+        positionId,
+        jobTitleId: newJobTitleId || null,
+        orgUnitId: positionConfig?.orgUnitId ?? null,
+        officeId: positionConfig?.officeId ?? null,
+        reportsToPositionId: positionConfig?.reportsToPositionId ?? null,
+      });
+      setPositionConfig((prev) =>
+        prev ? { ...prev, jobTitleId: newJobTitleId || null } : prev,
+      );
+      onNodeUpdate({
+        jobTitleId: newJobTitleId || null,
+        position: title?.name ?? "",
+        badgeText: title?.name ?? "",
+        positionId,
+      });
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save position.",
+      );
+    }
   };
 
   const handleDepartmentChange = (newDept: string) => {
@@ -202,7 +262,8 @@ export default function HRAssignmentTab({
       );
       const nextSummary = await loadAssignmentSummary(positionId);
       setSummary(nextSummary);
-      // NOTE: We do NOT overwrite the fixed nodePosition/badgeText!
+      // NOTE: We do NOT overwrite the position/badgeText here — job title
+      // changes go through handleJobTitleChange, not the assign flow.
       onNodeUpdate({
         name: selectedStaff.name,
         nameEn: selectedStaff.nameEn ?? "",
@@ -314,27 +375,49 @@ export default function HRAssignmentTab({
 
       {/* ── Unified Position, Department, Office & Search Section ───── */}
       <div className="grid gap-3 rounded-md border border-border bg-secondary/20 p-3">
-        {/* Node Fixed Position Dropdown */}
+        {/* Node Position Dropdown — real job title, not a fixed string list */}
         <div className="grid gap-1">
           <label className="pp-label flex items-center gap-1">
-            <Tag size={11} /> Fixed Node Position / តួនាទី
+            <Tag size={11} /> Position / តួនាទី
           </label>
           <select
             className="pp-input"
-            value={nodePosition}
-            onChange={(e) => handlePositionChange(e.target.value)}
+            value={jobTitleId}
+            disabled={!positionConfig}
+            onChange={(e) => void handleJobTitleChange(e.target.value)}
           >
             <option value="">-- ជ្រើសរើសតួនាទី / Select Position --</option>
-            {POSITION_OPTIONS.map((pos) => (
-              <option key={pos} value={pos}>
-                {pos}
+            {positionConfig?.jobTitles.map((title) => (
+              <option key={title.id} value={title.id}>
+                {title.name}
               </option>
             ))}
-            {nodePosition && !POSITION_OPTIONS.includes(nodePosition) && (
-              <option value={nodePosition}>{nodePosition}</option>
-            )}
           </select>
         </div>
+
+        {/* Minimum skills for the selected position — read-only, HR-managed
+            in Job Architecture. Hidden for non-HR editors (the underlying
+            data is HR-only) and for positions with no requirements set. */}
+        {isHrAdmin && selectedJobTitle && selectedJobTitleRequirements.length > 0 && (
+          <div className="grid gap-1.5 border-t border-border/50 pt-2">
+            <span className="pp-label">
+              Minimum skills · {selectedJobTitle.name}
+            </span>
+            <div className="grid gap-1">
+              {selectedJobTitleRequirements.map((requirement) => (
+                <div
+                  key={requirement.id}
+                  className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-2.5 py-1.5 text-xs"
+                >
+                  <span>{requirement.skill.name}</span>
+                  <span className="text-muted-foreground">
+                    Min. level {requirement.minimumProficiency}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Department Filter */}
         <div className="grid gap-1">
@@ -410,11 +493,11 @@ export default function HRAssignmentTab({
               onChange={(e) => setSelectedStaffId(e.target.value)}
             >
               <option value="">
-                {!nodePosition
+                {!jobTitleId
                   ? "Select node position above first…"
                   : filteredStaff.length === 0
-                    ? `No ${nodePosition} officers found`
-                    : `Choose ${nodePosition} officer…`}
+                    ? `No ${selectedJobTitle?.name ?? ""} officers found`
+                    : `Choose ${selectedJobTitle?.name ?? ""} officer…`}
               </option>
               {filteredStaff.map((s) => (
                 <option key={s.id} value={s.id}>

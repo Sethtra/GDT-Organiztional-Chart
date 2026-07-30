@@ -12,11 +12,13 @@ const departmentId = "00000000-0000-4000-8000-000000000001";
 const anotherDepartmentId = "00000000-0000-4000-8000-000000000002";
 const officeId = "00000000-0000-4000-8000-000000000003";
 const anotherOfficeId = "00000000-0000-4000-8000-000000000004";
-const jobTitleId = "00000000-0000-4000-8000-000000000005";
+const officerJobTitleId = "00000000-0000-4000-8000-000000000005";
+const chiefJobTitleId = "00000000-0000-4000-8000-000000000006";
 
 function candidate(
   id: string,
   positionName: string,
+  candidateJobTitleId: string,
   candidateDepartmentId: string,
   candidateOfficeId: string | null,
 ): AssignmentCandidate {
@@ -26,7 +28,7 @@ function candidate(
     name: `Officer ${id.slice(-1)}`,
     nameEn: null,
     jobTitle: {
-      id: jobTitleId,
+      id: candidateJobTitleId,
       name: positionName,
       nameEn: null,
       rankOrder: 50,
@@ -48,24 +50,28 @@ const candidates = [
   candidate(
     "00000000-0000-4000-8000-000000000011",
     "មន្ត្រី",
+    officerJobTitleId,
     departmentId,
     officeId,
   ),
   candidate(
     "00000000-0000-4000-8000-000000000012",
     "មន្ត្រី",
+    officerJobTitleId,
     departmentId,
     null,
   ),
   candidate(
     "00000000-0000-4000-8000-000000000013",
     "ប្រធានការិយាល័យ",
+    chiefJobTitleId,
     departmentId,
     anotherOfficeId,
   ),
   candidate(
     "00000000-0000-4000-8000-000000000014",
     "មន្ត្រី",
+    officerJobTitleId,
     anotherDepartmentId,
     null,
   ),
@@ -116,7 +122,7 @@ describe("assignment candidate filters", () => {
   it("requires the fixed node position and matches staff-table position", () => {
     expect(
       filterAssignmentCandidates(candidates, {
-        positionName: "",
+        jobTitleId: "",
         departmentId: "",
         officeId: "",
         query: "",
@@ -125,7 +131,7 @@ describe("assignment candidate filters", () => {
 
     expect(
       filterAssignmentCandidates(candidates, {
-        positionName: "មន្ត្រី",
+        jobTitleId: officerJobTitleId,
         departmentId: "",
         officeId: "",
         query: "",
@@ -135,7 +141,7 @@ describe("assignment candidate filters", () => {
 
   it("uses department and optional office only as staff-table filters", () => {
     const departmentMatches = filterAssignmentCandidates(candidates, {
-      positionName: "មន្ត្រី",
+      jobTitleId: officerJobTitleId,
       departmentId,
       officeId: "",
       query: "",
@@ -146,7 +152,7 @@ describe("assignment candidate filters", () => {
     ]);
 
     const officeMatches = filterAssignmentCandidates(candidates, {
-      positionName: "មន្ត្រី",
+      jobTitleId: officerJobTitleId,
       departmentId,
       officeId,
       query: "",

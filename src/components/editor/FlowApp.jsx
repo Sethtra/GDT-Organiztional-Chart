@@ -34,6 +34,7 @@ import ShortcutsModal from '../ShortcutsModal';
 import StatusBar from '../StatusBar';
 import VersionHistoryModal from '../VersionHistoryModal';
 import StaffProfileDialog from '../staff/StaffProfileDialog';
+import PositionDetailDialog from '../PositionDetailDialog';
 import EditorHeader from './EditorHeader';
 import LinkedChartPopup from './LinkedChartPopup';
 import PreviewControls from './PreviewControls';
@@ -680,6 +681,15 @@ export default function FlowApp({
               setProfileStaffId(null);
               setProfileNodeId(null);
             }}
+          />
+        ) : profileNode && HR_FEATURES_ENABLED ? (
+          // Vacant position (or a person node without a relational staff
+          // record yet) on an HR-modernized chart: same read-only "View
+          // Details" experience, but sourced from the position rather than
+          // a staff profile.
+          <PositionDetailDialog
+            node={profileNode}
+            onClose={() => setProfileNodeId(null)}
           />
         ) : profileNode ? (
           <ProfileDrawer

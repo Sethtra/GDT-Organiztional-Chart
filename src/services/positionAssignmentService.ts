@@ -48,7 +48,7 @@ export type AssignmentCandidate = z.infer<typeof CandidateSchema>;
 export type AssignmentSummary = z.infer<typeof AssignmentSummarySchema>;
 
 export interface AssignmentCandidateFilters {
-  positionName: string;
+  jobTitleId: string;
   departmentId: string;
   officeId: string;
   query: string;
@@ -61,6 +61,7 @@ export interface ChartPositionNode {
     badgeText?: unknown;
     department?: unknown;
     office?: unknown;
+    jobTitleId?: unknown;
   };
 }
 
@@ -105,14 +106,12 @@ export function filterAssignmentCandidates(
   candidates: AssignmentCandidate[],
   filters: AssignmentCandidateFilters,
 ): AssignmentCandidate[] {
-  const positionName = filters.positionName.trim().toLocaleLowerCase();
-  if (!positionName) return [];
+  const jobTitleId = filters.jobTitleId.trim();
+  if (!jobTitleId) return [];
 
   const query = filters.query.trim().toLocaleLowerCase();
   return candidates.filter((candidate) => {
-    if (
-      candidate.jobTitle?.name.trim().toLocaleLowerCase() !== positionName
-    ) {
+    if (candidate.jobTitle?.id !== jobTitleId) {
       return false;
     }
     if (
