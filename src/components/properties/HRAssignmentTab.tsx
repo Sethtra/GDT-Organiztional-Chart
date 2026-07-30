@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  Award,
   BriefcaseBusiness,
   Building2,
   ChevronRight,
@@ -396,26 +398,41 @@ export default function HRAssignmentTab({
         </div>
 
         {/* Minimum skills for the selected position — read-only, HR-managed
-            in Job Architecture. Hidden for non-HR editors (the underlying
-            data is HR-only) and for positions with no requirements set. */}
-        {isHrAdmin && selectedJobTitle && selectedJobTitleRequirements.length > 0 && (
+            in Job Architecture. Hidden entirely for non-HR editors (the
+            underlying data is HR-only). Always visible once HR admin +
+            job title are both set, even with zero requirements, so "no
+            skills configured yet" is never indistinguishable from broken. */}
+        {isHrAdmin && selectedJobTitle && (
           <div className="grid gap-1.5 border-t border-border/50 pt-2">
-            <span className="pp-label">
-              Minimum skills · {selectedJobTitle.name}
+            <span className="pp-label flex items-center gap-1">
+              <Award size={11} /> Minimum skills · {selectedJobTitle.name}
             </span>
-            <div className="grid gap-1">
-              {selectedJobTitleRequirements.map((requirement) => (
-                <div
-                  key={requirement.id}
-                  className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-2.5 py-1.5 text-xs"
+            {selectedJobTitleRequirements.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No minimum skills set for this position yet. Add them in{" "}
+                <Link
+                  to="/admin/job-architecture"
+                  className="font-medium text-primary hover:underline"
                 >
-                  <span>{requirement.skill.name}</span>
-                  <span className="text-muted-foreground">
-                    Min. level {requirement.minimumProficiency}
-                  </span>
-                </div>
-              ))}
-            </div>
+                  Job Architecture
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="grid gap-1">
+                {selectedJobTitleRequirements.map((requirement) => (
+                  <div
+                    key={requirement.id}
+                    className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-2.5 py-1.5 text-xs"
+                  >
+                    <span>{requirement.skill.name}</span>
+                    <span className="text-muted-foreground">
+                      Min. level {requirement.minimumProficiency}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
