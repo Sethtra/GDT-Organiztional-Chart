@@ -94,6 +94,12 @@ export default function FlowApp({
 
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdge, setSelectedEdge] = useState(null);
+  // Gates whether the NODE properties panel is visible. Left-click still
+  // drives `selectedNodes` (needed for drag/copy/delete/keyboard shortcuts
+  // and to know which node saves apply to) but no longer opens the panel by
+  // itself — only an explicit edit action does. Edge selection is
+  // unaffected; clicking an edge still opens its panel as before.
+  const [showNodePanel, setShowNodePanel] = useState(false);
   const [profileNodeId, setProfileNodeId] = useState(null);
   const [profileStaffId, setProfileStaffId] = useState(null);
   const [layoutDir, setLayoutDir] = useState('TB');
@@ -298,9 +304,9 @@ export default function FlowApp({
     updateSelectedNodes,
     updateEdgeProperties,
     deleteNodes,
-    duplicateNodes,
-    addChildNode,
-    addRootNode,
+    duplicateNodes: duplicateNodesRaw,
+    addChildNode: addChildNodeRaw,
+    addRootNode: addRootNodeRaw,
     autoLayout,
     toggleLayout,
     toggleCollapse,
@@ -316,6 +322,28 @@ export default function FlowApp({
     setLayoutDir,
     setCollapsedNodes,
   });
+
+  // Creating or duplicating a node is itself an explicit edit action, so
+  // (unlike a plain click) it should open the properties panel — these
+  // wrappers are used everywhere instead of the raw hook functions.
+  const addChildNode = useCallback(
+    (parentId, orgType) => {
+      addChildNodeRaw(parentId, orgType);
+      setShowNodePanel(true);
+    },
+    [addChildNodeRaw],
+  );
+  const addRootNode = useCallback(() => {
+    addRootNodeRaw();
+    setShowNodePanel(true);
+  }, [addRootNodeRaw]);
+  const duplicateNodes = useCallback(
+    (nodesToDuplicate) => {
+      duplicateNodesRaw(nodesToDuplicate);
+      setShowNodePanel(true);
+    },
+    [duplicateNodesRaw],
+  );
 
   // ── Backup / export operations ─────────────────────────────────
   const { downloadChartBackup, restoreChartBackup, downloadImage } =
@@ -354,6 +382,9 @@ export default function FlowApp({
       document.activeElement.blur();
     }
     setContextMenu(null);
+    // A plain click only selects (for drag/copy/delete/shortcuts) — it must
+    // not surface the properties panel. Only an explicit edit action does.
+    setShowNodePanel(false);
     if (node.data.linkedChartId) {
       setLinkedChartPopup({ node, x: evt.clientX, y: evt.clientY });
     } else {
@@ -380,6 +411,7 @@ export default function FlowApp({
       document.activeElement.blur();
     }
     setContextMenu(null);
+    setShowNodePanel(false);
   }, []);
 
   const onNodeContextMenu = useCallback(
@@ -455,6 +487,7 @@ export default function FlowApp({
       setShowSearch(false);
       setShowShortcuts(false);
       setContextMenu(null);
+      setShowNodePanel(false);
     },
     duplicateSelection: () => {
       if (selectedNodes.length > 0) duplicateNodes(selectedNodes);
@@ -493,7 +526,9 @@ export default function FlowApp({
     return live;
   }, [profileNodeId, canViewProfiles, nodes]);
 
-  const panelOpen = !previewMode && (selectedNodes.length > 0 || selectedEdge);
+  const panelOpen =
+    !previewMode &&
+    ((selectedNodes.length > 0 && showNodePanel) || selectedEdge);
   const contextNode = contextMenu
     ? nodes.find((node) => node.id === contextMenu.nodeId)
     : null;
@@ -539,6 +574,7 @@ export default function FlowApp({
             setPreviewMode(true);
             setSelectedNodes([]);
             setSelectedEdge(null);
+            setShowNodePanel(false);
           }}
           toggleTheme={toggleTheme}
           theme={theme}
@@ -706,13 +742,15 @@ export default function FlowApp({
                   selected: node.id === profileNode.id,
                 })),
               );
+              setShowNodePanel(true);
             }}
             onClose={() => setProfileNodeId(null)}
           />
         ) : null}
 
         {/* Properties Panel (Outside canvas-wrapper) */}
-        {(selectedNodes.length > 0 || selectedEdge) && !previewMode && (
+        {((selectedNodes.length > 0 && showNodePanel) || selectedEdge) &&
+          !previewMode && (
           <PropertiesPanel
             chartId={chartId}
             nodes={selectedNodes}
@@ -742,12 +780,14 @@ export default function FlowApp({
             onClose={() => {
               setSelectedNodes([]);
               setSelectedEdge(null);
+              setShowNodePanel(false);
             }}
             onSave={() => {
               // Person node → back to its read-only profile; anything else →
               // just deselect. Edits are already committed to node state.
               setSelectedNodes([]);
               setSelectedEdge(null);
+              setShowNodePanel(false);
               setNodes((nds) =>
                 nds.map((n) => (n.selected ? { ...n, selected: false } : n)),
               );
@@ -777,6 +817,16 @@ export default function FlowApp({
                   if (n) {
                     setSelectedNodes([n]);
                     setSelectedEdge(null);
+                    // Field edits save to whichever node(s) have
+                    // `selected: true` in the live nodes array — align it
+                    // with the node we're actually opening the panel for.
+                    setNodes((nds) =>
+                      nds.map((node) => ({
+                        ...node,
+                        selected: node.id === n.id,
+                      })),
+                    );
+                    setShowNodePanel(true);
                   }
                 }
               : undefined
