@@ -4,7 +4,6 @@ import {
   BarChart3,
   BriefcaseBusiness,
   Building2,
-  Shield,
   UsersRound,
 } from "lucide-react";
 
@@ -61,24 +60,13 @@ export default function AdminSidebar({ currentTab }: AdminSidebarProps) {
     <aside className="admin-sidebar">
       <div className="admin-sidebar__brand">
         <div className="admin-sidebar__seal">
-          <Shield size={19} strokeWidth={1.6} />
+          <img src="/gdt-seal.png" alt="" className="admin-sidebar__seal-img" />
         </div>
         <div className="admin-sidebar__brand-text">
           <b className="admin-sidebar__brand-kh">អគ្គនាយកដ្ឋានពន្ធដារ</b>
           <span className="admin-sidebar__brand-en">
             General Department of Taxation
           </span>
-        </div>
-      </div>
-
-      <div className="admin-sidebar__identity">
-        <div className="admin-sidebar__avatar">G.</div>
-        <div>
-          <div className="admin-sidebar__identity-role">
-            Admin
-            <Shield size={12} className="text-[var(--a-green)]" fill="currentColor" />
-          </div>
-          <div className="admin-sidebar__identity-sub">HR Administrator</div>
         </div>
       </div>
 
