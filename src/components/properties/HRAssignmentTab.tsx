@@ -4,12 +4,16 @@ import {
   Award,
   BriefcaseBusiness,
   Building2,
+  Calendar,
+  ChevronDown,
   ChevronRight,
+  ExternalLink,
   History,
   Loader2,
   RefreshCw,
   Search,
   Tag,
+  User,
   UserMinus,
   UserRoundCheck,
 } from "lucide-react";
@@ -42,6 +46,149 @@ interface HRAssignmentTabProps {
   node: ChartPositionNode;
   onNodeUpdate: (data: Record<string, unknown>) => void;
   onViewStaffProfile?: (staffId: string) => void;
+}
+
+function StaffCombobox({
+  staffList,
+  selectedId,
+  onSelect,
+  placeholder,
+  disabled,
+}: {
+  staffList: AssignmentCandidate[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedStaff = useMemo(
+    () => staffList.find((s) => s.id === selectedId),
+    [staffList, selectedId]
+  );
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return staffList;
+    const q = search.toLowerCase();
+    return staffList.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.nameEn && s.nameEn.toLowerCase().includes(q)) ||
+        (s.employeeId && s.employeeId.toLowerCase().includes(q))
+    );
+  }, [staffList, search]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-all ${
+          disabled
+            ? "opacity-50 cursor-not-allowed bg-slate-800/40 border-white/10"
+            : isOpen
+              ? "border-emerald-500/60 bg-slate-800/90 ring-2 ring-emerald-500/20 shadow-md"
+              : "border-white/15 bg-slate-850/80 hover:border-emerald-500/40 hover:bg-slate-800/70"
+        }`}
+      >
+        {selectedStaff ? (
+          <div className="flex items-center gap-2 truncate min-w-0">
+            <span className="font-semibold text-white truncate">{selectedStaff.name}</span>
+            {selectedStaff.employeeId && (
+              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 flex-shrink-0">
+                ID: {selectedStaff.employeeId}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-slate-400 truncate">{placeholder}</span>
+        )}
+        <ChevronDown className={`size-3.5 text-slate-400 transition-transform ${isOpen ? "rotate-180 text-emerald-400" : ""}`} />
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-hidden rounded-xl border border-white/15 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl">
+          <div className="relative mb-2">
+            <Search className="absolute left-2.5 top-2.5 size-3.5 text-slate-400" />
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search officer by name or ID…"
+              className="w-full rounded-lg border border-white/10 bg-slate-800/90 pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30"
+            />
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            {filtered.length === 0 ? (
+              <div className="p-3 text-center text-xs text-slate-400">
+                No matching officers found
+              </div>
+            ) : (
+              filtered.map((s) => {
+                const isSelected = s.id === selectedId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      onSelect(s.id);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                    className={`w-full flex items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all ${
+                      isSelected
+                        ? "bg-emerald-600/30 border border-emerald-500/50 text-white font-semibold"
+                        : "hover:bg-slate-800/80 hover:text-white text-slate-200"
+                    }`}
+                  >
+                    {/* Left: Officer Khmer & English Name */}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-white leading-tight truncate">{s.name}</div>
+                      {s.nameEn && (
+                        <div className="text-[10px] font-medium text-slate-400 uppercase mt-0.5 truncate">
+                          {s.nameEn}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: Badges (Position & ID stacked) */}
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {s.jobTitle && (
+                        <span className="text-[10px] bg-emerald-500/15 px-2 py-0.5 rounded-md text-emerald-300 border border-emerald-500/30 font-medium">
+                          {s.jobTitle.name}
+                        </span>
+                      )}
+                      {s.employeeId && (
+                        <span className="text-[9.5px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+                          ID: {s.employeeId}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -353,20 +500,49 @@ export default function HRAssignmentTab({
 
       {/* ── Current occupant card ─────────────────────────── */}
       {summary?.occupant ? (
-        <div className="rounded-md border border-border bg-secondary/50 p-3">
-          <button
-            type="button"
-            className="flex items-center gap-2 text-left text-sm font-semibold hover:text-primary"
-            onClick={() => onViewStaffProfile?.(summary.occupant?.staffId ?? "")}
-          >
-            <UserRoundCheck className="size-4 text-primary" />
-            {summary.occupant.name}
-          </button>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {summary.occupant.nameEn || summary.occupant.employeeId || "ID required"}
+        <div
+          className="group relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-900/90 to-slate-850 p-3.5 shadow-md transition-all duration-200 hover:border-emerald-500/40 hover:bg-slate-800/90 cursor-pointer"
+          onClick={() => onViewStaffProfile?.(summary.occupant?.staffId ?? "")}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {/* Avatar circle */}
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-700/80 text-white font-bold text-xs shadow-inner border border-emerald-400/30">
+                {summary.occupant.nameEn
+                  ? summary.occupant.nameEn.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
+                  : <User className="size-4 text-emerald-200" />}
+              </div>
+
+              {/* Names */}
+              <div>
+                <div className="text-sm font-bold text-white leading-snug group-hover:text-emerald-300 transition-colors">
+                  {summary.occupant.name}
+                </div>
+                {summary.occupant.nameEn && (
+                  <div className="text-[11px] font-medium tracking-wide text-slate-400 uppercase mt-0.5">
+                    {summary.occupant.nameEn}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* View profile hint button */}
+            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all flex-shrink-0">
+              Profile <ExternalLink className="size-3" />
+            </div>
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Joined: {summary.occupant.joinedDate || "Not recorded"}
+
+          {/* Details metadata row */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2.5 text-[11px]">
+            {summary.occupant.employeeId && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 text-slate-300 border border-white/10">
+                ID: <strong className="text-white font-semibold">{summary.occupant.employeeId}</strong>
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 text-slate-400 border border-white/10">
+              <Calendar className="size-3 text-emerald-400" />
+              Joined: <span className="text-slate-200">{summary.occupant.joinedDate || "Not recorded"}</span>
+            </span>
           </div>
         </div>
       ) : (
@@ -481,22 +657,7 @@ export default function HRAssignmentTab({
           </select>
         </div>
 
-        {/* Search Input for Fast Officer Finding */}
-        {!summary?.occupant && (
-          <div className="grid gap-1 border-t border-border/50 pt-2">
-            <label className="pp-label flex items-center gap-1">
-              <Search size={11} /> Search Officer
-            </label>
-            <div className="relative">
-              <input
-                className="pp-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type name or employee ID…"
-              />
-            </div>
-          </div>
-        )}
+
 
         {/* Officer Selector (Only enabled when position is vacant) */}
         {!summary?.occupant ? (
@@ -504,26 +665,19 @@ export default function HRAssignmentTab({
             <div className="flex items-center justify-between">
               <label className="pp-label">Select Officer ({filteredStaff.length})</label>
             </div>
-            <select
-              className="pp-input"
-              value={selectedStaffId}
-              onChange={(e) => setSelectedStaffId(e.target.value)}
-            >
-              <option value="">
-                {!jobTitleId
+            <StaffCombobox
+              staffList={filteredStaff}
+              selectedId={selectedStaffId}
+              onSelect={(id) => setSelectedStaffId(id)}
+              disabled={!jobTitleId || filteredStaff.length === 0}
+              placeholder={
+                !jobTitleId
                   ? "Select node position above first…"
                   : filteredStaff.length === 0
                     ? `No ${selectedJobTitle?.name ?? ""} officers found`
-                    : `Choose ${selectedJobTitle?.name ?? ""} officer…`}
-              </option>
-              {filteredStaff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.employeeId ? ` · ID: ${s.employeeId}` : ""}
-                  {s.jobTitle ? ` · ${s.jobTitle.name}` : ""}
-                </option>
-              ))}
-            </select>
+                    : `Choose ${selectedJobTitle?.name ?? ""} officer…`
+              }
+            />
           </div>
         ) : (
           <div className="border-t border-border/50 pt-2 text-xs text-amber-500/90 leading-relaxed font-medium">

@@ -151,7 +151,7 @@ export default function LandingPage() {
               to="/login"
               style={{
                 fontSize: 13.5, fontWeight: 600, padding: '11px 22px', borderRadius: 100,
-                color: '#fff', background: '#0f5a34', textDecoration: 'none',
+                color: '#fff', background: '#136232', textDecoration: 'none',
                 transition: 'transform .2s ease, box-shadow .2s ease',
               }}
             >
@@ -174,7 +174,7 @@ export default function LandingPage() {
               </div>
               <h1 style={{
                 margin: 0, fontFamily: '"Source Serif 4", serif',
-                fontSize: 56, lineHeight: 1.15, color: theme === 'dark' ? 'var(--text-primary)' : '#0f5a34', fontWeight: 600, letterSpacing: '-1px',
+                fontSize: 56, lineHeight: 1.15, color: theme === 'dark' ? 'var(--text-primary)' : '#136232', fontWeight: 600, letterSpacing: '-1px',
               }}>
                 The Department,<br />structured with clarity.
               </h1>
@@ -187,7 +187,7 @@ export default function LandingPage() {
                   className="landing-cta-primary"
                   style={{
                     position: 'relative', overflow: 'hidden',
-                    background: '#0f5a34', color: '#fff', fontWeight: 600, fontSize: 15,
+                    background: '#136232', color: '#fff', fontWeight: 600, fontSize: 15,
                     padding: '16px 30px', borderRadius: 100, textDecoration: 'none',
                     transition: 'transform .2s ease, box-shadow .2s ease',
                   }}
@@ -242,7 +242,7 @@ export default function LandingPage() {
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 48, gap: 40 }}>
             <h2 style={{
               margin: 0, fontFamily: '"Source Serif 4", serif',
-              fontSize: 32, color: theme === 'dark' ? 'var(--text-primary)' : '#0f5a34', fontWeight: 600, letterSpacing: '-.5px', maxWidth: 440,
+              fontSize: 32, color: theme === 'dark' ? 'var(--text-primary)' : '#136232', fontWeight: 600, letterSpacing: '-.5px', maxWidth: 440,
             }}>
               Built for an institution that never stops evolving.
             </h2>
@@ -275,8 +275,8 @@ export default function LandingPage() {
         <div style={{ padding: '0 64px 72px' }}>
           <div style={{
             borderRadius: 20,
-            background: 'linear-gradient(135deg, #0f5a34, #0a3b21)',
-            boxShadow: '0 24px 48px -12px rgba(15,90,52,.35)',
+            background: 'linear-gradient(135deg, #136232, #0a361c)',
+            boxShadow: '0 24px 48px -12px rgba(19,98,50,.35)',
             padding: '56px 64px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32,
           }}>

@@ -8,6 +8,7 @@ import HrAdminRoute from './components/HrAdminRoute';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import LoginTestPage from './pages/LoginTestPage';
+import AdminDashboardTestPage from './pages/AdminDashboardTestPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -18,6 +19,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import AdminOrgStructurePage from './pages/AdminOrgStructurePage';
 import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 /**
  * Main layout: renders Routes for all pages, plus a persistent EditorShell
@@ -34,6 +36,7 @@ function AppLayout() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/test-login" element={<LoginTestPage />} />
+          <Route path="/test-admin" element={<AdminDashboardTestPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -70,6 +73,16 @@ function AppLayout() {
           <Route path="/chart/:chartId" element={<div />} />
 
           {/* ── HR admin routes ───────────────────────────── */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <AdminDashboardPage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/org-structure"
             element={

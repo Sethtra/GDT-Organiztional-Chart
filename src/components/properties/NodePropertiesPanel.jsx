@@ -33,7 +33,7 @@ import {
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
-  { label: "Teal",   value: "#0e7d6e" },
+  { label: "Teal",   value: "#136232" },
   { label: "Blue",   value: "var(--default-node-bg)" },
   { label: "Sky",    value: "#0369a1" },
   { label: "Purple", value: "#6d28d9" },
@@ -41,7 +41,7 @@ const COLOR_PRESETS = [
   { label: "Amber",  value: "#b45309" },
   { label: "Orange", value: "#c2410c" },
   { label: "Red",    value: "#b91c1c" },
-  { label: "Green",  value: "#047857" },
+  { label: "Green",  value: "#136232" },
   { label: "Pink",   value: "#be185d" },
   { label: "Slate",  value: "#334155" },
 ];
@@ -266,17 +266,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
         <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
       </div>
 
-      {/* Live node preview */}
-      <div className="pp-preview" style={{ "--prev-bg": color, "--prev-accent": badgeColor || meta.accent }}>
-        <div className="pp-preview__bar" />
-        <div className="pp-preview__badge" style={{ color: badgeColor || meta.accent, borderColor: badgeColor || meta.accent }}>
-          {badgeText || meta.label || orgType.toUpperCase()}
-        </div>
-        <div className="pp-preview__name" style={{ color: textColor }}>
-          {isMultiSelect ? "(Multiple Selected)" : (name || "ឈ្មោះ")}
-        </div>
-        {!isMultiSelect && nameEn && <div className="pp-preview__name-en">{nameEn}</div>}
-      </div>
+
 
       {/* Scrollable body */}
       <div className="pp-body">
@@ -516,7 +506,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
               { label: "Gold",   value: "#d4af37" },
               { label: "Amber",  value: "#f59e0b" },
               { label: "Red",    value: "#f43f5e" },
-              { label: "Green",  value: "#0e7d6e" },
+              { label: "Green",  value: "#136232" },
               { label: "Purple", value: "#a78bfa" },
               { label: "Teal",   value: "#5eead4" },
               { label: "Pink",   value: "#fb7185" },
@@ -668,9 +658,9 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
             ))}
           </select>
           {linkedChart && (
-            <div style={{ marginTop: 8, background: 'rgba(14, 125, 110, 0.1)', border: '1px solid rgba(14, 125, 110, 0.3)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ExternalLink size={12} style={{ color: '#0e7d6e', flexShrink: 0 }} />
-              <span style={{ color: '#0e7d6e', fontSize: 12, fontWeight: 600 }}>{linkedChart.name}</span>
+            <div style={{ marginTop: 8, background: 'rgba(19, 98, 50, 0.1)', border: '1px solid rgba(19, 98, 50, 0.3)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ExternalLink size={12} style={{ color: '#136232', flexShrink: 0 }} />
+              <span style={{ color: '#136232', fontSize: 12, fontWeight: 600 }}>{linkedChart.name}</span>
               <button
                 onClick={() => setLinkedChartId("")}
                 style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}

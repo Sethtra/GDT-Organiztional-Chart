@@ -372,7 +372,7 @@ export default function DashboardPage() {
         {/* Loading */}
         {loading && (
           <div className="dashboard-loading">
-            <Loader2 size={28} className="spin" style={{ color: "#0e7d6e", opacity: 0.7 }} />
+            <Loader2 size={28} className="spin" style={{ color: "#136232", opacity: 0.8 }} />
             <span>Loading...</span>
           </div>
         )}

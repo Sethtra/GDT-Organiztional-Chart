@@ -44,7 +44,7 @@ export default function LinkedChartPopup({ popup, onOpen, onClose }) {
             height="14"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#0e7d6e"
+            stroke="#136232"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -96,7 +96,7 @@ export default function LinkedChartPopup({ popup, onOpen, onClose }) {
         }}
         style={{
           width: '100%',
-          background: 'linear-gradient(135deg, #0e7d6e, #0a5c50)',
+          background: 'linear-gradient(135deg, #136232, #0d4623)',
           border: 'none',
           borderRadius: 8,
           color: 'white',

@@ -244,13 +244,13 @@ const OrgNode = memo(({ id, data, selected }) => {
                 display: "inline-flex",
                 alignItems: "center",
                 padding: "1px 5px",
-                background: "rgba(14,125,110,0.25)",
+                background: "rgba(19,98,50,0.2)",
                 borderRadius: 4,
-                border: "1px solid rgba(14,125,110,0.5)",
+                border: "1px solid rgba(19,98,50,0.5)",
                 marginLeft: 2,
               }}
             >
-              <LinkIcon size={9} style={{ color: "#0e7d6e" }} />
+              <LinkIcon size={9} style={{ color: "#136232" }} />
             </span>
           )}
         </div>

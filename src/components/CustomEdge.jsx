@@ -779,7 +779,7 @@ const CustomEdge = memo(
     const targetY = preciseTarget?.y ?? floating?.ty ?? rawTargetY;
 
     // Read edge styling props
-    const strokeColor = data.strokeColor || "#0f5a34";
+    const strokeColor = data.strokeColor || "#136232";
     const strokeWidth = data.strokeWidth || 2.5;
     const arrowType = data.arrowType || "closed";
     const arrowStart = data.arrowStart || "none";

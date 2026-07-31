@@ -23,7 +23,7 @@ export const initialNodes = [
       name: "នាយកដ្ឋានពន្ធដារ",
       nameEn: "General Department of Taxation",
       orgType: "department",
-      color: "#0e7d6e",
+      color: "#136232",
       description: "Central Department of Taxation",
     },
   },

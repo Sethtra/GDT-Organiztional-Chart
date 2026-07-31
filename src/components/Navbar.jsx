@@ -15,6 +15,7 @@ import {
   Moon,
   Search,
   UsersRound,
+  BarChart3,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -127,6 +128,13 @@ export default function Navbar({ search, setSearch }) {
                     {isHrAdmin && (
                       <>
                         <div className="navbar__drop-divider" />
+                        <Link
+                          to="/admin"
+                          className="navbar__drop-item"
+                          onClick={() => setDropdownOpen(false)}
+                        >
+                          <BarChart3 size={14} /> Admin Portal
+                        </Link>
                         <Link
                           to="/admin/staff"
                           className="navbar__drop-item"

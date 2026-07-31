@@ -81,7 +81,7 @@ const emptyDraft: StaffDraft = {
   dateOfBirth: "",
   joinedDate: "",
   retiredDate: "",
-  gender: "unspecified",
+  gender: "male",
   education: "",
   phone: "",
   address: "",
@@ -106,7 +106,7 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     dateOfBirth: staff.dateOfBirth ?? "",
     joinedDate: staff.joinedDate ?? "",
     retiredDate: staff.retiredDate ?? "",
-    gender: staff.gender,
+    gender: staff.gender === "female" ? "female" : "male",
     education: staff.education ?? "",
     phone: staff.phone ?? "",
     address: staff.address ?? "",
@@ -381,22 +381,48 @@ export default function StaffFormDialog({
                     maxLength={200}
                   />
                 </label>
+                <div className={labelClass}>
+                  <span>ភេទ (Gender)</span>
+                  <div className="flex items-center gap-3 min-h-11 pt-0.5">
+                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-secondary has-[:checked]:border-emerald-500/80 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                      <input
+                        type="radio"
+                        name="gender"
+                        value="male"
+                        checked={draft.gender === "male"}
+                        onChange={() => update("gender", "male")}
+                        className="size-4 accent-emerald-600 cursor-pointer"
+                      />
+                      <span>ប្រុស</span>
+                    </label>
+
+                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-secondary has-[:checked]:border-emerald-500/80 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                      <input
+                        type="radio"
+                        name="gender"
+                        value="female"
+                        checked={draft.gender === "female"}
+                        onChange={() => update("gender", "female")}
+                        className="size-4 accent-emerald-600 cursor-pointer"
+                      />
+                      <span>ស្រី</span>
+                    </label>
+                  </div>
+                </div>
+
                 <label className={labelClass}>
-                  Gender
+                  កម្រិតវប្បធម៌ (Education)
                   <select
                     className={inputClass}
-                    value={draft.gender}
+                    value={draft.education}
                     onChange={(event) =>
-                      update(
-                        "gender",
-                        event.target.value as StaffDraft["gender"],
-                      )
+                      update("education", event.target.value)
                     }
                   >
-                    <option value="unspecified">Unspecified</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="other">Other</option>
+                    <option value="">ជ្រើសរើសកម្រិតវប្បធម៌…</option>
+                    <option value="បណ្ឌិត">បណ្ឌិត</option>
+                    <option value="អនុបណ្ឌិត">អនុបណ្ឌិត</option>
+                    <option value="បរិញ្ញាបត្រ">បរិញ្ញាបត្រ</option>
                   </select>
                 </label>
               </div>
@@ -545,18 +571,7 @@ export default function StaffFormDialog({
                     dir="auto"
                   />
                 </label>
-                <label className={`${labelClass} md:col-span-2`}>
-                  Education
-                  <textarea
-                    className={`${inputClass} min-h-20 resize-y`}
-                    value={draft.education}
-                    onChange={(event) =>
-                      update("education", event.target.value)
-                    }
-                    maxLength={4_000}
-                    dir="auto"
-                  />
-                </label>
+
                 <label className={`${labelClass} md:col-span-2`}>
                   Other information
                   <textarea
