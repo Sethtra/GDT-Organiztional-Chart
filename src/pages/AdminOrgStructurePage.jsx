@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { useOrgStructure } from '../hooks/useOrgStructure';
+import AdminSidebar from '../components/admin/AdminSidebar';
 import { supabase } from '../supabaseClient';
 import {
   Plus, Trash2, Pencil, Check, X, ChevronDown, ChevronRight,
-  Building2, MapPin, Loader2, AlertCircle, ArrowLeft, Search,
+  Building2, MapPin, Loader2, AlertCircle, Search,
 } from 'lucide-react';
 
 // ── Inline editable text ────────────────────────────────────────
@@ -72,11 +72,16 @@ function DeleteConfirm({ itemName, itemType, saving, onConfirm, onCancel }) {
         <h3 className="admin-modal__title">Delete Confirmation</h3>
         <p className="admin-modal__text">
           Are you sure you want to delete <strong dir="auto">{itemName}</strong>?
-          {itemType === 'unit' && <><br /><span style={{ color: 'var(--red)', fontSize: 12 }}>This will also delete all offices under this unit.</span></>}
+          {itemType === 'unit' && <><br /><span style={{ color: 'var(--a-danger)', fontSize: 12 }}>This will also delete all offices under this unit.</span></>}
         </p>
         <div className="admin-modal__actions">
-          <button className="admin-btn admin-btn--ghost" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button className="admin-btn admin-btn--danger" onClick={onConfirm} disabled={saving}>
+          <button className="admin-btn" onClick={onCancel} disabled={saving}>Cancel</button>
+          <button
+            className="admin-btn"
+            style={{ background: 'var(--a-danger)', color: 'white', border: 'none' }}
+            onClick={onConfirm}
+            disabled={saving}
+          >
             {saving ? <><Loader2 size={14} className="spin" /> Deleting...</> : 'Delete'}
           </button>
         </div>
@@ -109,7 +114,6 @@ export default function AdminOrgStructurePage() {
   useEffect(() => { if (showNewUnit) newUnitRef.current?.focus(); }, [showNewUnit]);
   useEffect(() => { if (addingOfficeFor) newOfficeRef.current?.focus(); }, [addingOfficeFor]);
 
-  // ── Toggle expand ───────
   const toggleExpand = (id) => {
     setExpandedUnits(prev => {
       const next = new Set(prev);
@@ -119,7 +123,6 @@ export default function AdminOrgStructurePage() {
     });
   };
 
-  // ── Filter + Search ────
   const filtered = (units || []).filter(u => {
     if (filterType !== 'all' && u.type !== filterType) return false;
     if (search) {
@@ -131,7 +134,6 @@ export default function AdminOrgStructurePage() {
     return true;
   });
 
-  // ── CRUD Operations ────
   const handleAddUnit = async () => {
     const trimmed = newUnitName.trim();
     if (!trimmed) return;
@@ -265,12 +267,11 @@ export default function AdminOrgStructurePage() {
     else handleDeleteOffice(deleteTarget.id);
   };
 
-  // ── Type badge colors ──
   const typeBadge = (type) => {
     const colors = {
-      department: { bg: 'rgba(56, 189, 248, 0.12)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.25)' },
-      district:   { bg: 'rgba(168, 85, 247, 0.12)', text: '#a855f7', border: 'rgba(168, 85, 247, 0.25)' },
-      province:   { bg: 'rgba(34, 197, 94, 0.12)',  text: '#22c55e', border: 'rgba(34, 197, 94, 0.25)' },
+      department: { bg: 'color-mix(in oklch, var(--a-blue) 14%, transparent)', text: 'var(--a-blue-text)', border: 'color-mix(in oklch, var(--a-blue) 30%, transparent)' },
+      district:   { bg: 'color-mix(in oklch, var(--a-purple) 14%, transparent)', text: 'var(--a-purple-text)', border: 'color-mix(in oklch, var(--a-purple) 30%, transparent)' },
+      province:   { bg: 'color-mix(in oklch, var(--a-green) 14%, transparent)', text: 'var(--a-green-text)', border: 'color-mix(in oklch, var(--a-green) 30%, transparent)' },
     };
     const c = colors[type] || colors.department;
     return (
@@ -280,149 +281,162 @@ export default function AdminOrgStructurePage() {
     );
   };
 
-  // ── Stats ──
   const totalUnits = units.length;
   const totalOffices = units.reduce((sum, u) => sum + (u.offices?.length || 0), 0);
   const deptCount = units.filter(u => u.type === 'department').length;
   const distCount = units.filter(u => u.type === 'district').length;
   const provCount = units.filter(u => u.type === 'province').length;
 
+  const TABS = [
+    { id: 'all', label: 'All' },
+    { id: 'department', label: 'Departments' },
+    { id: 'district', label: 'Districts' },
+    { id: 'province', label: 'Provinces' },
+  ];
+
   return (
-    <div className="admin-page">
-      {/* Header */}
-      <div className="admin-header">
-        <div className="admin-header__left">
-          <Link to="/dashboard" className="admin-back-btn">
-            <ArrowLeft size={18} />
-          </Link>
+    <div className="admin-shell">
+      <AdminSidebar currentTab="org-structure" />
+      <main className="admin-main">
+        <div className="admin-subheader">
+          <div
+            className="admin-subheader__icon"
+            style={{ background: 'color-mix(in oklch, var(--a-blue) 16%, transparent)', color: 'var(--a-blue-text)' }}
+          >
+            <Building2 size={17} />
+          </div>
           <div>
-            <h1 className="admin-header__title">
-              <Building2 size={22} />
-              Organizational Structure
-            </h1>
-            <p className="admin-header__subtitle">
+            <div className="admin-subheader__title">Organizational Structure</div>
+            <div className="admin-subheader__subtitle">
               Manage departments, districts, provinces and their offices
-            </p>
+            </div>
           </div>
+          {saving && (
+            <div className="admin-saving" style={{ marginLeft: 'auto' }}>
+              <Loader2 size={14} className="spin" /> Saving...
+            </div>
+          )}
         </div>
-        {saving && (
-          <div className="admin-saving">
-            <Loader2 size={14} className="spin" /> Saving...
-          </div>
-        )}
-      </div>
 
-      {/* Stats Bar */}
-      <div className="admin-stats">
-        <div className="admin-stat">
-          <span className="admin-stat__value">{totalUnits}</span>
-          <span className="admin-stat__label">Units</span>
-        </div>
-        <div className="admin-stat">
-          <span className="admin-stat__value">{totalOffices}</span>
-          <span className="admin-stat__label">Offices</span>
-        </div>
-        <div className="admin-stat">
-          <span className="admin-stat__value">{deptCount}</span>
-          <span className="admin-stat__label">Departments</span>
-        </div>
-        <div className="admin-stat">
-          <span className="admin-stat__value">{distCount}</span>
-          <span className="admin-stat__label">Districts</span>
-        </div>
-        <div className="admin-stat">
-          <span className="admin-stat__value">{provCount}</span>
-          <span className="admin-stat__label">Provinces</span>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="admin-toolbar">
-        <div className="admin-toolbar__left">
-          {/* Filter */}
-          <div className="admin-filter-group">
-            {['all', 'department', 'district', 'province'].map(t => (
-              <button
-                key={t}
-                className={`admin-filter-btn ${filterType === t ? 'active' : ''}`}
-                onClick={() => setFilterType(t)}
-              >
-                {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1) + 's'}
-              </button>
-            ))}
+        <div className="admin-chip-row">
+          <div className="admin-chip-stat">
+            <div className="admin-chip-stat__value">{totalUnits}</div>
+            <div className="admin-chip-stat__label">Units</div>
           </div>
-          {/* Search */}
-          <div className="admin-search">
-            <Search size={15} />
+          <div className="admin-chip-stat">
+            <div className="admin-chip-stat__value">{totalOffices}</div>
+            <div className="admin-chip-stat__label">Offices</div>
+          </div>
+          <div className="admin-chip-stat">
+            <div className="admin-chip-stat__value">{deptCount}</div>
+            <div className="admin-chip-stat__label">Departments</div>
+          </div>
+          <div className="admin-chip-stat">
+            <div className="admin-chip-stat__value">{distCount}</div>
+            <div className="admin-chip-stat__label">Districts</div>
+          </div>
+          <div className="admin-chip-stat">
+            <div className="admin-chip-stat__value">{provCount}</div>
+            <div className="admin-chip-stat__label">Provinces</div>
+          </div>
+        </div>
+
+        <div className="admin-tab-row">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`admin-tab ${filterType === t.id ? 'admin-tab--active' : ''}`}
+              onClick={() => setFilterType(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+          <div className="admin-search" style={{ marginLeft: 8 }}>
+            <Search size={14} style={{ color: 'var(--a-text-muted)' }} />
             <input
               type="text"
-              placeholder="Search units or offices..."
+              placeholder="Search units or offices…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               dir="auto"
             />
             {search && (
-              <button className="admin-search__clear" onClick={() => setSearch('')}><X size={14} /></button>
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{ background: 'none', border: 'none', color: 'var(--a-text-muted)', cursor: 'pointer', display: 'flex' }}
+              >
+                <X size={14} />
+              </button>
             )}
           </div>
-        </div>
-        <button
-          className="admin-btn admin-btn--primary"
-          onClick={() => { setShowNewUnit(true); setNewUnitName(''); }}
-        >
-          <Plus size={16} /> Add Unit
-        </button>
-      </div>
-
-      {/* New Unit Form */}
-      {showNewUnit && (
-        <div className="admin-new-unit-form">
-          <select
-            className="admin-select"
-            value={newUnitType}
-            onChange={e => setNewUnitType(e.target.value)}
+          <button
+            type="button"
+            className="admin-btn admin-btn--blue"
+            onClick={() => { setShowNewUnit(true); setNewUnitName(''); }}
           >
-            <option value="department">Department</option>
-            <option value="district">District</option>
-            <option value="province">Province</option>
-          </select>
-          <input
-            ref={newUnitRef}
-            className="admin-input"
-            value={newUnitName}
-            onChange={e => setNewUnitName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(); if (e.key === 'Escape') setShowNewUnit(false); }}
-            placeholder="Enter unit name (Khmer or English)..."
-            dir="auto"
-          />
-          <button className="admin-btn admin-btn--primary" onClick={handleAddUnit} disabled={!newUnitName.trim()}>
-            <Check size={15} /> Add
-          </button>
-          <button className="admin-btn admin-btn--ghost" onClick={() => setShowNewUnit(false)}>
-            Cancel
+            <Plus size={15} strokeWidth={2.2} /> Add Unit
           </button>
         </div>
-      )}
 
-      {/* Content */}
-      <div className="admin-content">
+        {showNewUnit && (
+          <div className="admin-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: 14 }}>
+            <select
+              className="admin-select"
+              value={newUnitType}
+              onChange={e => setNewUnitType(e.target.value)}
+            >
+              <option value="department">Department</option>
+              <option value="district">District</option>
+              <option value="province">Province</option>
+            </select>
+            <input
+              ref={newUnitRef}
+              className="admin-input"
+              style={{ flex: 1 }}
+              value={newUnitName}
+              onChange={e => setNewUnitName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(); if (e.key === 'Escape') setShowNewUnit(false); }}
+              placeholder="Enter unit name (Khmer or English)..."
+              dir="auto"
+            />
+            <button className="admin-btn admin-btn--blue" onClick={handleAddUnit} disabled={!newUnitName.trim()}>
+              <Check size={15} /> Add
+            </button>
+            <button className="admin-btn" onClick={() => setShowNewUnit(false)}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: 16,
+              borderRadius: 'var(--a-radius)',
+              border: '1px solid color-mix(in oklch, var(--a-danger) 40%, transparent)',
+              background: 'color-mix(in oklch, var(--a-danger) 10%, transparent)',
+              padding: 14,
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
         {loading ? (
           <div className="admin-empty">
             <Loader2 size={32} className="spin" />
             <p>Loading organizational structure...</p>
-          </div>
-        ) : error ? (
-          <div className="admin-empty admin-empty--error">
-            <AlertCircle size={32} />
-            <p>{error}</p>
-            <button className="admin-btn admin-btn--primary" onClick={refetch}>Retry</button>
           </div>
         ) : filtered.length === 0 ? (
           <div className="admin-empty">
             <Building2 size={32} />
             <p>{search ? 'No results found' : 'No organizational units yet'}</p>
             {!search && (
-              <button className="admin-btn admin-btn--primary" onClick={() => setShowNewUnit(true)}>
+              <button className="admin-btn admin-btn--blue" onClick={() => setShowNewUnit(true)}>
                 <Plus size={16} /> Add Your First Unit
               </button>
             )}
@@ -434,7 +448,6 @@ export default function AdminOrgStructurePage() {
               const officeCount = unit.offices?.length || 0;
               return (
                 <div key={unit.id} className={`admin-unit-card ${isExpanded ? 'expanded' : ''}`}>
-                  {/* Unit header */}
                   <div className="admin-unit-header" onClick={() => toggleExpand(unit.id)}>
                     <div className="admin-unit-header__left">
                       <span className="admin-unit-chevron">
@@ -471,7 +484,6 @@ export default function AdminOrgStructurePage() {
                     </div>
                   </div>
 
-                  {/* Offices list */}
                   {isExpanded && (
                     <div className="admin-offices">
                       {(unit.offices || []).map(office => (
@@ -491,7 +503,6 @@ export default function AdminOrgStructurePage() {
                         </div>
                       ))}
 
-                      {/* Add office form */}
                       {addingOfficeFor === unit.id ? (
                         <div className="admin-add-office-form">
                           <MapPin size={13} className="admin-office-icon" />
@@ -526,9 +537,8 @@ export default function AdminOrgStructurePage() {
             })}
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
         <DeleteConfirm
           itemName={deleteTarget.name}

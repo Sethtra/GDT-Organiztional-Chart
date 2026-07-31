@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  BriefcaseBusiness,
-  Loader2,
-  Plus,
-  Save,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, BriefcaseBusiness, Loader2, Plus, Save, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import AdminSidebar from "../components/admin/AdminSidebar";
 import type {
   JobTitle,
   PositionScope,
@@ -21,9 +15,6 @@ import {
   setJobTitleRequirement,
 } from "../services/jobArchitectureService";
 import { listSkillCatalog } from "../services/skillService";
-
-const fieldClass =
-  "min-h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
 
 export default function JobArchitecturePage() {
   const [titles, setTitles] = useState<JobTitle[]>([]);
@@ -38,8 +29,7 @@ export default function JobArchitecturePage() {
   const [rankOrder, setRankOrder] = useState(100);
   const [scope, setScope] = useState<PositionScope>("individual");
   const [requirementSkillId, setRequirementSkillId] = useState("");
-  const [minimumLevel, setMinimumLevel] =
-    useState<ProficiencyLevel>(3);
+  const [minimumLevel, setMinimumLevel] = useState<ProficiencyLevel>(3);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,13 +67,7 @@ export default function JobArchitecturePage() {
     setSaving(true);
     setError(null);
     try {
-      const id = await saveJobTitle({
-        name,
-        nameEn,
-        code,
-        rankOrder,
-        positionScope: scope,
-      });
+      const id = await saveJobTitle({ name, nameEn, code, rankOrder, positionScope: scope });
       setName("");
       setNameEn("");
       setCode("");
@@ -91,9 +75,7 @@ export default function JobArchitecturePage() {
       setSelectedId(id);
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save the job title.",
+        saveError instanceof Error ? saveError.message : "Unable to save the job title.",
       );
     } finally {
       setSaving(false);
@@ -114,9 +96,7 @@ export default function JobArchitecturePage() {
       await load();
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save the requirement.",
+        saveError instanceof Error ? saveError.message : "Unable to save the requirement.",
       );
     } finally {
       setSaving(false);
@@ -124,198 +104,195 @@ export default function JobArchitecturePage() {
   };
 
   return (
-    <main className="min-h-full bg-background text-foreground">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-5 py-5">
-          <Link
-            to="/dashboard"
-            className="grid size-10 place-items-center rounded-md border border-border hover:bg-accent"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="size-4" />
+    <div className="admin-shell">
+      <AdminSidebar currentTab="jobs" />
+      <main className="admin-main">
+        <div className="admin-subheader">
+          <Link to="/admin" className="admin-btn admin-btn--icon" aria-label="Back to dashboard">
+            <ArrowLeft size={16} />
           </Link>
+          <div
+            className="admin-subheader__icon"
+            style={{ background: "color-mix(in oklch, var(--a-purple) 16%, transparent)", color: "var(--a-purple-text)" }}
+          >
+            <BriefcaseBusiness size={17} />
+          </div>
           <div>
-            <h1 className="flex items-center gap-2 text-xl font-semibold">
-              <BriefcaseBusiness className="size-5 text-primary" />
-              Job Titles & Required Skills
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <div className="admin-subheader__title">Job Titles &amp; Required Skills</div>
+            <div className="admin-subheader__subtitle">
               Reusable position rules and minimum proficiency levels
-            </p>
+            </div>
           </div>
         </div>
-      </header>
 
-      <div className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[360px_1fr]">
         {error && (
           <div
             role="alert"
-            className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm lg:col-span-2"
+            style={{
+              marginBottom: 16,
+              borderRadius: "var(--a-radius)",
+              border: "1px solid color-mix(in oklch, var(--a-danger) 40%, transparent)",
+              background: "color-mix(in oklch, var(--a-danger) 10%, transparent)",
+              padding: 14,
+              fontSize: 13,
+            }}
           >
             {error}
           </div>
         )}
 
-        <aside className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="border-b border-border p-4 text-sm font-semibold">
-            Job titles
-          </div>
-          {loading ? (
-            <div className="flex min-h-40 items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Loading…
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {titles.map((title) => (
+        <div className="admin-jobs-grid">
+          <div className="admin-jobtitle-list">
+            <div className="admin-jobtitle-list__head">Job titles</div>
+            {loading ? (
+              <div style={{ display: "flex", minHeight: 120, alignItems: "center", justifyContent: "center", gap: 8, color: "var(--a-text-muted)" }}>
+                <Loader2 size={16} className="animate-spin" />
+                Loading…
+              </div>
+            ) : (
+              titles.map((title) => (
                 <button
                   key={title.id}
-                  className={`w-full p-4 text-left hover:bg-accent ${
-                    selectedId === title.id ? "bg-accent" : ""
-                  }`}
+                  type="button"
+                  className={`admin-jobtitle-row ${selectedId === title.id ? "admin-jobtitle-row--active" : ""}`}
                   onClick={() => setSelectedId(title.id)}
                 >
-                  <div className="text-sm font-medium">{title.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {title.positionScope} · rank {title.rankOrder} ·{" "}
-                    {title.requirements.length} requirements
+                  <div className="admin-jobtitle-row__title">{title.name}</div>
+                  <div className="admin-jobtitle-row__meta">
+                    {title.positionScope} · rank {title.rankOrder} · {title.requirements.length} requirements
                   </div>
                 </button>
-              ))}
-            </div>
-          )}
-        </aside>
+              ))
+            )}
+          </div>
 
-        <div className="grid content-start gap-5">
-          <section className="grid gap-3 rounded-lg border border-border bg-card p-5">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <Plus className="size-4 text-primary" />
-              Add job title
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                className={fieldClass}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Khmer / primary title"
-              />
-              <input
-                className={fieldClass}
-                value={nameEn}
-                onChange={(event) => setNameEn(event.target.value)}
-                placeholder="English title"
-              />
-              <input
-                className={fieldClass}
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="Optional code"
-              />
-              <input
-                className={fieldClass}
-                type="number"
-                min={1}
-                max={1000}
-                value={rankOrder}
-                onChange={(event) => setRankOrder(Number(event.target.value))}
-                aria-label="Rank order"
-              />
-              <select
-                className={fieldClass}
-                value={scope}
-                onChange={(event) =>
-                  setScope(event.target.value as PositionScope)
-                }
-              >
-                <option value="individual">Individual staff</option>
-                <option value="office">Office leadership</option>
-                <option value="department">Department leadership</option>
-                <option value="organization">Organization leadership</option>
-              </select>
-              <button
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                disabled={!name.trim() || saving}
-                onClick={() => void handleAddTitle()}
-              >
-                <Save className="size-4" />
-                Save title
-              </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div className="admin-card">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, marginBottom: 16, color: "var(--a-green-text)" }}>
+                <Plus size={16} strokeWidth={2.2} />
+                Add job title
+              </div>
+              <div className="admin-form-grid">
+                <input
+                  className="admin-input"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Khmer / primary title"
+                />
+                <input
+                  className="admin-input"
+                  value={nameEn}
+                  onChange={(event) => setNameEn(event.target.value)}
+                  placeholder="English title"
+                />
+              </div>
+              <div className="admin-form-grid">
+                <input
+                  className="admin-input"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  placeholder="Optional code"
+                />
+                <input
+                  className="admin-input"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={rankOrder}
+                  onChange={(event) => setRankOrder(Number(event.target.value))}
+                  aria-label="Rank order"
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <select
+                  className="admin-select"
+                  value={scope}
+                  onChange={(event) => setScope(event.target.value as PositionScope)}
+                >
+                  <option value="individual">Individual staff</option>
+                  <option value="office">Office leadership</option>
+                  <option value="department">Department leadership</option>
+                  <option value="organization">Organization leadership</option>
+                </select>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--primary"
+                  style={{ justifyContent: "center" }}
+                  disabled={!name.trim() || saving}
+                  onClick={() => void handleAddTitle()}
+                >
+                  <Save size={14} />
+                  Save title
+                </button>
+              </div>
             </div>
-          </section>
 
-          <section className="grid gap-4 rounded-lg border border-border bg-card p-5">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <Sparkles className="size-4 text-primary" />
-              {selected
-                ? `Requirements · ${selected.name}`
-                : "Select a job title"}
-            </h2>
-            {selected && (
-              <>
-                <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
-                  <select
-                    className={fieldClass}
-                    value={requirementSkillId}
-                    onChange={(event) =>
-                      setRequirementSkillId(event.target.value)
-                    }
-                  >
-                    <option value="">Select required skill…</option>
-                    {skills
-                      .filter((skill) => skill.isActive)
-                      .map((skill) => (
-                        <option key={skill.id} value={skill.id}>
-                          {skill.name}
+            <div className="admin-card">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 800, marginBottom: 16 }}>
+                <Sparkles size={16} style={{ color: "var(--a-purple-text)" }} />
+                {selected ? (
+                  <>
+                    Requirements ·{" "}
+                    <span style={{ fontFamily: "'Noto Sans Khmer', sans-serif" }}>{selected.name}</span>
+                  </>
+                ) : (
+                  "Select a job title"
+                )}
+              </div>
+              {selected && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 44px", gap: 10, marginBottom: 14 }}>
+                    <select
+                      className="admin-select"
+                      value={requirementSkillId}
+                      onChange={(event) => setRequirementSkillId(event.target.value)}
+                    >
+                      <option value="">Select required skill…</option>
+                      {skills
+                        .filter((skill) => skill.isActive)
+                        .map((skill) => (
+                          <option key={skill.id} value={skill.id}>
+                            {skill.name}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      className="admin-select"
+                      value={minimumLevel}
+                      onChange={(event) => setMinimumLevel(Number(event.target.value) as ProficiencyLevel)}
+                    >
+                      {[1, 2, 3, 4, 5].map((level) => (
+                        <option key={level} value={level}>
+                          Minimum level {level}
                         </option>
                       ))}
-                  </select>
-                  <select
-                    className={fieldClass}
-                    value={minimumLevel}
-                    onChange={(event) =>
-                      setMinimumLevel(
-                        Number(event.target.value) as ProficiencyLevel,
-                      )
-                    }
-                  >
-                    {[1, 2, 3, 4, 5].map((level) => (
-                      <option key={level} value={level}>
-                        Minimum level {level}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    className="min-h-10 rounded-md border border-border px-4 text-sm font-semibold hover:bg-accent disabled:opacity-60"
-                    disabled={!requirementSkillId || saving}
-                    onClick={() => void handleRequirement()}
-                  >
-                    Add / update
-                  </button>
-                </div>
-                <div className="grid gap-2">
+                    </select>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--primary"
+                      style={{ padding: 0, justifyContent: "center" }}
+                      disabled={!requirementSkillId || saving}
+                      onClick={() => void handleRequirement()}
+                    >
+                      <Plus size={15} strokeWidth={2.4} />
+                    </button>
+                  </div>
                   {selected.requirements.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No required skills yet.
-                    </p>
+                    <p style={{ fontSize: 13, color: "var(--a-text-muted)" }}>No required skills yet.</p>
                   ) : (
                     selected.requirements.map((requirement) => (
-                      <div
-                        key={requirement.id}
-                        className="flex items-center justify-between rounded-md border border-border bg-secondary/40 p-3 text-sm"
-                      >
+                      <div key={requirement.id} className="admin-req-row">
                         <span>{requirement.skill.name}</span>
-                        <span className="text-muted-foreground">
-                          Minimum level {requirement.minimumProficiency}
-                        </span>
+                        <span>Minimum level {requirement.minimumProficiency}</span>
                       </div>
                     ))
                   )}
-                </div>
-              </>
-            )}
-          </section>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

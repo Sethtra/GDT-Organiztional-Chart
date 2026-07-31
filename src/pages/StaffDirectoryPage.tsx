@@ -3,7 +3,6 @@ import {
   Archive,
   ArrowLeft,
   Award,
-  Building2,
   CalendarDays,
   Eye,
   Loader2,
@@ -11,17 +10,17 @@ import {
   Plus,
   RefreshCw,
   Search,
-  UserCheck,
+  Shield,
   UserRound,
-  UsersRound,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 
 import ConfirmModal from "../components/ConfirmModal";
+import AdminSidebar from "../components/admin/AdminSidebar";
 import StaffFormDialog from "../components/staff/StaffFormDialog";
 import StaffProfileDialog from "../components/staff/StaffProfileDialog";
 import StaffSkillsDialog from "../components/staff/StaffSkillsDialog";
 import type { HrStaffDirectoryRecord } from "../contracts/hr";
+import { useOrgStructure } from "../hooks/useOrgStructure";
 import { archiveStaff, listHrStaff } from "../services/staffService";
 import {
   getStaffLocationLabel,
@@ -40,10 +39,13 @@ function formatDate(value: string | null): string {
 }
 
 export default function StaffDirectoryPage() {
+  const { units, getOfficesForUnit } = useOrgStructure();
   const [staff, setStaff] = useState<HrStaffDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedOffice, setSelectedOffice] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<HrStaffDirectoryRecord | null>(null);
@@ -54,6 +56,11 @@ export default function StaffDirectoryPage() {
   const [profileTarget, setProfileTarget] =
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
+
+  const availableOffices = useMemo(() => {
+    if (!selectedDepartment) return [];
+    return getOfficesForUnit(selectedDepartment);
+  }, [selectedDepartment, getOfficesForUnit]);
 
   const load = useCallback(async (): Promise<HrStaffDirectoryRecord[]> => {
     setLoading(true);
@@ -80,27 +87,37 @@ export default function StaffDirectoryPage() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return staff;
-    return staff.filter((person) =>
-      [
-        person.name,
-        person.nameEn,
-        person.employeeId,
-        person.jobTitle?.name,
-        person.jobTitle?.nameEn,
-        person.currentPosition?.title,
-        person.currentPosition?.departmentName,
-        person.currentPosition?.officeName,
-        person.organizationalPlacement?.departmentName,
-        person.organizationalPlacement?.officeName,
-      ].some((value) => value?.toLocaleLowerCase().includes(query)),
-    );
-  }, [search, staff]);
-
-  const activeCount = staff.filter((person) => person.status === "active").length;
-  const assignedCount = staff.filter(
-    (person) => Boolean(person.organizationalPlacement),
-  ).length;
+    return staff.filter((person) => {
+      if (selectedDepartment) {
+        const dept =
+          person.currentPosition?.departmentName ||
+          person.organizationalPlacement?.departmentName;
+        if (dept !== selectedDepartment) return false;
+      }
+      if (selectedOffice) {
+        const off =
+          person.currentPosition?.officeName ||
+          person.organizationalPlacement?.officeName;
+        if (off !== selectedOffice) return false;
+      }
+      if (query) {
+        const matchesQuery = [
+          person.name,
+          person.nameEn,
+          person.employeeId,
+          person.jobTitle?.name,
+          person.jobTitle?.nameEn,
+          person.currentPosition?.title,
+          person.currentPosition?.departmentName,
+          person.currentPosition?.officeName,
+          person.organizationalPlacement?.departmentName,
+          person.organizationalPlacement?.officeName,
+        ].some((value) => value?.toLocaleLowerCase().includes(query));
+        if (!matchesQuery) return false;
+      }
+      return true;
+    });
+  }, [search, selectedDepartment, selectedOffice, staff]);
 
   const openNewOfficer = () => {
     setEditing(null);
@@ -132,162 +149,155 @@ export default function StaffDirectoryPage() {
   ) => {
     const nextStaff = await load();
     if (!manageSkills) return;
-    const savedStaff = nextStaff.find(
-      (person) => person.id === savedStaffId,
-    );
+    const savedStaff = nextStaff.find((person) => person.id === savedStaffId);
     if (savedStaff) setSkillsTarget(savedStaff);
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground pb-12">
-      {/* Header Bar */}
-      <header className="border-b border-border/80 bg-card/60 backdrop-blur-md sticky top-0 z-20">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/dashboard"
-              className="grid size-9 place-items-center rounded-lg border border-border/80 bg-secondary/30 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-              aria-label="Back to dashboard"
-              title="Back to Dashboard"
-            >
-              <ArrowLeft className="size-4" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold tracking-tight text-foreground">
-                  GDT Staff Directory
-                </h1>
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-                  {staff.length} Officers
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Official HR Directory & Organizational Placement
-              </p>
+    <div className="admin-shell">
+      <AdminSidebar currentTab="staff" />
+      <main className="admin-main">
+        <div className="admin-subheader" style={{ marginBottom: 20 }}>
+          <a
+            href="/admin"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.back();
+            }}
+            className="admin-btn admin-btn--icon"
+            aria-label="Back to dashboard"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft size={16} />
+          </a>
+          <div className="admin-sidebar__seal" style={{ width: 36, height: 36 }}>
+            <Shield size={17} strokeWidth={1.6} />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'Noto Sans Khmer', sans-serif" }}>
+              អគ្គនាយកដ្ឋានពន្ធដារ
+            </div>
+            <div style={{ fontSize: 10.5, letterSpacing: ".05em", color: "var(--a-text-muted)", textTransform: "uppercase" }}>
+              General Department of Taxation
             </div>
           </div>
-
           <button
-            className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm transition hover:brightness-110"
+            type="button"
+            className="admin-btn admin-btn--primary"
+            style={{ marginLeft: "auto" }}
             onClick={openNewOfficer}
             aria-label="Add officer"
           >
-            <Plus className="size-4" />
+            <Plus size={15} strokeWidth={2.4} />
             Add New Officer
           </button>
         </div>
-      </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-6 py-6">
-        {/* KPI Stats Cards */}
-        <section
-          className="grid gap-4 sm:grid-cols-3"
-          aria-label="Directory summary"
-        >
-          <div className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-4 shadow-sm">
-            <div>
-              <div className="text-xs font-medium text-muted-foreground">Total Directory Records</div>
-              <div className="mt-1 text-2xl font-bold tracking-tight">{staff.length}</div>
-            </div>
-            <div className="grid size-10 place-items-center rounded-lg border border-border/60 bg-secondary/50 text-foreground">
-              <UsersRound className="size-5" />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm">
-            <div>
-              <div className="text-xs font-medium text-emerald-400">Active Officers</div>
-              <div className="mt-1 text-2xl font-bold tracking-tight text-emerald-300">{activeCount}</div>
-            </div>
-            <div className="grid size-10 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-              <UserCheck className="size-5" />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-sky-500/30 bg-sky-500/5 p-4 shadow-sm">
-            <div>
-              <div className="text-xs font-medium text-sky-400">Assigned to Department</div>
-              <div className="mt-1 text-2xl font-bold tracking-tight text-sky-300">{assignedCount}</div>
-            </div>
-            <div className="grid size-10 place-items-center rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400">
-              <Building2 className="size-5" />
-            </div>
-          </div>
-        </section>
-
-        {/* Search & Filter Toolbar */}
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-3 shadow-sm">
-          <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="admin-toolbar">
+          <div className="admin-search">
+            <Search size={15} style={{ color: "var(--a-text-muted)" }} />
             <input
-              className="pp-input !pl-9 text-xs"
               placeholder="Search by officer name, employee ID, position, or department…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
-
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-              <input
-                type="checkbox"
-                checked={includeArchived}
-                onChange={(event) => setIncludeArchived(event.target.checked)}
-                className="rounded border-border text-primary focus:ring-primary/30"
-              />
-              Include archived records
-            </label>
-
-            <button
-              className="grid size-9 place-items-center rounded-lg border border-border/80 bg-secondary/30 text-foreground transition hover:bg-secondary disabled:opacity-50"
-              onClick={() => void load()}
-              disabled={loading}
-              aria-label="Refresh staff directory"
-              title="Refresh Directory"
-            >
-              <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-          </div>
-        </section>
+          <select
+            className="admin-select"
+            value={selectedDepartment}
+            onChange={(e) => {
+              setSelectedDepartment(e.target.value);
+              setSelectedOffice("");
+            }}
+          >
+            <option value="">All Departments</option>
+            {units.map((unit) => (
+              <option key={unit.id} value={unit.name}>
+                {unit.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="admin-select"
+            style={!selectedDepartment ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            value={selectedOffice}
+            disabled={!selectedDepartment}
+            onChange={(e) => setSelectedOffice(e.target.value)}
+          >
+            <option value="">
+              {!selectedDepartment ? "Select department first…" : "All Offices"}
+            </option>
+            {availableOffices.map((off) => (
+              <option key={off.id} value={off.name}>
+                {off.name}
+              </option>
+            ))}
+          </select>
+          <label className="admin-check">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(event) => setIncludeArchived(event.target.checked)}
+            />
+            Include archived records
+          </label>
+          <button
+            type="button"
+            className="admin-btn admin-btn--icon"
+            onClick={() => void load()}
+            disabled={loading}
+            aria-label="Refresh staff directory"
+            title="Refresh Directory"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
 
         {error && (
           <div
             role="alert"
-            className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-xs leading-relaxed text-destructive"
+            style={{
+              marginBottom: 16,
+              borderRadius: "var(--a-radius)",
+              border: "1px solid color-mix(in oklch, var(--a-danger) 40%, transparent)",
+              background: "color-mix(in oklch, var(--a-danger) 10%, transparent)",
+              padding: 14,
+              fontSize: 13,
+            }}
           >
             {error}
           </div>
         )}
 
-        {/* Officers Directory Table */}
-        <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-          {/* Header Row */}
-          <div className="grid grid-cols-[45px_minmax(220px,1.2fr)_120px_minmax(200px,1fr)_140px_160px] gap-4 border-b border-border/80 bg-secondary/40 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground max-lg:hidden">
-            <span>No.</span>
-            <span>Officer Name</span>
-            <span>Employee ID</span>
-            <span>Position & Placement</span>
-            <span>Service Date</span>
-            <span className="text-right">Actions</span>
-          </div>
-
+        <div className="admin-table-card">
           {loading ? (
-            <div className="grid min-h-48 place-items-center text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin text-primary" />
+            <div style={{ display: "grid", minHeight: 200, placeItems: "center", color: "var(--a-text-muted)", fontSize: 13 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Loader2 size={16} className="animate-spin" />
                 Loading directory records…
               </div>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="grid min-h-56 place-items-center px-5 text-center">
-              <div className="max-w-sm">
-                <div className="mx-auto grid size-10 place-items-center rounded-xl border border-border bg-secondary/40 text-muted-foreground">
-                  <UserRound className="size-5" />
+            <div style={{ display: "grid", minHeight: 220, placeItems: "center", padding: 20, textAlign: "center" }}>
+              <div style={{ maxWidth: 360 }}>
+                <div
+                  style={{
+                    margin: "0 auto",
+                    display: "grid",
+                    placeItems: "center",
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    border: "1px solid var(--a-border-strong)",
+                    color: "var(--a-text-muted)",
+                  }}
+                >
+                  <UserRound size={20} />
                 </div>
-                <h2 className="mt-3 text-sm font-semibold">
+                <h2 style={{ marginTop: 12, fontSize: 14, fontWeight: 700 }}>
                   {search ? "No matching officers found" : "No officer records yet"}
                 </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p style={{ marginTop: 4, fontSize: 12, color: "var(--a-text-muted)" }}>
                   {search
                     ? "Try adjusting your search query or department filter."
                     : "Click below to add your first officer to the HR directory."}
@@ -295,132 +305,135 @@ export default function StaffDirectoryPage() {
                 {!search && (
                   <button
                     type="button"
-                    className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm"
+                    className="admin-btn admin-btn--primary"
+                    style={{ marginTop: 16 }}
                     onClick={openNewOfficer}
                   >
-                    <Plus className="size-4" />
+                    <Plus size={15} />
                     Add First Officer
                   </button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-border/60">
-              {filtered.map((person, index) => (
-                <article
-                  key={person.id}
-                  className="group grid grid-cols-[45px_minmax(220px,1.2fr)_120px_minmax(200px,1fr)_140px_160px] items-center gap-4 px-5 py-3.5 transition hover:bg-secondary/30 max-lg:grid-cols-1 max-lg:gap-3"
-                >
-                  {/* Row Number */}
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    {index + 1}
-                  </div>
-
-                  {/* Officer Info */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-foreground" dir="auto">
-                        {person.name}
-                      </span>
-                      {person.status === "archived" && (
-                        <span className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
-                          Archived
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Officer name</th>
+                  <th>Employee ID</th>
+                  <th>Position &amp; placement</th>
+                  <th>Service date</th>
+                  <th className="admin-table__th--right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((person, index) => (
+                  <tr key={person.id}>
+                    <td style={{ color: "var(--a-text-faint)", fontWeight: 700 }}>
+                      {index + 1}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="admin-table__name-kh" dir="auto">
+                          {person.name}
                         </span>
-                      )}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {person.nameEn || "—"}
-                    </div>
-                  </div>
-
-                  {/* Employee ID */}
-                  <div className="text-xs font-medium">
-                    <span className="mr-2 text-muted-foreground lg:hidden">ID:</span>
-                    {person.employeeId ? (
-                      <span className="rounded bg-secondary px-2 py-1 font-mono text-foreground">
-                        {person.employeeId}
-                      </span>
-                    ) : (
-                      <span className="text-amber-400/80">Unassigned</span>
-                    )}
-                  </div>
-
-                  {/* Position & Location */}
-                  <div className="min-w-0 text-xs">
-                    <div className="truncate font-semibold text-foreground" dir="auto">
-                      {getStaffPositionTitle(person)}
-                    </div>
-                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {getStaffLocationLabel(person)}
-                    </div>
-                  </div>
-
-                  {/* Service Dates */}
-                  <div className="text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <CalendarDays className="size-3.5 text-muted-foreground" />
-                      <span>{formatDate(person.joinedDate)}</span>
-                    </div>
-                    {person.retiredDate && (
-                      <div className="mt-0.5 text-[11px] text-amber-400/80">
-                        Retired {formatDate(person.retiredDate)}
+                        {person.status === "archived" && (
+                          <span
+                            style={{
+                              borderRadius: 6,
+                              border: "1px solid color-mix(in oklch, var(--a-danger) 30%, transparent)",
+                              background: "color-mix(in oklch, var(--a-danger) 10%, transparent)",
+                              padding: "1px 6px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: "var(--a-danger)",
+                            }}
+                          >
+                            Archived
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  {/* Action Buttons (Icon only, reveals on hover) */}
-                  <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                    <button
-                      type="button"
-                      className="grid size-8 place-items-center rounded-lg border border-border/80 bg-secondary/40 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                      onClick={() => setProfileTarget(person)}
-                      aria-label={`View profile for ${person.name}`}
-                      title="View Profile"
-                    >
-                      <Eye className="size-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="grid size-8 place-items-center rounded-lg border border-border/80 bg-secondary/40 text-primary transition hover:bg-primary/10"
-                      onClick={() => setSkillsTarget(person)}
-                      aria-label={`Manage skills for ${person.name}`}
-                      title="Manage Skills"
-                    >
-                      <Award className="size-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="grid size-8 place-items-center rounded-lg border border-border/80 bg-secondary/40 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-                      onClick={() => {
-                        setEditing(person);
-                        setFormOpen(true);
-                      }}
-                      aria-label={`Edit ${person.name}`}
-                      title="Edit Officer Info"
-                    >
-                      <Pencil className="size-4" />
-                    </button>
-
-                    {person.status !== "archived" && (
-                      <button
-                        type="button"
-                        className="grid size-8 place-items-center rounded-lg border border-destructive/30 bg-destructive/5 text-destructive transition hover:bg-destructive/15"
-                        onClick={() => setArchiveTarget(person)}
-                        aria-label={`Archive ${person.name}`}
-                        title="Archive Officer Record"
-                      >
-                        <Archive className="size-4" />
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
+                      <div className="admin-table__name-en">{person.nameEn || "—"}</div>
+                    </td>
+                    <td>
+                      {person.employeeId ? (
+                        <span className="admin-chip">{person.employeeId}</span>
+                      ) : (
+                        <span style={{ color: "var(--a-gold-text)" }}>Unassigned</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Noto Sans Khmer', sans-serif" }} dir="auto">
+                        {getStaffPositionTitle(person)}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--a-text-muted)", marginTop: 2, fontFamily: "'Noto Sans Khmer', sans-serif" }}>
+                        {getStaffLocationLabel(person)}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "color-mix(in oklch, var(--a-text) 75%, transparent)" }}>
+                        <CalendarDays size={12} />
+                        {formatDate(person.joinedDate)}
+                      </div>
+                      {person.retiredDate && (
+                        <div style={{ fontSize: 11, color: "var(--a-gold-text)", marginTop: 3, fontWeight: 600 }}>
+                          Retired {formatDate(person.retiredDate)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="admin-table__actions">
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="admin-icon-btn"
+                          onClick={() => setProfileTarget(person)}
+                          aria-label={`View profile for ${person.name}`}
+                          title="View Profile"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-icon-btn"
+                          onClick={() => setSkillsTarget(person)}
+                          aria-label={`Manage skills for ${person.name}`}
+                          title="Manage Skills"
+                        >
+                          <Award size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-icon-btn"
+                          onClick={() => {
+                            setEditing(person);
+                            setFormOpen(true);
+                          }}
+                          aria-label={`Edit ${person.name}`}
+                          title="Edit Officer Info"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        {person.status !== "archived" && (
+                          <button
+                            type="button"
+                            className="admin-icon-btn admin-icon-btn--danger"
+                            onClick={() => setArchiveTarget(person)}
+                            aria-label={`Archive ${person.name}`}
+                            title="Archive Officer Record"
+                          >
+                            <Archive size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
-        </section>
-      </div>
+        </div>
+      </main>
 
       <StaffFormDialog
         open={formOpen}
@@ -452,6 +465,6 @@ export default function StaffDirectoryPage() {
           danger
         />
       )}
-    </main>
+    </div>
   );
 }
