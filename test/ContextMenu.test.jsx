@@ -45,4 +45,31 @@ describe("ContextMenu profile access", () => {
       screen.queryByRole("menuitem", { name: "View Details" }),
     ).not.toBeInTheDocument();
   });
+
+  it("survives a stray click on document immediately after opening", () => {
+    const onClose = vi.fn();
+    render(
+      <ContextMenu x={20} y={30} isCollapsed={false} onClose={onClose} />,
+    );
+
+    // Regression test: on some Windows trackpad/mouse driver setups, the
+    // right-click gesture that opens this menu is followed a few ms later
+    // by a stray synthetic 'click' reaching document — which used to close
+    // the menu instantly, before the user could read it.
+    fireEvent.click(document);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("still closes on a genuine later click outside", () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    render(
+      <ContextMenu x={20} y={30} isCollapsed={false} onClose={onClose} />,
+    );
+
+    vi.advanceTimersByTime(300);
+    fireEvent.click(document);
+    expect(onClose).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
 });

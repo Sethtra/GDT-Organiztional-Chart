@@ -24,14 +24,27 @@ export default function ContextMenu({
   onClose,
 }) {
   useEffect(() => {
-    const handler = (e) => {
+    // The right-click gesture that opens this menu can be followed by a
+    // stray synthetic 'click' on some Windows trackpad/mouse driver setups
+    // (observed: contextmenu fires cleanly, then an extra click reaches
+    // document a few ms later). A plain click-outside listener catches
+    // that stray click and closes the menu the instant it opens. Ignoring
+    // any close trigger in the first 250ms — far shorter than a real
+    // human decision to click away — absorbs it without weakening the
+    // actual "click outside to dismiss" behavior.
+    const openedAt = Date.now();
+    const handleKeydown = (e) => {
       if (e.key === "Escape") onClose();
     };
-    document.addEventListener("keydown", handler);
-    document.addEventListener("click", onClose);
+    const handleOutsideClick = () => {
+      if (Date.now() - openedAt < 250) return;
+      onClose();
+    };
+    document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("click", handleOutsideClick);
     return () => {
-      document.removeEventListener("keydown", handler);
-      document.removeEventListener("click", onClose);
+      document.removeEventListener("keydown", handleKeydown);
+      document.removeEventListener("click", handleOutsideClick);
     };
   }, [onClose]);
 
