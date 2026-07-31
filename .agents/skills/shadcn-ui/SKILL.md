@@ -26,7 +26,7 @@ When asked to build or modify UI components, use **shadcn/ui** and **Tailwind CS
 - **cn() utility**: Use the `cn()` utility (typically found in `lib/utils.js`) to merge Tailwind classes cleanly, especially when allowing overrides via `className` props:
   ```javascript
   import { cn } from "@/lib/utils"
-  
+
   export function MyComponent({ className, ...props }) {
     return <div className={cn("base-classes", className)} {...props} />
   }

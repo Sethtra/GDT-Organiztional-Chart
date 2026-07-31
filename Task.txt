@@ -1,0 +1,57 @@
+Task 1: Create a CRUD page for individual to save their personal information and work information 
+        - Personal Information: 
+            - Name
+            - Age
+            - Gender
+            - Education
+            - Phone Number
+            - Email
+            - Current Address
+            - Marriage Status
+            - National ID
+        - Work Information:
+            - ID
+            - Position
+            - Office
+            - Department
+            - Reporting Officer
+            - Joining Date
+            - Resignation Date
+        - Create a Profile Card that pop up on the page without leaving the current page when click it. Example: in task 3 when user click on history they see a name and reason why they resign tranfer ... when they click the name a profile card is show up overlap with the current page but can close at any time.
+            - contain all personal information
+            - contain all work information
+            - contain all skill information
+            - contain all history information
+
+Task 2: Add new column in individual node 
+        - Requierment Skills ( skills that requier for a position )
+        - Personal Skills ( Individual skills )
+        - all skill must be record for future use purpose Example: to promote a officer we need to check their Personal skills with Requierment skills to see is he/her fit the position.
+        - The personal skill is save in thier Record
+
+Task 3: After Task 1 each node is not key in information anymore we select the individual from the data we key in from Task 1 CRUD page to the Node if all information is correct then save it.
+        - We filter Department then office to find the individual and select them so the individual data are link to department and office.
+        - the Vacant Button still the same but the history need some update current the history only save
+            - Name (Khmer and English)
+            - ID 
+            - Joined Date
+            - Left Date
+            - Reason
+            - Phone
+            - Address
+            - Marriage Status
+            - Education and old version of key in Skills
+        node 
+        it need to link to individual Profile Card that created in Task 1 when user click the history they see name and Reson they tranfer but if they click on that name direct them to profile card to show full information of that officer. 
+        
+
+Task 4: Start fixing this
+        1. Baseline and characterization tests  
+        2. RBAC design and migration  
+        3. TypeScript foundation and database types  
+        4. History, shortcut, and persistence extraction  
+        5. Properties panel modularization  
+        6. Tailwind and semantic-token foundation  
+        7. Shadcn accessibility pilot  
+        8. Incremental UI/CSS migration  
+        9. Release verification, security audit, and documentation
