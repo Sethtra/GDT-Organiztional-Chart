@@ -4860,17 +4860,21 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
   --a-text-faint:     oklch(95% 0.008 255 / 45%);
   --a-tint:           oklch(95% 0.008 255 / 8%);
 
-  --a-green:          oklch(72% 0.15 155);
-  --a-green-text:     oklch(80% 0.14 155);
-  --a-green-ink:      oklch(15% 0.02 155);
-  --a-blue:           oklch(72% 0.13 235);
-  --a-blue-text:      oklch(78% 0.12 235);
-  --a-blue-ink:       oklch(15% 0.02 235);
-  --a-gold:           oklch(78% 0.15 85);
-  --a-gold-text:      oklch(82% 0.14 85);
-  --a-purple:         oklch(74% 0.14 300);
-  --a-purple-text:    oklch(78% 0.13 300);
-  --a-danger:         oklch(70% 0.17 25);
+  /* Accent hues restored to the emerald/sky/amber/purple palette the admin
+     pages used before the pixel-perfect Claude Design pass — kept the
+     design's layout/spacing/typography, swapped only the color identity
+     back to what was there before. */
+  --a-green:          #10b981; /* emerald-500 */
+  --a-green-text:     #34d399; /* emerald-400 */
+  --a-green-ink:      #ffffff;
+  --a-blue:           #0ea5e9; /* sky-500 */
+  --a-blue-text:      #38bdf8; /* sky-400 */
+  --a-blue-ink:       #ffffff;
+  --a-gold:           #f59e0b; /* amber-500 */
+  --a-gold-text:      #fbbf24; /* amber-400 */
+  --a-purple:         #a855f7; /* purple-500 */
+  --a-purple-text:    #c084fc; /* purple-400 */
+  --a-danger:         #f43f5e; /* rose-500 */
 
   --a-radius-card:    16px;
   --a-radius-chip:    14px;
