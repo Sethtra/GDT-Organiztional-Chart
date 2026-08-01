@@ -3,20 +3,14 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowUpRight,
-  Bell,
   BriefcaseBusiness,
-  Building2,
   CalendarDays,
-  CheckCircle2,
   ChevronRight,
   CircleAlert,
   Clock3,
   FileText,
-  LayoutDashboard,
-  Menu,
   Plus,
   Search,
-  ShieldCheck,
   UserRoundCheck,
   UsersRound,
   X,
@@ -24,44 +18,13 @@ import {
 import { Link } from "react-router-dom";
 
 import { cn } from "../lib/utils";
+import AdminFooter from "../components/admin/AdminFooter";
+import AdminHeader from "../components/admin/AdminHeader";
+import AdminSidebar from "../components/admin/AdminSidebar";
 import "./AdminDashboardTestPage.css";
 
 type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
 type TrendPeriod = "30d" | "90d" | "12m";
-
-const NAV_ITEMS: Array<{
-  label: string;
-  description: string;
-  path: string;
-  icon: LucideIcon;
-  active?: boolean;
-}> = [
-  {
-    label: "Executive overview",
-    description: "Workforce intelligence",
-    path: "/test-admin",
-    icon: LayoutDashboard,
-    active: true,
-  },
-  {
-    label: "Staff directory",
-    description: "People and placements",
-    path: "/admin/staff",
-    icon: UsersRound,
-  },
-  {
-    label: "Organization",
-    description: "Departments and offices",
-    path: "/admin/org-structure",
-    icon: Building2,
-  },
-  {
-    label: "Job architecture",
-    description: "Positions and skills",
-    path: "/admin/job-architecture",
-    icon: BriefcaseBusiness,
-  },
-];
 
 const KPI_ITEMS: Array<{
   label: string;
@@ -293,109 +256,6 @@ function StatusBadge({
   );
 }
 
-function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <>
-      <div className="border-b border-[var(--pa-sidebar-border)] px-5 pb-6 pt-6">
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white">
-            <img
-              src="/gdt-seal.png"
-              alt=""
-              className="size-10 object-contain"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-extrabold tracking-[-0.015em] text-[var(--pa-sidebar-text)]">
-              GDT Administration
-            </div>
-            <div className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--pa-sidebar-muted)]">
-              People command center
-            </div>
-          </div>
-        </div>
-        <div className="mt-5 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.055] px-3 py-2.5">
-          <span className="text-[11px] font-semibold text-[var(--pa-sidebar-muted)]">
-            Design environment
-          </span>
-          <span className="rounded-md border border-[#d8bd79]/30 bg-[#d8bd79]/10 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-[#efd78d]">
-            Preview
-          </span>
-        </div>
-      </div>
-
-      <nav
-        className="flex flex-1 flex-col gap-1 px-3 py-5"
-        aria-label="Admin navigation"
-      >
-        <div className="mb-2 px-3 text-[9.5px] font-bold uppercase tracking-[0.14em] text-[var(--pa-sidebar-muted)]">
-          Workspace
-        </div>
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.label}
-              to={item.path}
-              onClick={onNavigate}
-              aria-current={item.active ? "page" : undefined}
-              className={cn(
-                "pa-focus-ring group relative flex min-h-14 items-center gap-3 rounded-[10px] px-3 py-2.5 text-left no-underline transition-colors duration-150",
-                item.active
-                  ? "bg-white/[0.11] text-white"
-                  : "text-[var(--pa-sidebar-muted)] hover:bg-[var(--pa-sidebar-hover)] hover:text-white",
-              )}
-            >
-              {item.active && (
-                <span
-                  className="absolute -left-3 h-7 w-0.5 rounded-r-full bg-[#d8bd79]"
-                  aria-hidden="true"
-                />
-              )}
-              <span
-                className={cn(
-                  "flex size-8 shrink-0 items-center justify-center rounded-lg border",
-                  item.active
-                    ? "border-white/10 bg-white/10 text-[#efd78d]"
-                    : "border-white/[0.06] bg-white/[0.035] text-[var(--pa-sidebar-muted)] group-hover:text-white",
-                )}
-              >
-                <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-bold">
-                  {item.label}
-                </span>
-                <span className="mt-0.5 block truncate text-[10.5px] font-medium opacity-70">
-                  {item.description}
-                </span>
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="m-3 rounded-xl border border-[var(--pa-sidebar-border)] bg-white/[0.045] p-4">
-        <div className="flex items-start gap-3">
-          <ShieldCheck
-            size={17}
-            className="mt-0.5 shrink-0 text-[#efd78d]"
-            aria-hidden="true"
-          />
-          <div>
-            <div className="text-[11.5px] font-bold text-white">
-              Sample data only
-            </div>
-            <p className="mt-1 text-[10.5px] leading-[1.55] text-[var(--pa-sidebar-muted)]">
-              This page is isolated from live HR records.
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
 function PanelHeader({
   eyebrow,
   title,
@@ -464,9 +324,9 @@ export default function AdminDashboardTestPage() {
   }, [query]);
 
   return (
-    <div className="admin-dashboard-test flex">
-      <aside className="hidden w-[268px] shrink-0 flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] lg:flex">
-        <NavigationContent />
+    <div className="admin-dashboard-test flex h-screen overflow-hidden bg-[var(--pa-canvas)]">
+      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] lg:flex h-full">
+        <AdminSidebar currentTab="analytics" />
       </aside>
 
       {mobileNavOpen && (
@@ -477,7 +337,7 @@ export default function AdminDashboardTestPage() {
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close admin navigation"
           />
-          <aside className="relative flex h-full w-[min(86vw,288px)] flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:duration-200">
+          <aside className="relative flex h-full w-[min(84vw,260px)] flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:duration-200">
             <button
               type="button"
               onClick={() => setMobileNavOpen(false)}
@@ -486,75 +346,22 @@ export default function AdminDashboardTestPage() {
             >
               <X size={18} aria-hidden="true" />
             </button>
-            <NavigationContent onNavigate={() => setMobileNavOpen(false)} />
+            <AdminSidebar currentTab="analytics" onNavigate={() => setMobileNavOpen(false)} />
           </aside>
         </div>
       )}
 
-      <div className="pa-scrollbar min-w-0 flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-[var(--pa-border)] bg-white/95 px-4 backdrop-blur-md sm:px-7 lg:px-10">
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            className="pa-focus-ring flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--pa-border)] bg-white text-[var(--pa-text)] transition-colors hover:bg-[var(--pa-surface-muted)] lg:hidden"
-            aria-label="Open admin navigation"
-            aria-expanded={mobileNavOpen}
-          >
-            <Menu size={19} aria-hidden="true" />
-          </button>
+      <div className="flex flex-1 flex-col h-full overflow-hidden min-w-0">
+        <AdminHeader
+          mobileNavOpen={mobileNavOpen}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+          searchValue={query}
+          onSearchChange={setQuery}
+          searchPlaceholder="Search people, actions, or departments"
+          searchLabel="Search recent activity"
+        />
 
-          <div className="hidden min-w-0 flex-1 items-center md:flex">
-            <div className="relative w-full max-w-[430px]">
-              <Search
-                size={16}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pa-faint)]"
-                aria-hidden="true"
-              />
-              <label htmlFor="admin-test-search" className="sr-only">
-                Search recent activity
-              </label>
-              <input
-                id="admin-test-search"
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search people, actions, or departments"
-                className="pa-focus-ring h-10 w-full rounded-[9px] border border-[var(--pa-border)] bg-[var(--pa-canvas)] pl-10 pr-3 text-[12.5px] font-medium text-[var(--pa-text)] outline-none placeholder:text-[var(--pa-faint)]"
-              />
-            </div>
-          </div>
-
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-2 rounded-lg border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] px-3 py-2 text-[10.5px] font-bold text-[var(--pa-primary)] sm:flex">
-              <span className="size-1.5 rounded-full bg-[var(--pa-primary)]" />
-              Synced 2 min ago
-            </div>
-            <a
-              href="#approvals"
-              className="pa-focus-ring relative flex size-10 items-center justify-center rounded-lg border border-[var(--pa-border)] bg-white text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
-              aria-label="View 18 pending actions"
-            >
-              <Bell size={17} aria-hidden="true" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-[var(--pa-danger)] ring-2 ring-white" />
-            </a>
-            <div className="h-8 w-px bg-[var(--pa-border)]" aria-hidden="true" />
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-[var(--pa-sidebar)] text-[11px] font-extrabold text-white">
-                DA
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-[11.5px] font-extrabold leading-4 text-[var(--pa-text)]">
-                  Dara Admin
-                </div>
-                <div className="text-[9.5px] font-semibold text-[var(--pa-muted)]">
-                  HR Administrator
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto w-full max-w-[1540px] px-4 pb-12 pt-7 sm:px-7 lg:px-10 lg:pt-9">
+        <main className="pa-scrollbar flex-1 overflow-y-auto mx-auto w-full max-w-[1540px] px-4 pb-12 pt-7 sm:px-7 lg:px-10 lg:pt-9">
           <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2.5">
@@ -577,7 +384,7 @@ export default function AdminDashboardTestPage() {
                 31 July 2026
               </div>
               <Link
-                to="/admin/staff"
+                to="/admin/staff-preview"
                 className="pa-focus-ring inline-flex h-10 items-center gap-2 rounded-[9px] bg-[var(--pa-primary)] px-4 text-[11.5px] font-extrabold text-white no-underline transition-colors hover:bg-[var(--pa-primary-hover)]"
               >
                 <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
@@ -784,7 +591,7 @@ export default function AdminDashboardTestPage() {
                   return (
                     <Link
                       key={approval.title}
-                      to="/admin/staff"
+                      to="/admin/staff-preview"
                       className="pa-focus-ring group flex items-center gap-3 py-4 text-inherit no-underline"
                     >
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--pa-surface-muted)] text-[var(--pa-muted)] transition-colors group-hover:bg-[var(--pa-primary-soft)] group-hover:text-[var(--pa-primary)]">
@@ -1022,15 +829,10 @@ export default function AdminDashboardTestPage() {
               )}
             </section>
           </div>
-
-          <footer className="mt-6 flex flex-col gap-2 border-t border-[var(--pa-border)] pt-5 text-[9.5px] font-semibold text-[var(--pa-faint)] sm:flex-row sm:items-center sm:justify-between">
-            <span>GDT People Command Center · Design preview</span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={12} aria-hidden="true" />
-              Prototype isolated from production data
-            </span>
-          </footer>
         </main>
+
+        {/* Synchronized Position Bottom Footer */}
+        <AdminFooter />
       </div>
     </div>
   );

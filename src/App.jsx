@@ -9,6 +9,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import LoginTestPage from './pages/LoginTestPage';
 import AdminDashboardTestPage from './pages/AdminDashboardTestPage';
+import StaffDirectoryTestPage from './pages/StaffDirectoryTestPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -99,6 +100,16 @@ function AppLayout() {
               <ProtectedRoute>
                 <HrAdminRoute>
                   <StaffDirectoryPage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/staff-preview"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <StaffDirectoryTestPage />
                 </HrAdminRoute>
               </ProtectedRoute>
             }

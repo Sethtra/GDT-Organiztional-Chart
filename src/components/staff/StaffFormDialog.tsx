@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarDays,
   Loader2,
+  Phone,
   Save,
   Sparkles,
   UserRoundPlus,
@@ -58,6 +59,24 @@ interface StaffDraft {
   otherInformation: string;
 }
 
+type FormSection = "personal" | "employment" | "contact";
+
+const SECTION_FIELDS: Record<FormSection, ReadonlyArray<keyof StaffDraft>> = {
+  personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education"],
+  employment: ["departmentId", "officeId", "jobTitleId", "joinedDate", "retiredDate"],
+  contact: ["phone", "address", "otherInformation"],
+};
+
+const SECTION_TABS: Array<{
+  id: FormSection;
+  label: string;
+  icon: typeof UserRoundPlus;
+}> = [
+  { id: "personal", label: "Personal information", icon: UserRoundPlus },
+  { id: "employment", label: "Employment", icon: BriefcaseBusiness },
+  { id: "contact", label: "Contact & background", icon: Phone },
+];
+
 const approvedPositionNames = [
   "ប្រធាននាយកដ្ឋាន",
   "អនុប្រធាននាយកដ្ឋាន",
@@ -89,10 +108,9 @@ const emptyDraft: StaffDraft = {
 };
 
 const inputClass =
-  "theme-field min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
-const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
-const sectionTitleClass =
-  "flex items-center gap-2 border-b border-border pb-2 text-sm font-semibold text-foreground";
+  "min-h-11 w-full rounded-[9px] border border-[#d9e1dc] bg-[#f3f5f2] px-3 py-2 text-[13px] font-medium text-[#16211b] outline-none transition placeholder:text-[#87918b] focus:border-[#136232] focus:bg-white focus:ring-2 focus:ring-[#136232]/25 disabled:cursor-not-allowed disabled:opacity-60";
+const labelClass =
+  "grid gap-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.05em] text-[#66716b]";
 
 function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
   if (!staff) return emptyDraft;
@@ -129,6 +147,15 @@ function duplicateMatchLabel(value: StaffDuplicate["matchedFields"][number]) {
     : "Name and date of birth";
 }
 
+function sectionForField(fieldName: unknown): FormSection | null {
+  for (const [section, fields] of Object.entries(SECTION_FIELDS) as Array<
+    [FormSection, ReadonlyArray<keyof StaffDraft>]
+  >) {
+    if (fields.includes(fieldName as keyof StaffDraft)) return section;
+  }
+  return null;
+}
+
 export default function StaffFormDialog({
   open,
   staff,
@@ -136,6 +163,7 @@ export default function StaffFormDialog({
   onSaved,
 }: StaffFormDialogProps) {
   const [draft, setDraft] = useState<StaffDraft>(emptyDraft);
+  const [activeSection, setActiveSection] = useState<FormSection>("personal");
   const [positions, setPositions] = useState<JobTitle[]>([]);
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -159,6 +187,7 @@ export default function StaffFormDialog({
   useEffect(() => {
     if (!open) return;
     setDraft(draftFromStaff(staff));
+    setActiveSection("personal");
     setError(null);
     setDuplicates([]);
   }, [open, staff]);
@@ -238,8 +267,11 @@ export default function StaffFormDialog({
     });
 
     if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      const invalidSection = sectionForField(firstIssue?.path[0]);
+      if (invalidSection) setActiveSection(invalidSection);
       setError(
-        `VALIDATION:${parsed.error.issues[0]?.message ?? "Check the form values."}`,
+        `VALIDATION:${firstIssue?.message ?? "Check the form values."}`,
       );
       return;
     }
@@ -269,16 +301,21 @@ export default function StaffFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <div className="border-b border-border bg-secondary/35 px-6 py-5">
+      <DialogContent
+        className="max-w-3xl overflow-hidden rounded-[16px] border-[#d9e1dc] bg-white p-0 text-[#16211b] shadow-2xl"
+        style={{ fontFamily: "'Manrope', 'Noto Sans Khmer', system-ui, sans-serif" }}
+      >
+        <div className="border-b border-[#d9e1dc] bg-[#f3f5f2] px-6 py-5">
           <div className="flex items-start gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-lg border border-primary/35 bg-primary/15 text-foreground">
+            <div className="grid size-10 shrink-0 place-items-center rounded-[10px] border border-[#c6e1d1] bg-[#e7f3ec] text-[#136232]">
               <UserRoundPlus className="size-5" />
             </div>
             <div>
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription className="mt-1.5">
-                Enter the officer’s HR record, department, and position.
+              <DialogTitle className="text-[16px] font-extrabold tracking-[-0.015em] text-[#16211b]">
+                {title}
+              </DialogTitle>
+              <DialogDescription className="mt-1.5 text-[12.5px] font-medium text-[#66716b]">
+                Enter the officer's HR record, department, and position.
               </DialogDescription>
             </div>
           </div>
@@ -288,11 +325,11 @@ export default function StaffFormDialog({
           className="grid max-h-[calc(100vh-8rem)] overflow-y-auto"
           onSubmit={handleSubmit}
         >
-          <div className="grid gap-7 px-6 py-6">
+          <div className="grid gap-5 px-6 py-6">
             {(fieldError || (error && !fieldError)) && (
               <div
                 role="alert"
-                className="rounded-lg border border-destructive/45 bg-destructive/10 px-4 py-3 text-sm text-foreground"
+                className="rounded-[10px] border border-[#efc8c4] bg-[#fdecea] px-4 py-3 text-[12.5px] font-medium text-[#9c332d]"
               >
                 {fieldError ?? error}
               </div>
@@ -301,28 +338,28 @@ export default function StaffFormDialog({
             {duplicates.length > 0 && (
               <div
                 role="alert"
-                className="grid gap-3 rounded-lg border border-amber-400/45 bg-amber-400/10 p-4"
+                className="grid gap-3 rounded-[10px] border border-[#ead7a1] bg-[#fff6dd] p-4"
               >
-                <div className="flex items-center gap-2 font-semibold text-foreground">
-                  <AlertTriangle className="size-4 text-amber-300" />
+                <div className="flex items-center gap-2 text-[12.5px] font-extrabold text-[#16211b]">
+                  <AlertTriangle className="size-4 text-[#b48728]" />
                   This officer may already exist
                 </div>
                 {duplicates.map((duplicate) => (
                   <div
                     key={duplicate.staffId}
-                    className="rounded-md border border-border bg-card p-3 text-sm"
+                    className="rounded-[9px] border border-[#d9e1dc] bg-white p-3 text-[12px]"
                   >
-                    <div className="font-medium" dir="auto">
+                    <div className="font-bold text-[#16211b]" dir="auto">
                       {duplicate.name}
                       {duplicate.nameEn ? ` (${duplicate.nameEn})` : ""}
                     </div>
-                    <div className="mt-1 text-muted-foreground">
+                    <div className="mt-1 font-medium text-[#66716b]">
                       ID: {duplicate.employeeId ?? "Not set"} · Matched:{" "}
                       {duplicate.matchedFields
                         .map(duplicateMatchLabel)
                         .join(", ")}
                     </div>
-                    <div className="mt-1 text-muted-foreground">
+                    <div className="mt-1 font-medium text-[#66716b]">
                       Location: {duplicateLocation(duplicate)}
                     </div>
                   </div>
@@ -330,11 +367,29 @@ export default function StaffFormDialog({
               </div>
             )}
 
-            <section className="grid gap-4">
-              <h3 className={sectionTitleClass}>
-                <UserRoundPlus className="size-4 text-foreground" />
-                Personal information
-              </h3>
+            <div className="flex items-center gap-1.5 border-b border-[#d9e1dc] pb-3">
+              {SECTION_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeSection === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveSection(tab.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-[8px] px-3 py-2 text-[11.5px] font-extrabold transition-colors ${
+                      active
+                        ? "bg-[#136232] text-white"
+                        : "text-[#66716b] hover:bg-[#eef2ee] hover:text-[#16211b]"
+                    }`}
+                  >
+                    <Icon className="size-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeSection === "personal" && (
               <div className="grid gap-4 md:grid-cols-2">
                 <label className={labelClass}>
                   Employee ID *
@@ -384,26 +439,26 @@ export default function StaffFormDialog({
                 <div className={labelClass}>
                   <span>ភេទ (Gender)</span>
                   <div className="flex items-center gap-3 min-h-11 pt-0.5">
-                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-secondary has-[:checked]:border-emerald-500/80 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-[9px] border border-[#d9e1dc] bg-[#f3f5f2] px-3.5 py-2.5 text-[13px] font-semibold text-[#16211b] transition-all hover:bg-[#eef2ee] has-[:checked]:border-[#136232]/70 has-[:checked]:bg-[#e7f3ec] has-[:checked]:text-[#136232]">
                       <input
                         type="radio"
                         name="gender"
                         value="male"
                         checked={draft.gender === "male"}
                         onChange={() => update("gender", "male")}
-                        className="size-4 accent-emerald-600 cursor-pointer"
+                        className="size-4 accent-[#136232] cursor-pointer"
                       />
                       <span>ប្រុស</span>
                     </label>
 
-                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-secondary has-[:checked]:border-emerald-500/80 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                    <label className="flex flex-1 items-center justify-center gap-2 cursor-pointer rounded-[9px] border border-[#d9e1dc] bg-[#f3f5f2] px-3.5 py-2.5 text-[13px] font-semibold text-[#16211b] transition-all hover:bg-[#eef2ee] has-[:checked]:border-[#136232]/70 has-[:checked]:bg-[#e7f3ec] has-[:checked]:text-[#136232]">
                       <input
                         type="radio"
                         name="gender"
                         value="female"
                         checked={draft.gender === "female"}
                         onChange={() => update("gender", "female")}
-                        className="size-4 accent-emerald-600 cursor-pointer"
+                        className="size-4 accent-[#136232] cursor-pointer"
                       />
                       <span>ស្រី</span>
                     </label>
@@ -426,187 +481,186 @@ export default function StaffFormDialog({
                   </select>
                 </label>
               </div>
-            </section>
+            )}
 
-            <section className="grid gap-4">
-              <h3 className={sectionTitleClass}>
-                <BriefcaseBusiness className="size-4 text-foreground" />
-                Employment
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className={labelClass}>
-                  Department *
-                  <select
-                    className={inputClass}
-                    value={draft.departmentId}
-                    onChange={(event) => {
-                      setDraft((current) => ({
-                        ...current,
-                        departmentId: event.target.value,
-                        officeId: "",
-                      }));
-                      setError(null);
-                      setDuplicates([]);
-                    }}
-                    required
-                    disabled={loadingOrganization}
-                  >
-                    <option value="">
-                      {loadingOrganization
-                        ? "Loading departments…"
-                        : "Select a department"}
-                    </option>
-                    {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.name}
+            {activeSection === "employment" && (
+              <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className={labelClass}>
+                    Department *
+                    <select
+                      className={inputClass}
+                      value={draft.departmentId}
+                      onChange={(event) => {
+                        setDraft((current) => ({
+                          ...current,
+                          departmentId: event.target.value,
+                          officeId: "",
+                        }));
+                        setError(null);
+                        setDuplicates([]);
+                      }}
+                      required
+                      disabled={loadingOrganization}
+                    >
+                      <option value="">
+                        {loadingOrganization
+                          ? "Loading departments…"
+                          : "Select a department"}
                       </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={labelClass}>
-                  Office (optional)
-                  <select
-                    className={inputClass}
-                    value={draft.officeId}
-                    onChange={(event) =>
-                      update("officeId", event.target.value)
-                    }
-                    disabled={
-                      loadingOrganization || !draft.departmentId
-                    }
-                  >
-                    <option value="">No office assigned</option>
-                    {selectedDepartment?.offices.map((office) => (
-                      <option key={office.id} value={office.id}>
-                        {office.name}
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={labelClass}>
+                    Office (optional)
+                    <select
+                      className={inputClass}
+                      value={draft.officeId}
+                      onChange={(event) =>
+                        update("officeId", event.target.value)
+                      }
+                      disabled={
+                        loadingOrganization || !draft.departmentId
+                      }
+                    >
+                      <option value="">No office assigned</option>
+                      {selectedDepartment?.offices.map((office) => (
+                        <option key={office.id} value={office.id}>
+                          {office.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={`${labelClass} md:col-span-2`}>
+                    Position *
+                    <select
+                      className={inputClass}
+                      value={draft.jobTitleId}
+                      onChange={(event) =>
+                        update("jobTitleId", event.target.value)
+                      }
+                      required
+                      disabled={loadingPositions}
+                    >
+                      <option value="">
+                        {loadingPositions
+                          ? "Loading positions…"
+                          : "Select a position"}
                       </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={`${labelClass} md:col-span-2`}>
-                  Position *
-                  <select
-                    className={inputClass}
-                    value={draft.jobTitleId}
-                    onChange={(event) =>
-                      update("jobTitleId", event.target.value)
-                    }
-                    required
-                    disabled={loadingPositions}
-                  >
-                    <option value="">
-                      {loadingPositions
-                        ? "Loading positions…"
-                        : "Select a position"}
-                    </option>
-                    {positions.map((position) => (
-                      <option key={position.id} value={position.id}>
-                        {position.name}
-                        {position.nameEn ? ` — ${position.nameEn}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={labelClass}>
-                  Joined date *
-                  <input
-                    className={inputClass}
-                    type="date"
-                    value={draft.joinedDate}
-                    onChange={(event) =>
-                      update("joinedDate", event.target.value)
-                    }
-                    required
-                  />
-                </label>
-                <label className={labelClass}>
-                  Retired date
-                  <input
-                    className={inputClass}
-                    type="date"
-                    min={draft.joinedDate || undefined}
-                    value={draft.retiredDate}
-                    onChange={(event) =>
-                      update("retiredDate", event.target.value)
-                    }
-                  />
-                </label>
-              </div>
-              {organizationError && (
-                <div
-                  role="alert"
-                  className="flex gap-2 rounded-lg border border-destructive/45 bg-destructive/10 px-3.5 py-3 text-xs leading-5 text-foreground"
-                >
-                  <Building2 className="mt-0.5 size-4 shrink-0" />
-                  {organizationError}
+                      {positions.map((position) => (
+                        <option key={position.id} value={position.id}>
+                          {position.name}
+                          {position.nameEn ? ` — ${position.nameEn}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={labelClass}>
+                    Joined date *
+                    <input
+                      className={inputClass}
+                      type="date"
+                      value={draft.joinedDate}
+                      onChange={(event) =>
+                        update("joinedDate", event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label className={labelClass}>
+                    Retired date
+                    <input
+                      className={inputClass}
+                      type="date"
+                      min={draft.joinedDate || undefined}
+                      value={draft.retiredDate}
+                      onChange={(event) =>
+                        update("retiredDate", event.target.value)
+                      }
+                    />
+                  </label>
                 </div>
-              )}
-              <div className="flex gap-2 rounded-lg border border-border bg-secondary/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
-                <CalendarDays className="mt-0.5 size-4 shrink-0 text-foreground" />
-                Office is optional. When selected, it must belong to the
-                chosen department.
+                {organizationError && (
+                  <div
+                    role="alert"
+                    className="flex gap-2 rounded-[10px] border border-[#efc8c4] bg-[#fdecea] px-3.5 py-3 text-[11.5px] font-medium leading-5 text-[#9c332d]"
+                  >
+                    <Building2 className="mt-0.5 size-4 shrink-0" />
+                    {organizationError}
+                  </div>
+                )}
+                <div className="flex gap-2 rounded-[10px] border border-[#d9e1dc] bg-[#f3f5f2] px-3.5 py-3 text-[11.5px] font-medium leading-5 text-[#66716b]">
+                  <CalendarDays className="mt-0.5 size-4 shrink-0 text-[#16211b]" />
+                  Office is optional. When selected, it must belong to the
+                  chosen department.
+                </div>
               </div>
-            </section>
+            )}
 
-            <section className="grid gap-4">
-              <h3 className={sectionTitleClass}>Contact and background</h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className={labelClass}>
-                  Phone
-                  <input
-                    className={inputClass}
-                    value={draft.phone}
-                    onChange={(event) => update("phone", event.target.value)}
-                    maxLength={50}
-                    autoComplete="tel"
-                  />
-                </label>
-                <label className={`${labelClass} md:col-span-2`}>
-                  Current address
-                  <textarea
-                    className={`${inputClass} min-h-20 resize-y`}
-                    value={draft.address}
-                    onChange={(event) => update("address", event.target.value)}
-                    maxLength={4_000}
-                    dir="auto"
-                  />
-                </label>
+            {activeSection === "contact" && (
+              <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className={labelClass}>
+                    Phone
+                    <input
+                      className={inputClass}
+                      value={draft.phone}
+                      onChange={(event) => update("phone", event.target.value)}
+                      maxLength={50}
+                      autoComplete="tel"
+                    />
+                  </label>
+                  <label className={`${labelClass} md:col-span-2`}>
+                    Current address
+                    <textarea
+                      className={`${inputClass} min-h-20 resize-y`}
+                      value={draft.address}
+                      onChange={(event) => update("address", event.target.value)}
+                      maxLength={4_000}
+                      dir="auto"
+                    />
+                  </label>
 
-                <label className={`${labelClass} md:col-span-2`}>
-                  Other information
-                  <textarea
-                    className={`${inputClass} min-h-24 resize-y`}
-                    value={draft.otherInformation}
-                    onChange={(event) =>
-                      update("otherInformation", event.target.value)
-                    }
-                    maxLength={4_000}
-                    dir="auto"
-                  />
-                </label>
+                  <label className={`${labelClass} md:col-span-2`}>
+                    Other information
+                    <textarea
+                      className={`${inputClass} min-h-24 resize-y`}
+                      value={draft.otherInformation}
+                      onChange={(event) =>
+                        update("otherInformation", event.target.value)
+                      }
+                      maxLength={4_000}
+                      dir="auto"
+                    />
+                  </label>
+                </div>
+
+                <div className="rounded-[10px] border border-[#d9e1dc] bg-[#f3f5f2] px-4 py-3 text-[12.5px] font-medium text-[#66716b]">
+                  <span className="flex items-center gap-1.5 font-extrabold text-[#16211b]">
+                    <Sparkles className="size-3.5 text-[#136232]" />
+                    Current skills
+                  </span>
+                  <p className="mt-1.5">
+                    Skills are managed separately from Education. Use
+                    <span className="font-extrabold text-[#16211b]">
+                      {" "}Save & manage skills{" "}
+                    </span>
+                    to add current skills and proficiency levels after this
+                    officer record is saved.
+                  </p>
+                </div>
               </div>
-            </section>
-
-            <section className="grid gap-4">
-              <h3 className={sectionTitleClass}>
-                <Sparkles className="size-4 text-foreground" />
-                Current skills
-              </h3>
-              <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
-                Skills are managed separately from Education. Use
-                <span className="font-medium text-foreground">
-                  {" "}Save & manage skills{" "}
-                </span>
-                to add current skills and proficiency levels after this officer
-                record is saved.
-              </div>
-            </section>
+            )}
           </div>
 
-          <DialogFooter className="border-t border-border bg-secondary/35 px-6 py-4">
+          <DialogFooter className="border-t border-[#d9e1dc] bg-[#f3f5f2] px-6 py-4">
             <button
               type="button"
-              className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-foreground transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="min-h-10 rounded-[9px] border border-[#d9e1dc] px-4 text-[12.5px] font-bold text-[#16211b] transition hover:bg-[#eef2ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#136232]/40"
               onClick={() => onOpenChange(false)}
               disabled={saving}
             >
@@ -616,7 +670,7 @@ export default function StaffFormDialog({
               type="submit"
               name="saveIntent"
               value="skills"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-primary/50 px-4 text-sm font-semibold text-foreground transition hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#c6e1d1] px-4 text-[12.5px] font-extrabold text-[#136232] transition hover:bg-[#e7f3ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#136232]/40 disabled:opacity-60"
               disabled={
                 saving ||
                 loadingPositions ||
@@ -632,7 +686,7 @@ export default function StaffFormDialog({
               type="submit"
               name="saveIntent"
               value="save"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-[#136232] px-5 text-[12.5px] font-extrabold text-white transition hover:bg-[#0f5129] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#136232]/40 disabled:opacity-60"
               disabled={
                 saving ||
                 loadingPositions ||

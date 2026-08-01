@@ -243,6 +243,10 @@ describe("Staff Directory profile action", () => {
       }),
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: /History/ }),
+    );
+
     const duplicateWarning = await screen.findByRole("alert");
     expect(duplicateWarning).toHaveTextContent(
       "Multiple active node assignments found",
@@ -274,6 +278,10 @@ describe("Staff Directory profile action", () => {
       await screen.findByRole("button", { name: "Add officer" }),
     );
 
+    await user.click(
+      await screen.findByRole("button", { name: "Employment" }),
+    );
+
     const positionSelect = await screen.findByRole("combobox", {
       name: "Position *",
     });
@@ -301,6 +309,10 @@ describe("Staff Directory profile action", () => {
 
     await user.click(
       await screen.findByRole("button", { name: "Add officer" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Employment" }),
     );
 
     const department = screen.getByRole("combobox", {

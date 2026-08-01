@@ -16,6 +16,7 @@ import {
 
 import ConfirmModal from "../components/ConfirmModal";
 import AdminSidebar from "../components/admin/AdminSidebar";
+import AdminFooter from "../components/admin/AdminFooter";
 import StaffFormDialog from "../components/staff/StaffFormDialog";
 import StaffProfileDialog from "../components/staff/StaffProfileDialog";
 import StaffSkillsDialog from "../components/staff/StaffSkillsDialog";
@@ -434,6 +435,9 @@ export default function StaffDirectoryPage() {
           )}
         </div>
       </main>
+
+      {/* Synchronized Position Bottom Footer */}
+      <AdminFooter />
 
       <StaffFormDialog
         open={formOpen}
