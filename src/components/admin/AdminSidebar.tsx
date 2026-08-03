@@ -18,16 +18,14 @@ const NAV_ITEMS = [
     id: "analytics",
     label: "Executive overview",
     description: "Workforce intelligence",
-    path: "/test-admin",
-    aliases: ["/test-admin", "/admin"],
+    path: "/admin",
     icon: LayoutDashboard,
   },
   {
     id: "staff",
     label: "Staff directory",
     description: "People and placements",
-    path: "/admin/staff-preview",
-    aliases: ["/admin/staff", "/admin/staff-preview"],
+    path: "/admin/staff",
     icon: UsersRound,
   },
   {
@@ -35,7 +33,6 @@ const NAV_ITEMS = [
     label: "Organization",
     description: "Departments and offices",
     path: "/admin/org-structure",
-    aliases: ["/admin/org-structure"],
     icon: Building2,
   },
   {
@@ -43,7 +40,6 @@ const NAV_ITEMS = [
     label: "Job architecture",
     description: "Positions and skills",
     path: "/admin/job-architecture",
-    aliases: ["/admin/job-architecture"],
     icon: BriefcaseBusiness,
   },
 ] as const;

@@ -7,13 +7,13 @@ vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({ user: null, session: null, loading: false }),
 }));
 
-import AdminDashboardTestPage from "../src/pages/AdminDashboardTestPage";
+import AdminDashboardPage from "../src/pages/AdminDashboardPage";
 
-describe("AdminDashboardTestPage", () => {
-  it("renders the isolated admin preview with semantic navigation and metrics", () => {
+describe("AdminDashboardPage", () => {
+  it("renders the admin dashboard with semantic navigation and metrics", () => {
     render(
       <MemoryRouter>
-        <AdminDashboardTestPage />
+        <AdminDashboardPage />
       </MemoryRouter>,
     );
 
@@ -29,14 +29,16 @@ describe("AdminDashboardTestPage", () => {
     expect(
       screen.getByRole("region", { name: "Key workforce metrics" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Design preview · Sample data")).toBeInTheDocument();
+    expect(
+      screen.getByText("Illustrative — not yet wired to live data"),
+    ).toBeInTheDocument();
   });
 
   it("switches trend periods and filters recent activity", async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <AdminDashboardTestPage />
+        <AdminDashboardPage />
       </MemoryRouter>,
     );
 
@@ -57,7 +59,7 @@ describe("AdminDashboardTestPage", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <AdminDashboardTestPage />
+        <AdminDashboardPage />
       </MemoryRouter>,
     );
 
@@ -76,4 +78,3 @@ describe("AdminDashboardTestPage", () => {
     expect(openMenu).toHaveAttribute("aria-expanded", "false");
   });
 });
-

@@ -347,7 +347,6 @@ export default function DashboardPage() {
         </div>
 
         {/* Breadcrumb */}
-        {/* Breadcrumb */}
         {currentFolderId && (
           <nav className="dashboard-breadcrumb" aria-label="Folder navigation">
             <Link to="/dashboard" className="dashboard-breadcrumb__item">

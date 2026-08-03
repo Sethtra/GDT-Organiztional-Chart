@@ -1,25 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive,
-  ArrowLeft,
   Award,
+  Building2,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
   Eye,
   Loader2,
   Pencil,
   Plus,
   RefreshCw,
-  Search,
-  Shield,
   UserRound,
+  UserRoundCheck,
+  UsersRound,
+  X,
 } from "lucide-react";
 
-import ConfirmModal from "../components/ConfirmModal";
-import AdminSidebar from "../components/admin/AdminSidebar";
+import AdminConfirmModal from "../components/admin/AdminConfirmModal";
 import AdminFooter from "../components/admin/AdminFooter";
+import AdminHeader from "../components/admin/AdminHeader";
+import AdminSidebar from "../components/admin/AdminSidebar";
 import StaffFormDialog from "../components/staff/StaffFormDialog";
 import StaffProfileDialog from "../components/staff/StaffProfileDialog";
 import StaffSkillsDialog from "../components/staff/StaffSkillsDialog";
+import { cn } from "../lib/utils";
 import type { HrStaffDirectoryRecord } from "../contracts/hr";
 import { useOrgStructure } from "../hooks/useOrgStructure";
 import { archiveStaff, listHrStaff } from "../services/staffService";
@@ -27,6 +33,66 @@ import {
   getStaffLocationLabel,
   getStaffPositionTitle,
 } from "../utils/staffDisplay";
+import "./AdminDashboardTestPage.css";
+
+type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+
+const GENDER_LABELS: Record<HrStaffDirectoryRecord["gender"], string> = {
+  male: "ប្រុស",
+  female: "ស្រី",
+  other: "ផ្សេងៗ",
+  unspecified: "—",
+};
+
+const BADGE_STYLES: Record<BadgeTone, string> = {
+  success:
+    "border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]",
+  warning:
+    "border-[var(--pa-gold-border)] bg-[var(--pa-gold-soft)] text-[#735413]",
+  info:
+    "border-[var(--pa-info-border)] bg-[var(--pa-info-soft)] text-[var(--pa-info)]",
+  neutral:
+    "border-[var(--pa-border)] bg-[var(--pa-surface-muted)] text-[#47524c]",
+  danger:
+    "border-[var(--pa-danger-border)] bg-[var(--pa-danger-soft)] text-[var(--pa-danger)]",
+};
+
+const BADGE_DOT_STYLES: Record<BadgeTone, string> = {
+  success: "bg-[var(--pa-primary)]",
+  warning: "bg-[var(--pa-gold)]",
+  info: "bg-[var(--pa-info)]",
+  neutral: "bg-[var(--pa-muted)]",
+  danger: "bg-[var(--pa-danger)]",
+};
+
+function StatusBadge({
+  children,
+  tone = "neutral",
+  dot = true,
+}: {
+  children: React.ReactNode;
+  tone?: BadgeTone;
+  dot?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[10.5px] font-bold leading-none tracking-[0.015em]",
+        BADGE_STYLES[tone],
+      )}
+    >
+      {dot && (
+        <span
+          className={cn("size-1.5 rounded-full", BADGE_DOT_STYLES[tone])}
+          aria-hidden="true"
+        />
+      )}
+      {children}
+    </span>
+  );
+}
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -40,14 +106,16 @@ function formatDate(value: string | null): string {
 }
 
 export default function StaffDirectoryPage() {
-  const { units, getOfficesForUnit } = useOrgStructure();
+  const { units } = useOrgStructure();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [staff, setStaff] = useState<HrStaffDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedOffice, setSelectedOffice] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<HrStaffDirectoryRecord | null>(null);
   const [archiveTarget, setArchiveTarget] =
@@ -58,18 +126,13 @@ export default function StaffDirectoryPage() {
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
 
-  const availableOffices = useMemo(() => {
-    if (!selectedDepartment) return [];
-    return getOfficesForUnit(selectedDepartment);
-  }, [selectedDepartment, getOfficesForUnit]);
-
   const load = useCallback(async (): Promise<HrStaffDirectoryRecord[]> => {
     setLoading(true);
     setError(null);
     try {
-      const nextStaff = await listHrStaff(includeArchived);
-      setStaff(nextStaff);
-      return nextStaff;
+      const data = await listHrStaff(includeArchived);
+      setStaff(data);
+      return data;
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -85,45 +148,6 @@ export default function StaffDirectoryPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return staff.filter((person) => {
-      if (selectedDepartment) {
-        const dept =
-          person.currentPosition?.departmentName ||
-          person.organizationalPlacement?.departmentName;
-        if (dept !== selectedDepartment) return false;
-      }
-      if (selectedOffice) {
-        const off =
-          person.currentPosition?.officeName ||
-          person.organizationalPlacement?.officeName;
-        if (off !== selectedOffice) return false;
-      }
-      if (query) {
-        const matchesQuery = [
-          person.name,
-          person.nameEn,
-          person.employeeId,
-          person.jobTitle?.name,
-          person.jobTitle?.nameEn,
-          person.currentPosition?.title,
-          person.currentPosition?.departmentName,
-          person.currentPosition?.officeName,
-          person.organizationalPlacement?.departmentName,
-          person.organizationalPlacement?.officeName,
-        ].some((value) => value?.toLocaleLowerCase().includes(query));
-        if (!matchesQuery) return false;
-      }
-      return true;
-    });
-  }, [search, selectedDepartment, selectedOffice, staff]);
-
-  const openNewOfficer = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
 
   const confirmArchive = async () => {
     if (!archiveTarget) return;
@@ -154,290 +178,470 @@ export default function StaffDirectoryPage() {
     if (savedStaff) setSkillsTarget(savedStaff);
   };
 
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return staff.filter((person) => {
+      if (selectedDepartment) {
+        const dept =
+          person.organizationalPlacement?.departmentName ??
+          person.currentPosition?.departmentName;
+        if (dept !== selectedDepartment) return false;
+      }
+      if (!query) return true;
+      return [
+        person.name,
+        person.nameEn,
+        person.employeeId,
+        person.jobTitle?.name,
+        person.jobTitle?.nameEn,
+        getStaffLocationLabel(person),
+      ].some((value) => value?.toLocaleLowerCase().includes(query));
+    });
+  }, [search, selectedDepartment, staff]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedDepartment, includeArchived, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
+  const kpis = useMemo(() => {
+    const active = staff.filter((person) => person.status === "active").length;
+    const departments = new Set(
+      staff
+        .map(
+          (person) =>
+            person.organizationalPlacement?.departmentName ??
+            person.currentPosition?.departmentName ??
+            null,
+        )
+        .filter((name): name is string => Boolean(name)),
+    ).size;
+    return {
+      total: staff.length,
+      active,
+      archived: staff.length - active,
+      departments,
+    };
+  }, [staff]);
+
   return (
-    <div className="admin-shell">
-      <AdminSidebar currentTab="staff" />
-      <main className="admin-main">
-        <div className="admin-subheader" style={{ marginBottom: 20 }}>
-          <a
-            href="/admin"
-            onClick={(e) => {
-              e.preventDefault();
-              window.history.back();
-            }}
-            className="admin-btn admin-btn--icon"
-            aria-label="Back to dashboard"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft size={16} />
-          </a>
-          <div className="admin-sidebar__seal" style={{ width: 36, height: 36 }}>
-            <Shield size={17} strokeWidth={1.6} />
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'Noto Sans Khmer', sans-serif" }}>
-              អគ្គនាយកដ្ឋានពន្ធដារ
-            </div>
-            <div style={{ fontSize: 10.5, letterSpacing: ".05em", color: "var(--a-text-muted)", textTransform: "uppercase" }}>
-              General Department of Taxation
-            </div>
-          </div>
+    <div className="admin-dashboard-test flex h-screen overflow-hidden bg-[var(--pa-canvas)]">
+      <aside className="hidden w-[240px] shrink-0 flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] lg:flex h-full">
+        <AdminSidebar currentTab="staff" />
+      </aside>
+
+      {mobileNavOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            className="admin-btn admin-btn--primary"
-            style={{ marginLeft: "auto" }}
-            onClick={openNewOfficer}
-            aria-label="Add officer"
-          >
-            <Plus size={15} strokeWidth={2.4} />
-            Add New Officer
-          </button>
+            className="absolute inset-0 bg-[#081a12]/55 backdrop-blur-[2px]"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close admin navigation"
+          />
+          <aside className="relative flex h-full w-[min(84vw,260px)] flex-col border-r border-[var(--pa-sidebar-border)] bg-[var(--pa-sidebar)] shadow-2xl motion-safe:animate-in motion-safe:slide-in-from-left motion-safe:duration-200">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              className="pa-focus-ring absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-lg text-[var(--pa-sidebar-muted)] transition-colors hover:bg-white/10 hover:text-white"
+              aria-label="Close menu"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+            <AdminSidebar currentTab="staff" onNavigate={() => setMobileNavOpen(false)} />
+          </aside>
         </div>
+      )}
 
-        <div className="admin-toolbar">
-          <div className="admin-search">
-            <Search size={15} style={{ color: "var(--a-text-muted)" }} />
-            <input
-              placeholder="Search by officer name, employee ID, position, or department…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
-          <select
-            className="admin-select"
-            value={selectedDepartment}
-            onChange={(e) => {
-              setSelectedDepartment(e.target.value);
-              setSelectedOffice("");
-            }}
-          >
-            <option value="">All Departments</option>
-            {units.map((unit) => (
-              <option key={unit.id} value={unit.name}>
-                {unit.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="admin-select"
-            style={!selectedDepartment ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-            value={selectedOffice}
-            disabled={!selectedDepartment}
-            onChange={(e) => setSelectedOffice(e.target.value)}
-          >
-            <option value="">
-              {!selectedDepartment ? "Select department first…" : "All Offices"}
-            </option>
-            {availableOffices.map((off) => (
-              <option key={off.id} value={off.name}>
-                {off.name}
-              </option>
-            ))}
-          </select>
-          <label className="admin-check">
-            <input
-              type="checkbox"
-              checked={includeArchived}
-              onChange={(event) => setIncludeArchived(event.target.checked)}
-            />
-            Include archived records
-          </label>
-          <button
-            type="button"
-            className="admin-btn admin-btn--icon"
-            onClick={() => void load()}
-            disabled={loading}
-            aria-label="Refresh staff directory"
-            title="Refresh Directory"
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-          </button>
-        </div>
+      <div className="flex flex-1 flex-col h-full overflow-hidden min-w-0">
+        <AdminHeader
+          mobileNavOpen={mobileNavOpen}
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search officers, employee IDs, or positions"
+          searchLabel="Search officers"
+        />
 
-        {error && (
-          <div
-            role="alert"
-            style={{
-              marginBottom: 16,
-              borderRadius: "var(--a-radius)",
-              border: "1px solid color-mix(in oklch, var(--a-danger) 40%, transparent)",
-              background: "color-mix(in oklch, var(--a-danger) 10%, transparent)",
-              padding: 14,
-              fontSize: 13,
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div className="admin-table-card">
-          {loading ? (
-            <div style={{ display: "grid", minHeight: 200, placeItems: "center", color: "var(--a-text-muted)", fontSize: 13 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Loader2 size={16} className="animate-spin" />
-                Loading directory records…
-              </div>
+        <main className="pa-scrollbar flex-1 overflow-y-auto mx-auto w-full max-w-[1540px] px-4 pb-12 pt-7 sm:px-7 lg:px-10 lg:pt-9">
+          {error && (
+            <div
+              role="alert"
+              className="mb-4 flex items-start gap-3 rounded-[12px] border border-[var(--pa-danger-border)] bg-[var(--pa-danger-soft)] p-4"
+            >
+              <CircleAlert
+                size={17}
+                className="mt-0.5 shrink-0 text-[var(--pa-danger)]"
+                aria-hidden="true"
+              />
+              <p className="text-[12px] font-semibold leading-5 text-[var(--pa-danger)]">
+                {error}
+              </p>
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ display: "grid", minHeight: 220, placeItems: "center", padding: 20, textAlign: "center" }}>
-              <div style={{ maxWidth: 360 }}>
-                <div
-                  style={{
-                    margin: "0 auto",
-                    display: "grid",
-                    placeItems: "center",
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    border: "1px solid var(--a-border-strong)",
-                    color: "var(--a-text-muted)",
-                  }}
-                >
-                  <UserRound size={20} />
+          )}
+
+          <section
+            className="mb-4 grid gap-px overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-[var(--pa-border)] shadow-[var(--pa-shadow)] sm:grid-cols-2 xl:grid-cols-4"
+            aria-label="Key workforce metrics"
+          >
+            {(
+              [
+                {
+                  label: "Total officers",
+                  value: kpis.total,
+                  detail: "Across all records loaded",
+                  icon: UsersRound,
+                },
+                {
+                  label: "Active officers",
+                  value: kpis.active,
+                  detail: "Currently in service",
+                  icon: UserRoundCheck,
+                },
+                {
+                  label: "Archived",
+                  value: kpis.archived,
+                  detail: "Retired, resigned, or removed",
+                  icon: Archive,
+                },
+                {
+                  label: "Departments",
+                  value: kpis.departments,
+                  detail: "Represented in this view",
+                  icon: Building2,
+                },
+              ] as const
+            ).map((item) => {
+              const Icon = item.icon;
+              return (
+                <article key={item.label} className="relative min-w-0 bg-white p-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]">
+                      <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 truncate text-[11px] font-extrabold uppercase tracking-[0.075em] text-[var(--pa-muted)]">
+                      {item.label}
+                    </div>
+                  </div>
+                  <div className="pa-tabular mt-2 text-[24px] font-extrabold leading-none tracking-[-0.04em] text-[var(--pa-text)]">
+                    {loading ? "—" : item.value}
+                  </div>
+                  <p className="mt-1.5 text-[11px] font-medium text-[var(--pa-faint)]">
+                    {item.detail}
+                  </p>
+                </article>
+              );
+            })}
+          </section>
+
+          <section className="overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)]">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--pa-border)] px-5 py-4 sm:px-6">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/gdt-logo.png"
+                    alt=""
+                    className="h-10 w-auto object-contain"
+                  />
+                  <div className="flex flex-col">
+                    <span
+                      className="text-[16px] leading-tight text-[var(--pa-text)]"
+                      style={{ fontFamily: "'Moul', 'Noto Sans Khmer', sans-serif" }}
+                      dir="auto"
+                    >
+                      តារាងទិន្នន័យមន្ត្រី
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--pa-faint)]">
+                      Officer Data Table
+                    </span>
+                  </div>
                 </div>
-                <h2 style={{ marginTop: 12, fontSize: 14, fontWeight: 700 }}>
-                  {search ? "No matching officers found" : "No officer records yet"}
-                </h2>
-                <p style={{ marginTop: 4, fontSize: 12, color: "var(--a-text-muted)" }}>
-                  {search
-                    ? "Try adjusting your search query or department filter."
-                    : "Click below to add your first officer to the HR directory."}
-                </p>
-                {!search && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={selectedDepartment}
+                    onChange={(event) =>
+                      setSelectedDepartment(event.target.value)
+                    }
+                    className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-2 text-[10.5px] font-bold text-[var(--pa-muted)]"
+                    aria-label="Filter by department"
+                  >
+                    <option value="">All departments</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.name}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--pa-border)] px-2 text-[10.5px] font-bold text-[var(--pa-muted)]">
+                    <input
+                      type="checkbox"
+                      checked={includeArchived}
+                      onChange={(event) =>
+                        setIncludeArchived(event.target.checked)
+                      }
+                    />
+                    Include archived
+                  </label>
                   <button
                     type="button"
-                    className="admin-btn admin-btn--primary"
-                    style={{ marginTop: 16 }}
-                    onClick={openNewOfficer}
+                    onClick={() => void load()}
+                    disabled={loading}
+                    aria-label="Refresh staff directory"
+                    className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
                   >
-                    <Plus size={15} />
-                    Add First Officer
+                    <RefreshCw
+                      size={14}
+                      className={loading ? "animate-spin" : ""}
+                      aria-hidden="true"
+                    />
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(null);
+                      setFormOpen(true);
+                    }}
+                    className="pa-focus-ring inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--pa-primary)] px-3 text-[10.5px] font-extrabold text-white transition-colors hover:bg-[var(--pa-primary-hover)]"
+                  >
+                    <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
+                    New Officer
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>No.</th>
-                  <th>Officer name</th>
-                  <th>Employee ID</th>
-                  <th>Position &amp; placement</th>
-                  <th>Service date</th>
-                  <th className="admin-table__th--right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((person, index) => (
-                  <tr key={person.id}>
-                    <td style={{ color: "var(--a-text-faint)", fontWeight: 700 }}>
-                      {index + 1}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="admin-table__name-kh" dir="auto">
-                          {person.name}
-                        </span>
-                        {person.status === "archived" && (
-                          <span
-                            style={{
-                              borderRadius: 6,
-                              border: "1px solid color-mix(in oklch, var(--a-danger) 30%, transparent)",
-                              background: "color-mix(in oklch, var(--a-danger) 10%, transparent)",
-                              padding: "1px 6px",
-                              fontSize: 10,
-                              fontWeight: 700,
-                              color: "var(--a-danger)",
-                            }}
-                          >
-                            Archived
-                          </span>
-                        )}
-                      </div>
-                      <div className="admin-table__name-en">{person.nameEn || "—"}</div>
-                    </td>
-                    <td>
-                      {person.employeeId ? (
-                        <span className="admin-chip">{person.employeeId}</span>
-                      ) : (
-                        <span style={{ color: "var(--a-gold-text)" }}>Unassigned</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: "'Noto Sans Khmer', sans-serif" }} dir="auto">
-                        {getStaffPositionTitle(person)}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--a-text-muted)", marginTop: 2, fontFamily: "'Noto Sans Khmer', sans-serif" }}>
-                        {getStaffLocationLabel(person)}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "color-mix(in oklch, var(--a-text) 75%, transparent)" }}>
-                        <CalendarDays size={12} />
-                        {formatDate(person.joinedDate)}
-                      </div>
-                      {person.retiredDate && (
-                        <div style={{ fontSize: 11, color: "var(--a-gold-text)", marginTop: 3, fontWeight: 600 }}>
-                          Retired {formatDate(person.retiredDate)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="admin-table__actions">
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                        <button
-                          type="button"
-                          className="admin-icon-btn"
-                          onClick={() => setProfileTarget(person)}
-                          aria-label={`View profile for ${person.name}`}
-                          title="View Profile"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="admin-icon-btn"
-                          onClick={() => setSkillsTarget(person)}
-                          aria-label={`Manage skills for ${person.name}`}
-                          title="Manage Skills"
-                        >
-                          <Award size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="admin-icon-btn"
-                          onClick={() => {
-                            setEditing(person);
-                            setFormOpen(true);
-                          }}
-                          aria-label={`Edit ${person.name}`}
-                          title="Edit Officer Info"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        {person.status !== "archived" && (
-                          <button
-                            type="button"
-                            className="admin-icon-btn admin-icon-btn--danger"
-                            onClick={() => setArchiveTarget(person)}
-                            aria-label={`Archive ${person.name}`}
-                            title="Archive Officer Record"
-                          >
-                            <Archive size={14} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </main>
 
-      {/* Synchronized Position Bottom Footer */}
-      <AdminFooter />
+              {loading ? (
+                <div className="flex min-h-[260px] items-center justify-center gap-2 text-[12px] font-semibold text-[var(--pa-muted)]">
+                  <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                  Loading officer records…
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
+                  <UserRound
+                    size={22}
+                    className="text-[var(--pa-faint)]"
+                    aria-hidden="true"
+                  />
+                  <div className="mt-3 text-[12px] font-extrabold text-[var(--pa-text)]">
+                    No officers found
+                  </div>
+                  <p className="mt-1 max-w-[280px] text-[10.5px] leading-5 text-[var(--pa-muted)]">
+                    Try a different name, employee ID, or department filter.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1100px] border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-[var(--pa-border)] bg-[var(--pa-canvas)]">
+                          <th className="px-6 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            No.
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Officer
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Employee ID
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Position &amp; placement
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Gender
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Education
+                          </th>
+                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Joined date
+                          </th>
+                          <th className="px-6 py-3 text-right text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--pa-border)]">
+                        {paginated.map((person, index) => (
+                          <tr
+                            key={person.id}
+                            className="transition-colors hover:bg-[var(--pa-canvas)]"
+                          >
+                            <td className="px-6 py-4 text-[14.5px] font-bold text-[var(--pa-faint)]">
+                              {(currentPage - 1) * pageSize + index + 1}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="min-w-0">
+                                <div
+                                  className="truncate text-[15px] font-extrabold text-[var(--pa-text)]"
+                                  dir="auto"
+                                >
+                                  {person.name}
+                                </div>
+                                {person.nameEn && (
+                                  <div className="truncate text-[12.5px] font-medium text-[var(--pa-faint)]">
+                                    {person.nameEn}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              {person.employeeId ? (
+                                <StatusBadge tone="neutral" dot={false}>
+                                  {person.employeeId}
+                                </StatusBadge>
+                              ) : (
+                                <span className="text-[13.5px] font-medium text-[var(--pa-faint)]">
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div
+                                className="max-w-[180px] truncate text-[14px] font-semibold text-[var(--pa-text)]"
+                                dir="auto"
+                              >
+                                {getStaffPositionTitle(person)}
+                              </div>
+                              <div
+                                className="mt-1 max-w-[140px] truncate text-[12.5px] font-medium text-[var(--pa-faint)]"
+                                dir="auto"
+                                title="View profile for full placement details"
+                              >
+                                {getStaffLocationLabel(person)}
+                              </div>
+                            </td>
+                            <td
+                              className="px-4 py-4 text-[13.5px] font-semibold text-[var(--pa-text)]"
+                              dir="auto"
+                            >
+                              {GENDER_LABELS[person.gender]}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div
+                                className="max-w-[200px] truncate text-[13.5px] font-semibold text-[var(--pa-text)]"
+                                dir="auto"
+                              >
+                                {person.education ?? "—"}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-[var(--pa-muted)]">
+                                <CalendarDays size={13} aria-hidden="true" />
+                                {formatDate(person.joinedDate)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setProfileTarget(person)}
+                                  title="View profile"
+                                  aria-label={`View profile for ${person.name}`}
+                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                                >
+                                  <Eye size={15} strokeWidth={1.9} aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSkillsTarget(person)}
+                                  title="Manage skills"
+                                  aria-label={`Manage skills for ${person.name}`}
+                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                                >
+                                  <Award size={15} strokeWidth={1.9} aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditing(person);
+                                    setFormOpen(true);
+                                  }}
+                                  title="Edit officer info"
+                                  aria-label={`Edit ${person.name}`}
+                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                                >
+                                  <Pencil size={15} strokeWidth={1.9} aria-hidden="true" />
+                                </button>
+                                {person.status !== "archived" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setArchiveTarget(person)}
+                                    title="Archive officer record"
+                                    aria-label={`Archive ${person.name}`}
+                                    className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-danger-border)] text-[var(--pa-danger)] transition-colors hover:bg-[var(--pa-danger-soft)]"
+                                  >
+                                    <Archive size={15} strokeWidth={1.9} aria-hidden="true" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--pa-border)] px-5 py-3.5 sm:px-6">
+                    <div className="text-[10.5px] font-semibold text-[var(--pa-muted)]">
+                      Showing {(currentPage - 1) * pageSize + 1}–
+                      {Math.min(currentPage * pageSize, filtered.length)} of{" "}
+                      {filtered.length} officers
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={pageSize}
+                        onChange={(event) =>
+                          setPageSize(
+                            Number(event.target.value) as (typeof PAGE_SIZE_OPTIONS)[number],
+                          )
+                        }
+                        className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-2 text-[10.5px] font-bold text-[var(--pa-muted)]"
+                        aria-label="Rows per page"
+                      >
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <option key={size} value={size}>
+                            {size} / page
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setPage((current) => Math.max(1, current - 1))}
+                        disabled={currentPage <= 1}
+                        className="pa-focus-ring flex h-8 items-center gap-1 rounded-lg border border-[var(--pa-border)] px-2.5 text-[10.5px] font-bold text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronLeft size={13} aria-hidden="true" />
+                        Prev
+                      </button>
+                      <span className="pa-tabular text-[10.5px] font-bold text-[var(--pa-text)]">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPage((current) => Math.min(totalPages, current + 1))
+                        }
+                        disabled={currentPage >= totalPages}
+                        className="pa-focus-ring flex h-8 items-center gap-1 rounded-lg border border-[var(--pa-border)] px-2.5 text-[10.5px] font-bold text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next
+                        <ChevronRight size={13} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+          </section>
+        </main>
+
+        {/* Synchronized Position Bottom Footer */}
+        <AdminFooter />
+      </div>
 
       <StaffFormDialog
         open={formOpen}
@@ -458,9 +662,8 @@ export default function StaffDirectoryPage() {
           onClose={() => setProfileTarget(null)}
         />
       )}
-
       {archiveTarget && (
-        <ConfirmModal
+        <AdminConfirmModal
           title="Archive Officer Record"
           message={`Archive ${archiveTarget.name}? Position history will be preserved. A currently assigned officer must be vacated first.`}
           confirmLabel={archiving ? "Archiving…" : "Archive"}

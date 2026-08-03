@@ -23,7 +23,6 @@
     "@radix-ui/react-dialog": "^1.1.23",
     "@supabase/supabase-js": "^2.110.0",
     "@xyflow/react": "^12.11.2",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "html-to-image": "^1.11.13",

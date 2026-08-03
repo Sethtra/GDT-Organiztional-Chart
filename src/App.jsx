@@ -6,10 +6,9 @@ import ProtectedRoute from './components/editor/ProtectedRoute';
 import EditorShell from './components/editor/EditorShell';
 import HrAdminRoute from './components/HrAdminRoute';
 import LandingPage from './pages/LandingPage';
+import LandingTestPage from './pages/LandingTestPage';
 import LoginPage from './pages/LoginPage';
 import LoginTestPage from './pages/LoginTestPage';
-import AdminDashboardTestPage from './pages/AdminDashboardTestPage';
-import StaffDirectoryTestPage from './pages/StaffDirectoryTestPage';
 import RegisterPage from './pages/RegisterPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -37,7 +36,6 @@ function AppLayout() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/test-login" element={<LoginTestPage />} />
-          <Route path="/test-admin" element={<AdminDashboardTestPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -105,16 +103,6 @@ function AppLayout() {
             }
           />
           <Route
-            path="/admin/staff-preview"
-            element={
-              <ProtectedRoute>
-                <HrAdminRoute>
-                  <StaffDirectoryTestPage />
-                </HrAdminRoute>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/admin/job-architecture"
             element={
               <ProtectedRoute>
@@ -124,6 +112,7 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
+          <Route path="/test-landing" element={<LandingTestPage />} />
 
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />

@@ -3,6 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("../src/hooks/useAuth", () => ({
+  useAuth: () => ({ user: null, session: null, loading: false }),
+}));
+
 vi.mock("../src/services/staffService", () => ({
   archiveStaff: vi.fn(),
   findStaffDuplicates: vi.fn(async () => []),
@@ -275,7 +279,7 @@ describe("Staff Directory profile action", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Add officer" }),
+      await screen.findByRole("button", { name: "New Officer" }),
     );
 
     await user.click(
@@ -308,7 +312,7 @@ describe("Staff Directory profile action", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Add officer" }),
+      await screen.findByRole("button", { name: "New Officer" }),
     );
 
     await user.click(
@@ -352,6 +356,6 @@ describe("Staff Directory profile action", () => {
     const skillsButton = await screen.findByRole("button", {
       name: "Manage skills for Test Officer",
     });
-    expect(skillsButton).toHaveAttribute("title", "Manage Skills");
+    expect(skillsButton).toHaveAttribute("title", "Manage skills");
   });
 });
