@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -12,9 +13,11 @@ import {
   Loader2,
   LocateFixed,
   MapPin,
+  Maximize2,
   Phone,
   ShieldCheck,
   UserRound,
+  X,
 } from "lucide-react";
 
 import type { StaffProfile } from "../../contracts/hr";
@@ -85,6 +88,18 @@ export default function StaffProfileDialog({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+  const [photoExpanded, setPhotoExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!photoExpanded) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPhotoExpanded(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [photoExpanded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,9 +188,28 @@ export default function StaffProfileDialog({
             {/* Sticky profile summary */}
             <div className="shrink-0 border-b border-[#d9e1dc] bg-[#f3f5f2] px-6 py-4">
               <div className="flex flex-wrap items-center gap-4">
-                <div className="grid size-12 shrink-0 place-items-center rounded-[12px] border border-[#c6e1d1] bg-[#e7f3ec] text-[18px] font-extrabold text-[#136232]">
-                  {(profile.nameEn || profile.name).charAt(0).toUpperCase()}
-                </div>
+                {profile.photoUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setPhotoExpanded(true)}
+                    title="Click to view full size photo"
+                    aria-label={`Enlarge photo of ${profile.name}`}
+                    className="group relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[#c6e1d1] bg-[#e7f3ec] text-[18px] font-extrabold text-[#136232] outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[#136232]"
+                  >
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      className="size-full object-cover transition-opacity group-hover:opacity-85"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Maximize2 className="size-4 text-white drop-shadow-md" />
+                    </div>
+                  </button>
+                ) : (
+                  <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[#c6e1d1] bg-[#e7f3ec] text-[18px] font-extrabold text-[#136232]">
+                    {(profile.nameEn || profile.name).charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <h2 className="text-[15px] font-extrabold text-[#16211b]" dir="auto">
@@ -422,6 +456,54 @@ export default function StaffProfileDialog({
           </>
         )}
       </DialogContent>
+
+      {/* Expanded full-size photo preview lightbox */}
+      {photoExpanded &&
+        profile?.photoUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setPhotoExpanded(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded profile photo"
+          >
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setPhotoExpanded(false);
+              }}
+              aria-label="Close photo preview"
+              className="absolute right-5 top-5 z-[10000] flex size-11 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md transition-all hover:bg-white/30 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white"
+            >
+              <X className="size-6 text-white" />
+            </button>
+
+            <div
+              className="relative flex max-h-[90vh] max-w-[90vw] flex-col items-center justify-center cursor-pointer"
+              onClick={() => setPhotoExpanded(false)}
+            >
+              <div className="overflow-hidden rounded-2xl border border-white/20 bg-black/60 shadow-2xl backdrop-blur-md">
+                <img
+                  src={profile.photoUrl}
+                  alt={profile.name}
+                  className="max-h-[75vh] max-w-[85vw] object-contain"
+                />
+                <div className="border-t border-white/10 bg-black/80 px-5 py-3 text-center text-white">
+                  <div className="text-[15px] font-bold" dir="auto">
+                    {profile.name}
+                    {profile.nameEn ? ` (${profile.nameEn})` : ""}
+                  </div>
+                  <div className="mt-0.5 text-[12px] font-medium text-white/80">
+                    {profile.jobTitle?.name ?? "Officer Profile Photo"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </Dialog>
   );
 }

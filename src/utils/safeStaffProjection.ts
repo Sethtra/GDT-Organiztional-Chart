@@ -8,6 +8,7 @@ interface SafeAssignedStaff {
   id: string;
   name: string | null;
   name_en: string | null;
+  photo_url: string | null;
 }
 
 interface SafeAssignment {
@@ -80,11 +81,13 @@ export function mergeSafeStaffProjection(
     if (activeAssignment && staff) {
       data.name = staff.name ?? "";
       data.nameEn = staff.name_en ?? "";
+      data.photoUrl = staff.photo_url ?? "";
       data.dbStaffId = staff.id;
       data.dbAssignmentId = activeAssignment.id;
     } else {
       data.name = "";
       data.nameEn = "";
+      data.photoUrl = "";
       data.dbStaffId = null;
       data.dbAssignmentId = null;
     }

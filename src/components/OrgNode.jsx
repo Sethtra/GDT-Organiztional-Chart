@@ -114,7 +114,13 @@ const OrgNode = memo(({ id, data, selected }) => {
           className="person-node__avatar"
           style={{ "--avatar-accent": badgeAccent, opacity: isVacant ? 0.3 : 1 }}
         >
-          {isVacant ? "?" : initials}
+          {!isVacant && data.photoUrl ? (
+            <img src={data.photoUrl} alt="" />
+          ) : isVacant ? (
+            "?"
+          ) : (
+            initials
+          )}
         </div>
 
         <div className="person-node__body">

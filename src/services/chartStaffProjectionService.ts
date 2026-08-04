@@ -34,7 +34,8 @@ export async function mergeChartStaffProjection(
         staff (
           id,
           name,
-          name_en
+          name_en,
+          photo_url
         )
       )
     `)

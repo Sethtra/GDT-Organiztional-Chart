@@ -106,13 +106,14 @@ function formatDate(value: string | null): string {
 }
 
 export default function StaffDirectoryPage() {
-  const { units } = useOrgStructure();
+  const { units, getOfficesForUnit } = useOrgStructure();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [staff, setStaff] = useState<HrStaffDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedOffice, setSelectedOffice] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(10);
@@ -126,11 +127,16 @@ export default function StaffDirectoryPage() {
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
 
+  const availableOffices = useMemo(
+    () => (selectedDepartment ? getOfficesForUnit(selectedDepartment) : []),
+    [getOfficesForUnit, selectedDepartment],
+  );
+
   const load = useCallback(async (): Promise<HrStaffDirectoryRecord[]> => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listHrStaff(includeArchived);
+      const data = await listHrStaff(true);
       setStaff(data);
       return data;
     } catch (loadError) {
@@ -143,7 +149,7 @@ export default function StaffDirectoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [includeArchived]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -181,11 +187,20 @@ export default function StaffDirectoryPage() {
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return staff.filter((person) => {
+      if (!includeArchived && person.status === "archived") {
+        return false;
+      }
       if (selectedDepartment) {
         const dept =
           person.organizationalPlacement?.departmentName ??
           person.currentPosition?.departmentName;
         if (dept !== selectedDepartment) return false;
+      }
+      if (selectedDepartment && selectedOffice) {
+        const office =
+          person.organizationalPlacement?.officeName ??
+          person.currentPosition?.officeName;
+        if (office !== selectedOffice) return false;
       }
       if (!query) return true;
       return [
@@ -197,11 +212,11 @@ export default function StaffDirectoryPage() {
         getStaffLocationLabel(person),
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [search, selectedDepartment, staff]);
+  }, [includeArchived, search, selectedDepartment, selectedOffice, staff]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedDepartment, includeArchived, pageSize]);
+  }, [search, selectedDepartment, selectedOffice, includeArchived, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -213,6 +228,7 @@ export default function StaffDirectoryPage() {
 
   const kpis = useMemo(() => {
     const active = staff.filter((person) => person.status === "active").length;
+    const archived = staff.filter((person) => person.status === "archived").length;
     const departments = new Set(
       staff
         .map(
@@ -226,7 +242,7 @@ export default function StaffDirectoryPage() {
     return {
       total: staff.length,
       active,
-      archived: staff.length - active,
+      archived,
       departments,
     };
   }, [staff]);
@@ -364,9 +380,10 @@ export default function StaffDirectoryPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={selectedDepartment}
-                    onChange={(event) =>
-                      setSelectedDepartment(event.target.value)
-                    }
+                    onChange={(event) => {
+                      setSelectedDepartment(event.target.value);
+                      setSelectedOffice("");
+                    }}
                     className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-2 text-[10.5px] font-bold text-[var(--pa-muted)]"
                     aria-label="Filter by department"
                   >
@@ -374,6 +391,33 @@ export default function StaffDirectoryPage() {
                     {units.map((unit) => (
                       <option key={unit.id} value={unit.name}>
                         {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedOffice}
+                    onChange={(event) => setSelectedOffice(event.target.value)}
+                    disabled={!selectedDepartment}
+                    className={cn(
+                      "pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-2 text-[10.5px] font-bold text-[var(--pa-muted)] transition-opacity",
+                      !selectedDepartment &&
+                        "cursor-not-allowed bg-[var(--pa-canvas)] text-[var(--pa-faint)] opacity-50",
+                    )}
+                    aria-label="Filter by office"
+                    title={
+                      !selectedDepartment
+                        ? "Select a department first to filter by office"
+                        : undefined
+                    }
+                  >
+                    <option value="">
+                      {selectedDepartment
+                        ? "All offices"
+                        : "Select department first"}
+                    </option>
+                    {availableOffices.map((office) => (
+                      <option key={office.id} value={office.name}>
+                        {office.name}
                       </option>
                     ))}
                   </select>
@@ -475,18 +519,38 @@ export default function StaffDirectoryPage() {
                               {(currentPage - 1) * pageSize + index + 1}
                             </td>
                             <td className="px-4 py-4">
-                              <div className="min-w-0">
-                                <div
-                                  className="truncate text-[15px] font-extrabold text-[var(--pa-text)]"
-                                  dir="auto"
-                                >
-                                  {person.name}
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[12px] font-extrabold text-[var(--pa-primary)]">
+                                  {person.photoUrl ? (
+                                    <img
+                                      src={person.photoUrl}
+                                      alt=""
+                                      className="size-full object-cover"
+                                    />
+                                  ) : (
+                                    (person.nameEn || person.name).charAt(0).toUpperCase()
+                                  )}
                                 </div>
-                                {person.nameEn && (
-                                  <div className="truncate text-[12.5px] font-medium text-[var(--pa-faint)]">
-                                    {person.nameEn}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className="truncate text-[15px] font-extrabold text-[var(--pa-text)]"
+                                      dir="auto"
+                                    >
+                                      {person.name}
+                                    </span>
+                                    {person.status === "archived" && (
+                                      <StatusBadge tone="danger">
+                                        Archived
+                                      </StatusBadge>
+                                    )}
                                   </div>
-                                )}
+                                  {person.nameEn && (
+                                    <div className="truncate text-[12.5px] font-medium text-[var(--pa-faint)]">
+                                      {person.nameEn}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="px-4 py-4">

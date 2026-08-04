@@ -102,6 +102,7 @@ describe("assignment candidate filters", () => {
       retiredDate: null,
       gender: "unspecified",
       status: "active",
+      photoUrl: null,
       education: "Private education",
       phone: "Private phone",
       address: "Private address",

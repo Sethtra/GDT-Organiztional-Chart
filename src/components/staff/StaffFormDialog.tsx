@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BriefcaseBusiness,
@@ -8,6 +8,7 @@ import {
   Phone,
   Save,
   Sparkles,
+  Upload,
   UserRoundPlus,
 } from "lucide-react";
 
@@ -23,7 +24,10 @@ import { listJobArchitecture } from "../../services/jobArchitectureService";
 import {
   findStaffDuplicates,
   saveStaff,
+  uploadStaffPhoto,
 } from "../../services/staffService";
+import { ImagePrepError, validateOfficerPhotoFile } from "../../utils/imagePrep";
+import PhotoCropDialog from "./PhotoCropDialog";
 import {
   Dialog,
   DialogContent,
@@ -57,12 +61,13 @@ interface StaffDraft {
   phone: string;
   address: string;
   otherInformation: string;
+  photoUrl: string;
 }
 
 type FormSection = "personal" | "employment" | "contact";
 
 const SECTION_FIELDS: Record<FormSection, ReadonlyArray<keyof StaffDraft>> = {
-  personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education"],
+  personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education", "photoUrl"],
   employment: ["departmentId", "officeId", "jobTitleId", "joinedDate", "retiredDate"],
   contact: ["phone", "address", "otherInformation"],
 };
@@ -105,6 +110,7 @@ const emptyDraft: StaffDraft = {
   phone: "",
   address: "",
   otherInformation: "",
+  photoUrl: "",
 };
 
 const inputClass =
@@ -129,6 +135,7 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     phone: staff.phone ?? "",
     address: staff.address ?? "",
     otherInformation: staff.otherInformation ?? "",
+    photoUrl: staff.photoUrl ?? "",
   };
 }
 
@@ -145,6 +152,43 @@ function duplicateMatchLabel(value: StaffDuplicate["matchedFields"][number]) {
   return value === "employeeId"
     ? "Employee ID"
     : "Name and date of birth";
+}
+
+function formatValidationError(
+  issue?: { path?: ReadonlyArray<unknown>; message?: string } | null,
+): string {
+  const message = issue?.message ?? "";
+  const isTechnicalMessage =
+    !message ||
+    message.startsWith("Too small:") ||
+    message.includes("expected string") ||
+    message === "Required" ||
+    message === "Invalid uuid" ||
+    message === "Invalid input";
+
+  if (!isTechnicalMessage) {
+    return message;
+  }
+
+  const field = issue?.path?.[0];
+  switch (field) {
+    case "employeeId":
+      return "Please enter an Officer / Employee ID.";
+    case "name":
+      return "Please enter the Officer Name (Khmer).";
+    case "jobTitleId":
+      return "Please select a Position / Job Title.";
+    case "departmentId":
+      return "Please select a Department.";
+    case "dateOfBirth":
+      return "Please select a Date of Birth.";
+    case "joinedDate":
+      return "Please select a Joined Date.";
+    case "retiredDate":
+      return "Please select a valid Retired Date.";
+    default:
+      return "Please check the required form fields.";
+  }
 }
 
 function sectionForField(fieldName: unknown): FormSection | null {
@@ -169,6 +213,9 @@ export default function StaffFormDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<StaffDuplicate[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const {
     units,
     loading: loadingOrganization,
@@ -244,6 +291,42 @@ export default function StaffFormDialog({
     setDuplicates([]);
   };
 
+  const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      validateOfficerPhotoFile(file);
+      setError(null);
+      setCropFile(file);
+    } catch (validationError) {
+      setError(
+        validationError instanceof ImagePrepError
+          ? validationError.message
+          : "Unable to use this photo.",
+      );
+    }
+  };
+
+  const handleCropConfirm = async (photo: Blob) => {
+    setCropFile(null);
+    setUploadingPhoto(true);
+    setError(null);
+    try {
+      const url = await uploadStaffPhoto(photo);
+      update("photoUrl", url);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Unable to upload this photo.",
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent)
@@ -264,15 +347,15 @@ export default function StaffFormDialog({
       phone: draft.phone || null,
       address: draft.address || null,
       otherInformation: draft.otherInformation || null,
+      photoUrl: draft.photoUrl || null,
     });
 
     if (!parsed.success) {
       const firstIssue = parsed.error.issues[0];
       const invalidSection = sectionForField(firstIssue?.path[0]);
       if (invalidSection) setActiveSection(invalidSection);
-      setError(
-        `VALIDATION:${firstIssue?.message ?? "Check the form values."}`,
-      );
+      const friendlyMessage = formatValidationError(firstIssue);
+      setError(`VALIDATION:${friendlyMessage}`);
       return;
     }
 
@@ -300,6 +383,7 @@ export default function StaffFormDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
       <DialogContent
         className="max-w-3xl overflow-hidden rounded-[16px] border-[#d9e1dc] bg-white p-0 text-[#16211b] shadow-2xl"
@@ -329,9 +413,10 @@ export default function StaffFormDialog({
             {(fieldError || (error && !fieldError)) && (
               <div
                 role="alert"
-                className="rounded-[10px] border border-[#efc8c4] bg-[#fdecea] px-4 py-3 text-[12.5px] font-medium text-[#9c332d]"
+                className="flex items-center gap-2.5 rounded-[10px] border border-[#efc8c4] bg-[#fdecea] px-4 py-3 text-[12.5px] font-semibold text-[#9c332d]"
               >
-                {fieldError ?? error}
+                <AlertTriangle className="size-4 shrink-0 text-[#9c332d]" />
+                <span>{fieldError ?? error}</span>
               </div>
             )}
 
@@ -391,6 +476,60 @@ export default function StaffFormDialog({
 
             {activeSection === "personal" && (
               <div className="grid gap-4 md:grid-cols-2">
+                <div className={`${labelClass} md:col-span-2`}>
+                  <span>Photo</span>
+                  <div className="flex items-center gap-4 pt-0.5 normal-case">
+                    <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#d9e1dc] bg-[#f3f5f2] text-[24px] font-extrabold text-[#136232]">
+                      {draft.photoUrl ? (
+                        <img
+                          src={draft.photoUrl}
+                          alt=""
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        (draft.nameEn || draft.name || "?").trim().charAt(0).toUpperCase()
+                      )}
+                      {uploadingPhoto && (
+                        <div className="absolute inset-0 grid place-items-center bg-black/45">
+                          <Loader2 className="size-5 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid gap-1.5">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={uploadingPhoto}
+                          className="inline-flex items-center gap-1.5 rounded-[8px] border border-[#c6e1d1] bg-[#e7f3ec] px-3 py-2 text-[11.5px] font-extrabold text-[#136232] transition hover:bg-[#d9ecdf] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Upload className="size-3.5" />
+                          {draft.photoUrl ? "Replace photo" : "Upload photo"}
+                        </button>
+                        {draft.photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => update("photoUrl", "")}
+                            disabled={uploadingPhoto}
+                            className="rounded-[8px] border border-[#d9e1dc] px-3 py-2 text-[11.5px] font-bold text-[#66716b] transition hover:bg-[#eef2ee] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-[10.5px] font-medium tracking-normal text-[#87918b]">
+                        JPG, PNG, or WebP · up to 10MB
+                      </span>
+                    </div>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(event) => void handlePhotoSelect(event)}
+                    />
+                  </div>
+                </div>
                 <label className={labelClass}>
                   Employee ID *
                   <input
@@ -706,5 +845,13 @@ export default function StaffFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+    {cropFile && (
+      <PhotoCropDialog
+        file={cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={(photo) => void handleCropConfirm(photo)}
+      />
+    )}
+    </>
   );
 }

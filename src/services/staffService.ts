@@ -78,6 +78,7 @@ export async function saveStaff(
       phone_value: nullable(validated.phone),
       address_value: nullable(validated.address),
       other_information_value: nullable(validated.otherInformation),
+      photo_url_value: nullable(validated.photoUrl),
     },
   );
   if (error) throw error;
@@ -92,4 +93,29 @@ export async function archiveStaff(staffId: string): Promise<void> {
     target_staff_id: staffId,
   });
   if (error) throw error;
+}
+
+/**
+ * Uploads an already-processed (resized, WebP-encoded) officer photo to the
+ * Profile bucket and returns its public URL. Each upload gets a fresh
+ * random object name — decoupled from the staff id — so this works equally
+ * for a brand-new officer that hasn't been saved yet and for an edit of an
+ * existing one. The photo is only persisted to a staff record once its URL
+ * is included in a save_staff_record_with_placement call.
+ */
+export async function uploadStaffPhoto(photo: Blob): Promise<string> {
+  const filePath = `${crypto.randomUUID()}.webp`;
+  const { error: uploadError } = await supabase.storage
+    .from("Profile")
+    .upload(filePath, photo, {
+      contentType: "image/webp",
+      upsert: true,
+    });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("Profile").getPublicUrl(filePath);
+  if (!data?.publicUrl) {
+    throw new Error("Unable to resolve the uploaded photo's URL.");
+  }
+  return data.publicUrl;
 }

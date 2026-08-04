@@ -71,6 +71,7 @@ describe('HR contracts', () => {
       phone: null,
       address: null,
       otherInformation: null,
+      photoUrl: null,
     });
     const invalid = StaffInputSchema.safeParse({
       ...valid.data,

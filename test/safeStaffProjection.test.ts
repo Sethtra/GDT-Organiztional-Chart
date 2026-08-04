@@ -21,6 +21,7 @@ describe("mergeSafeStaffProjection", () => {
                 id: "staff-1",
                 name: "Sokha",
                 name_en: "Sokha",
+                photo_url: null,
               },
             },
           ],

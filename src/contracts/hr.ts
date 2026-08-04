@@ -41,37 +41,59 @@ export const AssignmentChangeReasonSchema = z.enum([
 
 export const StaffInputSchema = z
   .object({
-    employeeId: z.string().trim().min(1).max(64),
-    name: z.string().trim().min(1).max(200),
-    nameEn: z.string().trim().max(200).nullable(),
+    employeeId: z
+      .string()
+      .trim()
+      .min(1, 'Please enter an Officer / Employee ID.')
+      .max(64, 'Officer ID must not exceed 64 characters.'),
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Please enter the Officer Name (Khmer).')
+      .max(200, 'Name must not exceed 200 characters.'),
+    nameEn: z
+      .string()
+      .trim()
+      .max(200, 'English Name must not exceed 200 characters.')
+      .nullable(),
     jobTitleId: UuidSchema,
     departmentId: UuidSchema,
     officeId: UuidSchema.nullable(),
-    dateOfBirth: IsoDateSchema,
-    joinedDate: IsoDateSchema,
+    dateOfBirth: z
+      .string()
+      .trim()
+      .min(1, 'Please select a Date of Birth.')
+      .regex(isoDatePattern, 'Date of birth must be in YYYY-MM-DD format.'),
+    joinedDate: z
+      .string()
+      .trim()
+      .min(1, 'Please select a Joined Date.')
+      .regex(isoDatePattern, 'Joined date must be in YYYY-MM-DD format.'),
     retiredDate: NullableIsoDateSchema,
     gender: GenderSchema,
-    education: z.string().trim().max(4_000).nullable(),
-    phone: z.string().trim().max(50).nullable(),
-    address: z.string().trim().max(4_000).nullable(),
-    otherInformation: z.string().trim().max(4_000).nullable(),
+    education: z.string().trim().max(4_000, 'Education description is too long.').nullable(),
+    phone: z.string().trim().max(50, 'Phone number is too long.').nullable(),
+    address: z.string().trim().max(4_000, 'Address is too long.').nullable(),
+    otherInformation: z.string().trim().max(4_000, 'Information is too long.').nullable(),
+    photoUrl: z.string().trim().max(2_048, 'Photo URL is too long.').nullable(),
   })
   .superRefine((staff, context) => {
-    if (staff.joinedDate.localeCompare(staff.dateOfBirth) < 0) {
+    if (staff.joinedDate && staff.dateOfBirth && staff.joinedDate.localeCompare(staff.dateOfBirth) < 0) {
       context.addIssue({
         code: 'custom',
         path: ['joinedDate'],
-        message: 'Joined date cannot be before date of birth',
+        message: 'Joined date cannot be before date of birth.',
       });
     }
     if (
       staff.retiredDate &&
+      staff.joinedDate &&
       staff.retiredDate.localeCompare(staff.joinedDate) < 0
     ) {
       context.addIssue({
         code: 'custom',
         path: ['retiredDate'],
-        message: 'Retired date cannot be before joined date',
+        message: 'Retired date cannot be before joined date.',
       });
     }
   });
@@ -131,6 +153,7 @@ export const StaffDirectorySummarySchema = z.object({
   retiredDate: NullableIsoDateSchema,
   gender: GenderSchema,
   status: StaffStatusSchema,
+  photoUrl: z.string().trim().max(2_048).nullable().default(null),
   jobTitle: StaffJobTitleSchema.nullable(),
   currentPosition: PositionSummarySchema.nullable(),
   organizationalPlacement:
