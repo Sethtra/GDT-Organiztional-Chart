@@ -6,6 +6,7 @@ import {
   getStraightPath,
   EdgeLabelRenderer,
 } from "@xyflow/react";
+import { collectCrossEdgeSnapCandidates } from "../utils/edgeSnapping";
 import {
   getFloatingEdgeParams,
   getStaticAnchor,
@@ -169,6 +170,22 @@ function buildPathFromPts(pts, R = 10) {
 // ── Robust Orthogonal Router ──────────────────────────────────────────────────
 // Returns { d, labelX, labelY, arrowAngle, arrowStartAngle, pts }
 // pts is exposed so ControlHandles can compute segment handles on the auto-routed path
+const CROSSBAR_GAP = 40;
+
+// Fixed, source-relative crossbar coordinate (NOT a source/target midpoint):
+// every sibling edge sharing the same source + side lands on the identical
+// coordinate this way, independent of each edge's own target. A pure
+// midpoint makes siblings' crossbars differ by however much their targets
+// differ — even a few px of target misalignment — and near-parallel-but-
+// not-quite-coincident lines stack into a visibly thicker band, worst right
+// next to the shared source where every sibling's crossbar overlaps. Falls
+// back toward the natural midpoint when the fixed gap would overshoot a
+// close target.
+function pickCrossbarCoord(from, to, naturalMid) {
+  if (to >= from) return Math.min(from + CROSSBAR_GAP, Math.max(naturalMid, from));
+  return Math.max(from - CROSSBAR_GAP, Math.min(naturalMid, from));
+}
+
 function buildRobustElbow(sx, sy, sp, tx, ty, tp, R = 10) {
   const getDir = (p) => {
     if (p === "top" || p === Position.Top) return [0, -1];
@@ -196,10 +213,10 @@ function buildRobustElbow(sx, sy, sp, tx, ty, tp, R = 10) {
 
   const rawPts = [[sx, sy]];
   if (crossbarType === "vertical") {
-    const mx = (s1x + t1x) / 2;
+    const mx = pickCrossbarCoord(s1x, t1x, (s1x + t1x) / 2);
     rawPts.push([s1x, s1y], [mx, s1y], [mx, t1y], [t1x, t1y]);
   } else {
-    const my = (s1y + t1y) / 2;
+    const my = pickCrossbarCoord(s1y, t1y, (s1y + t1y) / 2);
     rawPts.push([s1x, s1y], [s1x, my], [t1x, my], [t1x, t1y]);
   }
   rawPts.push([tx, ty]);
@@ -307,7 +324,16 @@ function expandRun(startPts, seeds, axis) {
 // ── Polyline waypoint control handles ───────────────────────────────────────────
 // Shows real handles at user waypoints and ghost handles at midpoints.
 const ControlHandles = memo(
-  ({ id, pts, anchors, setEdges, screenToFlowPosition, strokeColor }) => {
+  ({
+    id,
+    pts,
+    anchors,
+    setEdges,
+    screenToFlowPosition,
+    strokeColor,
+    getEdges,
+    getInternalNode,
+  }) => {
     // Anchor-axis magnets: a vertical run wants the x of a top/bottom anchor,
     // a horizontal run the y of a left/right anchor.
     const { xSnaps, ySnaps } = useMemo(() => {
@@ -382,6 +408,13 @@ const ControlHandles = memo(
         const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
         // Snapshot interior points
         const startPts = pts.slice(1, pts.length - 1).map((p) => ({ ...p }));
+        const cross = collectCrossEdgeSnapCandidates(
+          id,
+          getEdges,
+          getInternalNode,
+        );
+        const mergedXSnaps = [...xSnaps, ...cross.xs];
+        const mergedYSnaps = [...ySnaps, ...cross.ys];
 
         let mode = "free";
         let activeIdx = index;
@@ -457,18 +490,18 @@ const ControlHandles = memo(
           const newPts = startPts.map((p) => ({ ...p }));
 
           if (mode === "runH") {
-            const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
+            const newY = snapTo(startPts[activeIdx].y + dy, mergedYSnaps);
             hRun.forEach((k) => {
               newPts[k].y = newY;
             });
           } else if (mode === "runV") {
-            const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+            const newX = snapTo(startPts[activeIdx].x + dx, mergedXSnaps);
             vRun.forEach((k) => {
               newPts[k].x = newX;
             });
           } else if (mode === "corner") {
-            const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
-            const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+            const newY = snapTo(startPts[activeIdx].y + dy, mergedYSnaps);
+            const newX = snapTo(startPts[activeIdx].x + dx, mergedXSnaps);
             hRun.forEach((k) => {
               newPts[k].y = newY;
             });
@@ -476,17 +509,20 @@ const ControlHandles = memo(
               newPts[k].x = newX;
             });
           } else if (mode === "jogH") {
-            const newY = snapTo(startPts[activeIdx].y + dy, ySnaps);
+            const newY = snapTo(startPts[activeIdx].y + dy, mergedYSnaps);
             newPts[activeIdx].y = newY;
             newPts[activeIdx + 1].y = newY;
           } else if (mode === "jogV") {
-            const newX = snapTo(startPts[activeIdx].x + dx, xSnaps);
+            const newX = snapTo(startPts[activeIdx].x + dx, mergedXSnaps);
             newPts[activeIdx].x = newX;
             newPts[activeIdx + 1].x = newX;
           } else {
+            // Free movement (e.g. a spawned midpoint): still magnetizes onto
+            // a nearby line — its own axes or another edge's — without
+            // losing the freeform Visio-style drag.
             newPts[activeIdx] = {
-              x: startPts[activeIdx].x + dx,
-              y: startPts[activeIdx].y + dy,
+              x: snapTo(startPts[activeIdx].x + dx, mergedXSnaps),
+              y: snapTo(startPts[activeIdx].y + dy, mergedYSnaps),
             };
           }
           writePoints(newPts);
@@ -502,12 +538,15 @@ const ControlHandles = memo(
         document.addEventListener("mouseup", onUp);
       },
       [
+        id,
         pts,
         screenToFlowPosition,
         writePoints,
         cleanupWaypoints,
         xSnaps,
         ySnaps,
+        getEdges,
+        getInternalNode,
       ],
     );
 
@@ -541,6 +580,13 @@ const ControlHandles = memo(
 
         const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
         const startPts = pts.slice(1, pts.length - 1).map((p) => ({ ...p }));
+        const cross = collectCrossEdgeSnapCandidates(
+          id,
+          getEdges,
+          getInternalNode,
+        );
+        const mergedXSnaps = [...xSnaps, ...cross.xs];
+        const mergedYSnaps = [...ySnaps, ...cross.ys];
         const run =
           orientation === "free"
             ? null
@@ -553,18 +599,21 @@ const ControlHandles = memo(
             dy = cur.y - startFlow.y;
           const newPts = startPts.map((p) => ({ ...p }));
           if (orientation === "h") {
-            const newY = snapTo(base.y + dy, ySnaps);
+            const newY = snapTo(base.y + dy, mergedYSnaps);
             run.forEach((k) => {
               newPts[k].y = newY;
             });
           } else if (orientation === "v") {
-            const newX = snapTo(base.x + dx, xSnaps);
+            const newX = snapTo(base.x + dx, mergedXSnaps);
             run.forEach((k) => {
               newPts[k].x = newX;
             });
           } else {
             movers.forEach((k) => {
-              newPts[k] = { x: startPts[k].x + dx, y: startPts[k].y + dy };
+              newPts[k] = {
+                x: snapTo(startPts[k].x + dx, mergedXSnaps),
+                y: snapTo(startPts[k].y + dy, mergedYSnaps),
+              };
             });
           }
           writePoints(newPts);
@@ -578,12 +627,15 @@ const ControlHandles = memo(
         document.addEventListener("mouseup", onUp);
       },
       [
+        id,
         pts,
         screenToFlowPosition,
         writePoints,
         cleanupWaypoints,
         xSnaps,
         ySnaps,
+        getEdges,
+        getInternalNode,
       ],
     );
 
@@ -738,7 +790,8 @@ const CustomEdge = memo(
     data = {},
     selected,
   }) => {
-    const { setEdges, screenToFlowPosition } = useReactFlow();
+    const { setEdges, screenToFlowPosition, getEdges, getInternalNode } =
+      useReactFlow();
     const [hovered, setHovered] = useState(false);
 
     // ── Dynamic glue (Visio-style) ─────────────────────────────────────────────
@@ -1084,6 +1137,8 @@ const CustomEdge = memo(
             setEdges={setEdges}
             screenToFlowPosition={screenToFlowPosition}
             strokeColor={strokeColor}
+            getEdges={getEdges}
+            getInternalNode={getInternalNode}
           />
         )}
       </g>

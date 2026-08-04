@@ -276,6 +276,13 @@ export default function HRAssignmentTab({
   nodeRef.current = node;
   const nodeId = node.id;
 
+  // Read inside the position-load effect below instead of adding
+  // onNodeUpdate to its dependency array — the effect's deps stay narrowly
+  // [chartId, nodeId] on purpose (it does real network calls), and the
+  // parent doesn't guarantee a stable onNodeUpdate reference across renders.
+  const onNodeUpdateRef = useRef(onNodeUpdate);
+  onNodeUpdateRef.current = onNodeUpdate;
+
   // ── Load position + assignment-safe staff candidates ──────────
   const reload = async (knownPositionId: string) => {
     const nextSummary = await loadAssignmentSummary(knownPositionId);
@@ -303,6 +310,37 @@ export default function HRAssignmentTab({
         setSummary(nextSummary);
         setPositionConfig(nextConfig);
         setJobTitleId(nextConfig.jobTitleId ?? "");
+
+        // The node's badgeText/position are denormalized display copies
+        // that only handleJobTitleChange keeps in sync going forward. If a
+        // position's job title was set some other way (import, an older
+        // build), the node can be stuck showing its generic type label
+        // forever even though the real assignment is correct. Self-heal
+        // that mismatch here whenever the loaded title disagrees with what
+        // the node currently displays.
+        const resolvedTitleName =
+          nextConfig.jobTitles.find(
+            (title) => title.id === nextConfig.jobTitleId,
+          )?.name ?? "";
+        const currentBadgeText =
+          typeof selectedNode.data?.badgeText === "string"
+            ? selectedNode.data.badgeText
+            : "";
+        const currentPosition =
+          typeof selectedNode.data?.position === "string"
+            ? selectedNode.data.position
+            : "";
+        if (
+          resolvedTitleName &&
+          (currentBadgeText !== resolvedTitleName ||
+            currentPosition !== resolvedTitleName)
+        ) {
+          onNodeUpdateRef.current({
+            jobTitleId: nextConfig.jobTitleId ?? null,
+            position: resolvedTitleName,
+            badgeText: resolvedTitleName,
+          });
+        }
       })
       .catch((loadError) => {
         if (cancelled) return;

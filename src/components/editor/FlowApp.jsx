@@ -57,6 +57,7 @@ import { HR_FEATURES_ENABLED } from '../../config/hrFeatures';
 import { TYPE_META } from '../../data/nodeTypes';
 import { supabase } from '../../supabaseClient';
 import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../../utils/chartData';
+import { computeChartHierarchy } from '../../utils/chartHierarchy';
 
 const nodeTypes = { orgNode: OrgNode };
 const edgeTypes = { custom: CustomEdge };
@@ -242,59 +243,10 @@ export default function FlowApp({
   }, [nodes, edges, selectedNodes, selectedEdge]);
 
   // ── Compute visible nodes/edges (collapse) ────────────────────
-  const { visibleNodes, visibleEdges, childCounts, teamSizes } = useMemo(() => {
-    const hidden = new Set();
-    if (collapsedNodes.size > 0) {
-      function collectDescendants(nodeId) {
-        edges
-          .filter((e) => e.source === nodeId)
-          .forEach((e) => {
-            if (!hidden.has(e.target)) {
-              hidden.add(e.target);
-              collectDescendants(e.target);
-            }
-          });
-      }
-      collapsedNodes.forEach((id) => collectDescendants(id));
-    }
-
-    const cCounts = {};
-    const childrenMap = {};
-    edges.forEach((e) => {
-      cCounts[e.source] = (cCounts[e.source] || 0) + 1;
-      (childrenMap[e.source] ||= []).push(e.target);
-    });
-
-    // Total descendants per node (not just direct reports) — e.g. a "Head"
-    // with 2 deputies who each have their own staff should show the full
-    // team size underneath them, not just the 2 direct reports.
-    const tSizes = {};
-    const visiting = new Set();
-    function countDescendants(nodeId) {
-      if (tSizes[nodeId] !== undefined) return tSizes[nodeId];
-      if (visiting.has(nodeId)) return 0; // cycle guard
-      visiting.add(nodeId);
-      const children = childrenMap[nodeId] || [];
-      let total = children.length;
-      for (const childId of children) total += countDescendants(childId);
-      visiting.delete(nodeId);
-      tSizes[nodeId] = total;
-      return total;
-    }
-    nodes.forEach((n) => countDescendants(n.id));
-
-    const vNodes = nodes.filter((n) => !hidden.has(n.id));
-    const vEdges = edges.filter(
-      (e) => !hidden.has(e.source) && !hidden.has(e.target),
-    );
-
-    return {
-      visibleNodes: vNodes,
-      visibleEdges: vEdges,
-      childCounts: cCounts,
-      teamSizes: tSizes,
-    };
-  }, [nodes, edges, collapsedNodes]);
+  const { visibleNodes, visibleEdges, childCounts, teamSizes } = useMemo(
+    () => computeChartHierarchy(nodes, edges, collapsedNodes),
+    [nodes, edges, collapsedNodes],
+  );
 
   // ── Node / edge operations ────────────────────────────────────
   const {
