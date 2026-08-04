@@ -291,6 +291,10 @@ $migrationSources = @(
     Source = Join-Path $projectRoot 'migrations\2026072916_refine_assignment_candidates.sql'
     Target = '20260727000019_refine_assignment_candidates.sql'
   }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026080401_add_staff_photo.sql'
+    Target = '20260727000020_add_staff_photo.sql'
+  }
 )
 
 foreach ($migration in $migrationSources) {

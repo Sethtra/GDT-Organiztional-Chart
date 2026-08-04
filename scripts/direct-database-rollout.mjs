@@ -140,6 +140,11 @@ const migrations = [
     name: 'refine_assignment_candidates',
     file: 'migrations/2026072916_refine_assignment_candidates.sql',
   },
+  {
+    version: '20260727000020',
+    name: 'add_staff_photo',
+    file: 'migrations/2026080401_add_staff_photo.sql',
+  },
 ]
 
 function jsonReplacer(_key, value) {
