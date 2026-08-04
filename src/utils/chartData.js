@@ -2,7 +2,11 @@ export const DEFAULT_EDGE_OPTIONS = {
   type: 'custom',
   animated: false,
   data: {
-    strokeColor: '#4b8fd4',
+    // Neutral ink. Persisted as a hex (not a CSS token) because the properties
+    // panel's colour picker round-trips this value, and this mid-grey clears
+    // 3:1 against both the light paper ground and the dark one, so a new edge
+    // is legible in either theme without the author touching it.
+    strokeColor: '#737373',
     strokeWidth: 2,
     arrowType: 'closed',
     arrowStart: 'none',

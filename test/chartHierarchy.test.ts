@@ -113,4 +113,5 @@ describe("computeChartHierarchy", () => {
       computeChartHierarchy(nodes, edges, new Set()),
     ).not.toThrow();
   });
+
 });

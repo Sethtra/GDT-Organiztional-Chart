@@ -256,7 +256,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
   return (
-    <div className="properties-panel">
+    <div className="properties-panel pp-light pa-theme">
       {/* Header */}
       <div className="pp-header">
         <div className="pp-header-left">
@@ -492,6 +492,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
             ))}
           </div>
         </div>
+
 
         {/* Custom Badge */}
         {!meta.isPerson && (

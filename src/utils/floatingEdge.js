@@ -9,23 +9,25 @@ import { TYPE_META } from "../data/nodeTypes";
 // line between node centers happens to cross the rectangle) looks like a
 // misfire because it rarely lands exactly on the visible dot.
 
-// Matches .org-node's min-width/min-height (index.css) — used only until
-// React Flow has actually measured the node's rendered DOM size (e.g. the
-// first paint right after a node is created).
+// Used ONLY until React Flow has measured the node's rendered DOM size (the
+// first paint right after a node is created). Once a measurement exists it
+// always wins — see getNodeRect.
 const DEFAULT_WIDTH = 200;
+const PERSON_FALLBACK_WIDTH = 220;
 const DEFAULT_HEIGHT = 80;
 
 export function getNodeRect(node) {
   const { x, y } = node.internals.positionAbsolute;
-  let width = node.measured?.width ?? node.width ?? DEFAULT_WIDTH;
   const isPerson = !!TYPE_META[node.data?.orgType]?.isPerson;
-  
-  // Ensure math matches the CSS min-widths (220 for person, 160 for org unit)
-  const minWidth = isPerson ? 220 : 160;
-  if (width < minWidth) {
-    width = minWidth;
-  }
-  
+
+  // Always trust the measured DOM size. An earlier version clamped the width up
+  // to an assumed CSS minimum, which put the computed side-centre half the
+  // difference away from the handle the user can actually see — so connectors
+  // landed off-centre on any node narrower than the assumed minimum, and the
+  // error changed whenever the CSS min-width did. The fallbacks below apply
+  // only before React Flow has measured anything.
+  const width = node.measured?.width ?? node.width ??
+    (isPerson ? PERSON_FALLBACK_WIDTH : DEFAULT_WIDTH);
   const height = node.measured?.height ?? node.height ?? DEFAULT_HEIGHT;
   return { x, y, width, height };
 }

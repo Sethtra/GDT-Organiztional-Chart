@@ -831,15 +831,21 @@ const CustomEdge = memo(
     const targetX = preciseTarget?.x ?? floating?.tx ?? rawTargetX;
     const targetY = preciseTarget?.y ?? floating?.ty ?? rawTargetY;
 
-    // Read edge styling props
-    const strokeColor = data.strokeColor || "#136232";
-    const strokeWidth = data.strokeWidth || 2.5;
+    // Read edge styling props. The default connector is ink, not emerald —
+    // emerald is reserved for whatever is currently active, so a canvas full of
+    // emerald lines would leave the selection nothing to say.
+    const strokeColor = data.strokeColor || "var(--nx-edge)";
+    const strokeWidth = data.strokeWidth || 2;
     const arrowType = data.arrowType || "closed";
     const arrowStart = data.arrowStart || "none";
     const animated = data.animated || false;
     const label = data.label || "";
     const lineStyle = data.lineStyle || "elbow";
-    const cornerRadius = data.cornerRadius ?? 10;
+    // Near-square corners. At the old default of 10 a short crossbar — say the
+    // ~30px offset between a parent and a child that are not perfectly aligned —
+    // had 10px rounded off each end, so two thirds of the run became curve and
+    // the connector read as a wandering S instead of a right angle.
+    const cornerRadius = data.cornerRadius ?? 2;
     // data.points: array of {x,y} intermediate waypoints — null/[] = auto-route
     const userPoints = data.points;
 
@@ -963,6 +969,15 @@ const CustomEdge = memo(
     const showHandles =
       showInteractive && lineStyle === "elbow" && activePts !== null;
 
+    // State is carried by swapping the stroke colour outright rather than by
+    // layering a translucent pass over the base one — an opaque swap reads the
+    // same whether the edge sits alone or under nine others on the same trunk.
+    const paintedStroke = selected
+      ? "var(--nx-emerald)"
+      : hovered
+        ? "var(--nx-ink)"
+        : strokeColor;
+
     // ── Arrowhead trim (shorten the VISIBLE stroke so it stops at the arrowhead base) ──
     // Trims geometry directly (adjusting endpoint coordinates before rebuilding the path)
     // rather than regexing the `d` string — the old regex only matched elbow-style "L x y"
@@ -1027,32 +1042,42 @@ const CustomEdge = memo(
           onDoubleClick={onBezierDoubleClick}
         />
 
-        {/* ── Selection / hover glow ───────────────────────────────────────── */}
+        {/* ── Active casing ────────────────────────────────────────────────
+            An OPAQUE paper-coloured casing beneath the active line, never a
+            translucent halo. A translucent stroke composites with everything
+            under it, so two edges sharing a trunk painted the shared run twice
+            and it came out darker than the rest of the line — the more edges
+            stacked, the darker it got. Opaque paper cannot accumulate; it just
+            lifts the active line clear of whatever it crosses. */}
         {showInteractive && (
           <path
             d={d}
             fill="none"
-            stroke={strokeColor}
-            strokeWidth={strokeWidth + 8}
-            strokeOpacity={hovered && !selected ? 0.3 : 0.15}
+            strokeWidth={strokeWidth + 7}
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{ pointerEvents: "none" }}
+            style={{ stroke: "var(--nx-paper)", pointerEvents: "none" }}
           />
         )}
 
-        {/* ── Main visible stroke ───────────────────────────────────────────── */}
+        {/* ── Main visible stroke ──────────────────────────────────────────
+            stroke and stroke-width travel through `style`, not through SVG
+            presentation attributes: a stylesheet rule outranks an attribute,
+            which is how the per-edge colour and width set in the properties
+            panel were being silently discarded. Inline style outranks both. */}
         <path
           id={id}
           d={trimmedD}
           fill="none"
-          stroke={strokeColor}
-          strokeWidth={strokeWidth}
           strokeDasharray={animated ? "10 5" : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
           className="react-flow__edge-path"
-          style={{ pointerEvents: "none" }}
+          style={{
+            stroke: paintedStroke,
+            strokeWidth,
+            pointerEvents: "none",
+          }}
         />
 
         {/* ── Arrowheads ───────────────────────────────────────────────────── */}
@@ -1061,7 +1086,7 @@ const CustomEdge = memo(
           tx={targetX}
           ty={targetY}
           angle={arrowAngle}
-          color={strokeColor}
+          color={paintedStroke}
           sw={strokeWidth}
         />
         {arrowStart !== "none" && (
@@ -1070,7 +1095,7 @@ const CustomEdge = memo(
             tx={sourceX}
             ty={sourceY}
             angle={arrowStartAngle}
-            color={strokeColor}
+            color={paintedStroke}
             sw={strokeWidth}
           />
         )}

@@ -597,38 +597,34 @@ export default function FlowApp({
                   maxZoom={2.5}
                   proOptions={{ hideAttribution: true }}
                 >
+                  {/* One faint dot on the snap grid — just enough to show a
+                      drag is landing on the grid, and nothing more. A ruled or
+                      high-contrast grid turns the register into wallpaper. */}
                   {!previewMode && (
                     <Background
                       variant={BackgroundVariant.Dots}
-                      color={theme === 'dark' ? '#ffffff22' : '#0f172a40'}
+                      color={
+                        theme === 'dark'
+                          ? 'rgba(238,242,239,0.14)'
+                          : 'rgba(22,33,27,0.16)'
+                      }
                       gap={20}
-                      size={1.5}
+                      size={1}
                     />
                   )}
-                  {!previewMode && (
-                    <Controls
-                      style={{
-                        background: 'var(--bg-surface-translucent)',
-                        border: '1px solid rgba(var(--surface-rgb),.12)',
-                        borderRadius: 8,
-                      }}
-                    />
-                  )}
+                  {!previewMode && <Controls />}
                   {!previewMode && (
                     <MiniMap
                       nodeColor={(n) =>
-                        n.data?.color || 'var(--default-node-bg)'
+                        n.data?.color ||
+                        (theme === 'dark' ? '#6b7280' : '#0a0a0a')
                       }
+                      nodeStrokeWidth={0}
                       maskColor={
                         theme === 'dark'
-                          ? 'rgba(0,0,0,0.65)'
-                          : 'rgba(15,23,42,0.35)'
+                          ? 'rgba(11,13,16,0.72)'
+                          : 'rgba(236,234,229,0.72)'
                       }
-                      style={{
-                        background: 'var(--bg-surface-translucent)',
-                        border: '1px solid rgba(var(--surface-rgb),.12)',
-                        borderRadius: 8,
-                      }}
                     />
                   )}
                   {!previewMode && canEdit && (

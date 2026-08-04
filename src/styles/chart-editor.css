@@ -1,0 +1,921 @@
+/* ============================================================================
+   CHART EDITOR SURFACE  (/chart/:id)
+   ----------------------------------------------------------------------------
+   Header chrome, canvas, nodes, connectors, controls, status bar, tab bar.
+
+   Palette is GDT's: EMERALD #136232 and WHITE, per PRODUCT.md's brand
+   commitment. Green carries identity and the primary action; white is the
+   working surface. Text is a near-black with a green cast so it belongs to the
+   same family. Gold is the seal only. Red appears nowhere except a genuine
+   destructive action.
+
+   Deliberate non-goals, each of which was tried and rejected:
+     · No derived rank/tier. Nothing infers a hierarchy the author did not
+       declare, and nothing sets a node's size from its position in the chart.
+       Every unit node is the same card; the author owns its colour and size.
+     · No decorative texture on the canvas. This is a government register, and
+       the background's whole job is to stay out of the way.
+     · No translucent connector strokes — see the connector section.
+   ========================================================================== */
+
+/* ── Tokens ────────────────────────────────────────────────────────────────
+   Light is the reference theme: GDT staff work in lit offices and project
+   these charts. Dark is derived from it.                                    */
+:root {
+  /* dark (app default until data-theme lands) */
+  --nx-ground:      #0d1512;
+  --nx-paper:       #16201b;
+  --nx-paper-2:     #1c2822;
+  --nx-ink:         #eef2ef;
+  --nx-ink-2:       #b6c2ba;
+  --nx-ink-3:       #93a199;
+  --nx-rule:        #556d5f;  /* 3.3:1 on the canvas ground */
+  --nx-rule-hair:   #26332c;
+  --nx-band:        rgba(238, 242, 239, 0.06);
+  --nx-grid:        rgba(238, 242, 239, 0.055);
+  --nx-green:       #34a866;
+  --nx-green-deep:  #2b8f56;
+  --nx-band-default: #136232;  /* GDT emerald; white on it = 7.4:1 */
+  --nx-green-tint:  #18301f;
+  --nx-green-ink:   #04140a;
+  --nx-gold:        #d4af37;
+  --nx-danger:      #f27168;
+  /* Connector ink. MUST stay opaque — an alpha stroke composites with every
+     stroke beneath it, so edges sharing a trunk paint that run repeatedly and
+     it reads darker with every edge added. Opaque ink cannot accumulate. */
+  --nx-edge:        #7e8f85;
+
+  --nx-font:        'Manrope', system-ui, sans-serif;
+  --nx-font-kh:     'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
+
+  --nx-radius:      4px;
+  --nx-header-h:    52px;
+  --nx-status-h:    28px;
+  --nx-ease:        cubic-bezier(0.2, 0, 0, 1);
+  --nx-shadow:      0 1px 2px rgba(0, 0, 0, .28), 0 6px 16px -8px rgba(0, 0, 0, .40);
+  --nx-shadow-lift: 0 2px 4px rgba(0, 0, 0, .30), 0 12px 26px -10px rgba(0, 0, 0, .50);
+}
+
+:root[data-theme="light"] {
+  --nx-ground:      #eef1ee;  /* quiet off-white; white cards read against it */
+  --nx-paper:       #ffffff;
+  --nx-paper-2:     #f6f8f6;
+  --nx-ink:         #16211b;
+  --nx-ink-2:       #44514a;
+  --nx-ink-3:       #5d6b63;  /* 4.9:1 on the ground, 5.9:1 on paper */
+  --nx-rule:        #788c7e;  /* 3.2:1 on the canvas ground */
+  --nx-rule-hair:   #dbe3dd;
+  --nx-band:        rgba(19, 98, 50, 0.06);
+  --nx-grid:        rgba(22, 33, 27, 0.055);
+  --nx-green:       #136232;  /* GDT Emerald */
+  --nx-green-deep:  #0e4a26;
+  --nx-band-default: #136232;
+  --nx-green-tint:  #e8f0ea;
+  --nx-green-ink:   #ffffff;
+  --nx-gold:        #8a6f1a;
+  --nx-danger:      #b3261e;
+  --nx-edge:        #6b7a71;
+
+  --nx-shadow:      0 1px 2px rgba(22, 33, 27, .08), 0 4px 12px -6px rgba(22, 33, 27, .16);
+  --nx-shadow-lift: 0 2px 4px rgba(22, 33, 27, .10), 0 10px 22px -8px rgba(22, 33, 27, .22);
+}
+
+/* Claim the brand face across the editor. Scoped to these roots so it cannot
+   repaint surfaces still running the older system. */
+.app-header,
+.status-bar,
+.chart-tab-bar,
+.hint-chip,
+.org-node,
+.react-flow__controls,
+.react-flow__minimap,
+.pp-hint {
+  font-family: var(--nx-font);
+}
+
+/* Counts, zoom and other measurements must not reflow as they change. */
+.status-item span,
+.org-node__child-count,
+.person-node__team {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── Command bar ─────────────────────────────────────────────────────────── */
+.app-header {
+  height: var(--nx-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 14px;
+  background: var(--nx-paper);
+  border-bottom: 1px solid var(--nx-rule);
+  box-shadow: 0 1px 0 0 var(--nx-green);
+  z-index: 50;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 4px 8px 4px 4px;
+  margin-left: -4px;
+  border-radius: var(--nx-radius);
+  transition: background 160ms var(--nx-ease);
+}
+
+.header-brand:hover { background: var(--nx-green-tint); }
+.header-brand:focus-visible {
+  outline: 2px solid var(--nx-green);
+  outline-offset: 1px;
+}
+
+/* The seal is a raster mark. Pin its box and give it a composited layer so it
+   is sampled once at device resolution — the old header scaled the full
+   2609x546 lockup to ~34px, which rasterised soft until a hover transform
+   forced a high-quality re-raster. */
+.header-brand__seal {
+  display: block;
+  height: 30px;
+  width: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.header-brand__rule {
+  width: 1px;
+  height: 26px;
+  background: var(--nx-rule);
+  flex-shrink: 0;
+}
+
+.header-brand__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.header-brand__kh {
+  font-family: var(--nx-font-kh);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--nx-green);
+  white-space: nowrap;
+}
+
+.header-brand__en {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nx-ink-3);
+  white-space: nowrap;
+}
+
+.header-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.header-toolbar::-webkit-scrollbar { display: none; }
+
+/* ── Controls ────────────────────────────────────────────────────────────── */
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--nx-radius);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--nx-ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    background 150ms var(--nx-ease),
+    color 150ms var(--nx-ease),
+    border-color 150ms var(--nx-ease);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tb-btn:hover {
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+}
+
+.tb-btn:focus-visible {
+  outline: 2px solid var(--nx-green);
+  outline-offset: 1px;
+}
+
+.tb-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tb-btn--icon {
+  width: 30px;
+  padding: 0;
+  color: var(--nx-ink-3);
+}
+
+.tb-btn--icon:hover { color: var(--nx-green); }
+
+.tb-btn--primary {
+  background: var(--nx-green);
+  border-color: var(--nx-green);
+  color: var(--nx-green-ink);
+  font-weight: 700;
+}
+
+.tb-btn--primary:hover {
+  background: var(--nx-green-deep);
+  border-color: var(--nx-green-deep);
+  color: var(--nx-green-ink);
+}
+
+.tb-btn--primary:active { background: var(--nx-green-deep); }
+
+.tb-btn--secondary {
+  color: var(--nx-ink-2);
+  border-color: var(--nx-rule);
+  background: var(--nx-paper);
+}
+
+.tb-btn--secondary:hover {
+  color: var(--nx-green);
+  border-color: var(--nx-green);
+  background: var(--nx-green-tint);
+}
+
+.tb-btn--danger {
+  color: var(--nx-danger);
+  border-color: var(--nx-danger);
+}
+
+.tb-btn--danger:hover {
+  background: var(--nx-danger);
+  border-color: var(--nx-danger);
+  color: #ffffff;
+}
+
+.tb-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--nx-rule-hair);
+  margin: 0 5px;
+  flex-shrink: 0;
+}
+
+/* ── Save badge ──────────────────────────────────────────────────────────── */
+.save-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: transparent;
+  min-width: 68px;
+  padding: 3px 0 3px 11px;
+  border-left: 1px solid transparent;
+  transition: color 240ms var(--nx-ease), border-color 240ms var(--nx-ease);
+}
+
+.save-badge--saving { color: var(--nx-ink-3); border-left-color: var(--nx-rule-hair); }
+.save-badge--saved  { color: var(--nx-green); border-left-color: var(--nx-rule-hair); }
+
+.save-spin { animation: spin 0.8s linear infinite; }
+.status-spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* ── Canvas ──────────────────────────────────────────────────────────────── */
+.react-flow { background: var(--nx-ground) !important; }
+
+.react-flow__controls {
+  border: 1px solid var(--nx-rule) !important;
+  border-radius: var(--nx-radius) !important;
+  overflow: hidden !important;
+  background: var(--nx-paper) !important;
+  box-shadow: var(--nx-shadow) !important;
+  margin-bottom: 40px !important;
+  margin-left: 16px !important;
+}
+
+.canvas-wrapper.panel-open .react-flow__controls { margin-left: 64px !important; }
+
+.react-flow__controls-button {
+  background: var(--nx-paper) !important;
+  border-bottom: 1px solid var(--nx-rule-hair) !important;
+  color: var(--nx-ink-2) !important;
+  fill: var(--nx-ink-2) !important;
+  width: 26px !important;
+  height: 26px !important;
+  transition: background 140ms var(--nx-ease), color 140ms var(--nx-ease) !important;
+}
+
+.react-flow__controls-button:last-child { border-bottom: none !important; }
+
+.react-flow__controls-button:hover {
+  background: var(--nx-green-tint) !important;
+  color: var(--nx-green) !important;
+  fill: var(--nx-green) !important;
+}
+
+.react-flow__minimap {
+  border: 1px solid var(--nx-rule) !important;
+  border-radius: var(--nx-radius) !important;
+  background: var(--nx-paper) !important;
+  box-shadow: var(--nx-shadow) !important;
+  overflow: hidden !important;
+}
+
+.react-flow__selection {
+  background: rgba(19, 98, 50, 0.08);
+  border: 1px solid var(--nx-green);
+}
+
+.hint-chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--nx-ink-3);
+  background: var(--nx-paper);
+  border: 1px solid var(--nx-rule);
+  border-radius: var(--nx-radius);
+  padding: 5px 10px;
+  margin-top: 12px;
+  margin-right: 12px;
+  box-shadow: var(--nx-shadow);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Connectors ───────────────────────────────────────────────────────────
+   Fully opaque, always. CustomEdge paints stroke/width through inline style so
+   the properties panel's per-edge colour and width win; these are the fallback
+   for any edge it does not render. */
+.react-flow__edge-path {
+  stroke: var(--nx-edge);
+  stroke-width: 1.6;
+  transition: stroke 150ms var(--nx-ease);
+}
+
+.react-flow__connection-path {
+  stroke: var(--nx-green) !important;
+  stroke-width: 1.8 !important;
+  stroke-dasharray: 4 3;
+}
+
+/* ── Unit node ────────────────────────────────────────────────────────────
+   One card, every time. No width or height is set here — the author's resize
+   is the only thing that decides how big a node is. */
+.org-node {
+  background: var(--nx-paper);
+  border: 1px solid var(--nx-rule);
+  border-radius: var(--nx-radius);
+  min-width: 140px;
+  min-height: 64px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  box-shadow: var(--nx-shadow);
+  transition: box-shadow 150ms var(--nx-ease), border-color 150ms var(--nx-ease);
+}
+
+.org-node:hover {
+  border-color: var(--nx-green);
+  box-shadow: var(--nx-shadow-lift);
+}
+
+.org-node--selected {
+  border-color: var(--nx-green) !important;
+  box-shadow: 0 0 0 2px var(--nx-green), var(--nx-shadow-lift) !important;
+}
+
+.org-node--highlighted {
+  border-color: var(--nx-gold) !important;
+  box-shadow: 0 0 0 2px var(--nx-gold), var(--nx-shadow-lift) !important;
+}
+
+/* Title band — the author's colour, defaulting to GDT emerald */
+.org-node__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  min-height: 26px;
+  flex-shrink: 0;
+  background: var(--nx-band-color, var(--nx-band-default));
+  color: var(--nx-band-ink, #ffffff);
+}
+
+.org-node__label {
+  font-family: var(--nx-font-kh);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+
+.org-node__header-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.org-node__child-count {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.org-node__edit-hint {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.85;
+  animation: fadeIn 0.15s;
+}
+
+.org-node__link-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 3px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Body */
+.org-node__body {
+  padding: 9px 11px 11px;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+}
+
+.org-node__name {
+  font-family: var(--nx-font-kh);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nx-ink);
+  line-height: 1.5;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.org-node__name-en {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--nx-ink-2);
+  margin-top: 2px;
+  line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.org-node__desc {
+  font-size: 10px;
+  color: var(--nx-ink-3);
+  margin-top: 6px;
+  line-height: 1.45;
+  border-top: 1px solid var(--nx-rule-hair);
+  padding-top: 5px;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.org-node__collapsed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+  border-radius: 3px;
+  padding: 2px 7px;
+  margin-top: 7px;
+}
+
+/* ── Person node ──────────────────────────────────────────────────────────
+   Avatar geometry (84px at -42px, pill at -13px) is load-bearing: the
+   connector endpoints in floatingEdge.js land on exactly those points. */
+.org-node--person {
+  min-width: 200px;
+  overflow: visible !important;
+  background: var(--nx-paper) !important;
+  border: 1px solid var(--nx-rule) !important;
+  border-radius: var(--nx-radius) !important;
+  box-shadow: var(--nx-shadow) !important;
+}
+
+.org-node--person:hover {
+  border-color: var(--nx-green) !important;
+  box-shadow: var(--nx-shadow-lift) !important;
+}
+
+.org-node--person.org-node--selected {
+  border-color: var(--nx-green) !important;
+  box-shadow: 0 0 0 2px var(--nx-green), var(--nx-shadow-lift) !important;
+}
+
+.person-node__avatar {
+  position: absolute;
+  top: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--nx-font);
+  font-weight: 700;
+  font-size: 28px;
+  color: #ffffff;
+  background: var(--nx-green);
+  border: 3px solid var(--nx-paper);
+  box-shadow: var(--nx-shadow);
+  overflow: hidden;
+  flex-shrink: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* An empty seat is a normal state, not an error — it reads as a quiet outline
+   rather than a filled marker. */
+.person-node__avatar--vacant {
+  background: var(--nx-paper-2);
+  color: var(--nx-ink-3);
+  box-shadow: inset 0 0 0 1px var(--nx-rule), var(--nx-shadow);
+}
+
+.person-node__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.person-node__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 18px 26px;
+  text-align: center;
+}
+
+.person-node__name {
+  font-family: var(--nx-font-kh);
+  font-weight: 700;
+  color: var(--nx-ink);
+  line-height: 1.35;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  margin-top: 6px;
+}
+
+.person-node__position {
+  font-family: var(--nx-font-kh);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nx-green);
+  line-height: 1.4;
+  word-break: normal;
+  overflow-wrap: break-word;
+  margin-top: 4px;
+}
+
+.person-node__vacant {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nx-ink-3);
+  border: 1px solid var(--nx-rule);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.person-node__team {
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--nx-green);
+  border: 2px solid var(--nx-paper);
+  padding: 3px 11px;
+  border-radius: 100px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.person-node__team--collapsed {
+  color: var(--nx-green);
+  background: var(--nx-paper);
+  box-shadow: inset 0 0 0 1px var(--nx-green);
+}
+
+.person-node__link-badge,
+.person-node__history-badge {
+  position: absolute;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border-radius: 3px;
+  background: var(--nx-paper);
+  box-shadow: 0 0 0 1px var(--nx-rule-hair);
+  z-index: 3;
+}
+
+.person-node__link-badge    { left: 10px;  color: var(--nx-green); }
+.person-node__history-badge { right: 10px; color: var(--nx-ink-3); }
+
+.org-node--person .react-flow__handle-top { top: -42px !important; }
+.org-node--person .react-flow__handle-bottom { bottom: -13px !important; }
+
+/* ── Resize control ───────────────────────────────────────────────────────
+   The selection outline is the node's own ring (.org-node--selected). React
+   Flow's four line controls remain in the DOM as edge-drag targets but paint
+   nothing — a straight rectangle drawn around a rounded card detaches at every
+   corner and reads as a separate floating frame. Only the corner handles show,
+   sitting on the ring, the way every other flow editor does it. */
+.react-flow__resize-control.line {
+  border-color: transparent !important;
+}
+
+/* The line controls keep React Flow's own 1px hit area. Widening them put a
+   transparent strip over the mid-edge connector dots, which blocked
+   drag-to-connect on a selected node. */
+
+.react-flow__resize-control.handle {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+/* Canva-style pill on each edge midpoint. The line control itself spans the
+   whole edge and stays the drag target — React Flow already locks a side drag
+   to one axis — while this pseudo-element draws the visible grip at its centre.
+   Drawing the grip this way keeps the whole edge draggable, which a real 20px
+   pill element would not. */
+.react-flow__resize-control.line::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #ffffff;
+  border: 1.5px solid var(--nx-green);
+  border-radius: 100px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+.react-flow__resize-control.line.top::after,
+.react-flow__resize-control.line.bottom::after {
+  width: 30px;
+  height: 7px;
+  transform: translate(-50%, -50%);
+}
+
+.react-flow__resize-control.line.left::after,
+.react-flow__resize-control.line.right::after {
+  width: 7px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+}
+
+/* The selected ring is the shape's outline, so it hugs the card's own rounded
+   corners instead of boxing it in. */
+.org-node--selected {
+  border-radius: var(--nx-radius);
+}
+
+/* ── Handles ─────────────────────────────────────────────────────────────── */
+.flow-handle {
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 50% !important;
+  background: var(--nx-paper) !important;
+  border: 2px solid var(--nx-green) !important;
+  transition: background 140ms var(--nx-ease), transform 140ms var(--nx-ease) !important;
+  opacity: 0;
+  /* Above the resize grips, so selecting a node never costs you
+     drag-to-connect on its mid-edge dots. The paper ring separates the dot
+     from the grip bar it sits inside. */
+  z-index: 6 !important;
+  box-shadow: 0 0 0 2px var(--nx-paper) !important;
+}
+
+.org-node:hover .flow-handle,
+.org-node--selected .flow-handle,
+.react-flow:has(.react-flow__connection) .flow-handle,
+.react-flow:has(.react-flow__connectionline) .flow-handle {
+  opacity: 1;
+}
+
+.flow-handle:hover,
+.flow-handle--source:hover,
+.flow-handle--target:hover {
+  background: var(--nx-green) !important;
+  transform: scale(1.35) !important;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+.status-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nx-status-h);
+  background: var(--nx-paper);
+  border-top: 1px solid var(--nx-rule);
+  display: flex;
+  align-items: stretch;
+  padding: 0 12px;
+  z-index: 30;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--nx-ink-3);
+  padding: 0 11px;
+  transition: color 140ms var(--nx-ease), background 140ms var(--nx-ease);
+}
+
+button.status-item { cursor: pointer; }
+
+button.status-item:hover {
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+}
+
+button.status-item:focus-visible {
+  outline: 2px solid var(--nx-green);
+  outline-offset: -2px;
+}
+
+.status-divider {
+  width: 1px;
+  align-self: center;
+  height: 12px;
+  background: var(--nx-rule-hair);
+  flex-shrink: 0;
+}
+
+.status-spacer { flex: 1; }
+
+.status-save {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: transparent;
+  padding: 0 11px;
+  transition: color 240ms var(--nx-ease);
+}
+
+.status-save--saving { color: var(--nx-ink-3); }
+.status-save--saved  { color: var(--nx-green); }
+
+/* ── Tab bar ─────────────────────────────────────────────────────────────── */
+.chart-tab-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--nx-paper);
+  border-top: 1px solid var(--nx-rule);
+  overflow-x: auto;
+}
+
+.chart-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  max-width: 210px;
+  border: none;
+  border-right: 1px solid var(--nx-rule-hair);
+  background: transparent;
+  color: var(--nx-ink-3);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 140ms var(--nx-ease), background 140ms var(--nx-ease);
+}
+
+.chart-tab:hover { color: var(--nx-ink); background: var(--nx-band); }
+
+.chart-tab--active {
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+}
+
+.chart-tab--active::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--nx-green);
+}
+
+.chart-tab__icon { flex-shrink: 0; opacity: 0.7; }
+
+.chart-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-tab__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  opacity: 0.55;
+  transition: opacity 140ms var(--nx-ease), background 140ms var(--nx-ease);
+}
+
+.chart-tab__close:hover {
+  opacity: 1;
+  background: var(--nx-danger);
+  color: #ffffff;
+}
+
+/* ── Properties panel helper ─────────────────────────────────────────────── */
+.pp-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--nx-ink-3);
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--nx-rule-hair);
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .save-spin, .status-spin { animation-duration: 2.4s; }
+  .app-header *, .org-node, .tb-btn, .chart-tab, .status-item, .flow-handle {
+    transition-duration: 1ms !important;
+  }
+}
