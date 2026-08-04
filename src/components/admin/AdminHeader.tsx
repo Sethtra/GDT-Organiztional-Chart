@@ -1,5 +1,6 @@
 import { useId } from "react";
-import { Loader2, Menu, Search, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Loader2, Menu, Search, X } from "lucide-react";
 
 import { useAuth } from "../../hooks/useAuth";
 
@@ -71,17 +72,20 @@ export default function AdminHeader({
         </div>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
-          {saving ? (
+          {saving && (
             <div className="hidden items-center gap-2 rounded-lg border border-[var(--pa-gold-border)] bg-[var(--pa-gold-soft)] px-3 py-2 text-[10.5px] font-bold text-[#735413] sm:flex">
               <Loader2 size={12} className="animate-spin" aria-hidden="true" />
               Saving…
             </div>
-          ) : (
-            <div className="hidden items-center gap-2 rounded-lg border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] px-3 py-2 text-[10.5px] font-bold text-[var(--pa-primary)] sm:flex">
-              <span className="size-1.5 rounded-full bg-[var(--pa-primary)]" aria-hidden="true" />
-              Live Sync
-            </div>
           )}
+          <Link
+            to="/"
+            className="pa-focus-ring flex h-9 items-center gap-1.5 rounded-lg border border-[var(--pa-border)] bg-[var(--pa-canvas)] px-3 text-[11px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)] hover:bg-white"
+            title="Return to main page"
+          >
+            <ArrowLeft size={13} strokeWidth={2.2} className="shrink-0 text-[var(--pa-muted)]" aria-hidden="true" />
+            <span>Back to main page</span>
+          </Link>
           <div className="h-8 w-px bg-[var(--pa-border)]" aria-hidden="true" />
           <div className="flex items-center gap-2.5">
             <div className="flex size-9 items-center justify-center rounded-lg bg-[var(--pa-sidebar)] text-[11px] font-extrabold text-white">
