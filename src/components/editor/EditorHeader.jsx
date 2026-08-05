@@ -89,18 +89,11 @@ export default function EditorHeader({
           aria-label="Go to Dashboard"
         >
           <img
-            src="/gdt-seal-mark.png"
-            srcSet="/gdt-seal-mark.png 1x, /gdt-seal-mark@2x.png 2x, /gdt-seal-mark@3x.png 3x"
-            width="32"
-            height="32"
-            alt=""
+            src="/GDT-Logo (Light).png"
+            alt="GDT — General Department of Taxation"
             className="header-brand__seal"
+            style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
           />
-          <div className="header-brand__rule" />
-          <div className="header-brand__label">
-            <span className="header-brand__kh">អគ្គនាយកដ្ឋានពន្ធដារ</span>
-            <span className="header-brand__en">General Department of Taxation</span>
-          </div>
         </div>
       </div>
 

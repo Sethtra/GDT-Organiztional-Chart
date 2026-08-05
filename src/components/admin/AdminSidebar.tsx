@@ -3,7 +3,6 @@ import {
   BriefcaseBusiness,
   Building2,
   LayoutDashboard,
-  ShieldCheck,
   UsersRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -61,21 +60,13 @@ export default function AdminSidebar({ currentTab, onNavigate }: AdminSidebarPro
   return (
     <div className="flex h-full w-full flex-col bg-[var(--pa-sidebar)]">
       {/* Brand Header */}
-      <div className="border-b border-[var(--pa-sidebar-border)] px-4 pb-4 pt-4 shrink-0">
-        <div className="flex items-center justify-center py-1">
+      <div className="border-b border-[var(--pa-sidebar-border)] px-4 py-4 shrink-0">
+        <div className="flex items-center justify-center">
           <img
-            src="/GDT-Logo (Light).png"
+            src="/GDT-Logo (Soft).png"
             alt="GDT Administration"
-            className="h-9 w-auto object-contain brightness-110"
+            className="h-20 w-auto object-contain"
           />
-        </div>
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.055] px-2.5 py-1.5">
-          <span className="text-[10.5px] font-semibold text-[var(--pa-sidebar-muted)]">
-            Live database
-          </span>
-          <span className="rounded-md border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--pa-primary)]">
-            Supabase
-          </span>
         </div>
       </div>
 

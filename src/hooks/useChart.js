@@ -69,7 +69,7 @@ export function useChart() {
 
   const duplicateChart = useCallback(async (chart) => {
     if (!user) return null;
-    const { data: full } = await supabase.from('charts').select('*').eq('id', chart.id).single();
+    const { data: full } = await supabase.from('charts').select('*').eq('id', chart.id).maybeSingle();
     if (!full) return null;
     const { data, error } = await supabase
       .from('charts')

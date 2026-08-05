@@ -36,6 +36,7 @@ describe("chart service migration rollout", () => {
       select: () => ({
         eq: () => ({
           single: mocks.single,
+          maybeSingle: mocks.single,
         }),
       }),
     });

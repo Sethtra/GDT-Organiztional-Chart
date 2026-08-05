@@ -515,8 +515,8 @@ export default function StaffDirectoryPage() {
                             key={person.id}
                             className="transition-colors hover:bg-[var(--pa-canvas)]"
                           >
-                            <td className="px-6 py-4 text-[14.5px] font-bold text-[var(--pa-faint)]">
-                              {(currentPage - 1) * pageSize + index + 1}
+                            <td className="px-6 py-4 text-[13.5px] font-extrabold tracking-[0.06em] text-[var(--pa-gold)] [font-variant-numeric:tabular-nums]">
+                              {String((currentPage - 1) * pageSize + index + 1).padStart(2, "0")}
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex min-w-0 items-center gap-3">

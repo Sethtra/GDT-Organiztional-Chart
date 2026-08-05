@@ -41,7 +41,7 @@ export async function loadChartForViewer(
     .from('charts')
     .select('*, chart_shares(access_level, shared_email, status)')
     .eq('id', chartId)
-    .single();
+    .maybeSingle();
 
   if (legacyResult.error || !legacyResult.data) {
     return { chart: null, usedLegacyFallback: true };

@@ -64,7 +64,7 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
     loadShares();
 
     // Load current public settings
-    supabase.from('charts').select('is_public').eq('id', chartId).single()
+    supabase.from('charts').select('is_public').eq('id', chartId).maybeSingle()
       .then(({ data }) => {
         if (data) {
           setIsPublic(data.is_public);

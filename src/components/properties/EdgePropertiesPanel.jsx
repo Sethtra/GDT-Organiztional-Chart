@@ -5,7 +5,7 @@ import { ARROWHEAD_OPTIONS } from "../../data/edgeOptions";
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
-  { label: "Teal",   value: "#136232" },
+  { label: "Teal",   value: "#0d9488" },
   { label: "Blue",   value: "var(--default-node-bg)" },
   { label: "Sky",    value: "#0369a1" },
   { label: "Purple", value: "#6d28d9" },

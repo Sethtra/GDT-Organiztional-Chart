@@ -1,4 +1,4 @@
-import { Layers, GitBranch, ZoomIn, CheckCircle2, Loader2, Clock, AlertCircle } from "lucide-react";
+import { Layers, GitBranch, ZoomIn, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus, onOpenVersionHistory }) {
   const zoomPct = Math.round((zoom ?? 1) * 100);
@@ -19,16 +19,6 @@ export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus, onOp
         <ZoomIn size={11} />
         <span>{zoomPct}%</span>
       </div>
-      <div className="status-divider" />
-      <button
-        className="status-item"
-        onClick={onOpenVersionHistory}
-        aria-label="Open version history"
-        title="Version History"
-      >
-        <Clock size={11} />
-        <span>History</span>
-      </button>
       <div className="status-spacer" />
       <div
         className={`status-save ${saveStatus === "saving" ? "status-save--saving" : saveStatus === "saved" ? "status-save--saved" : ""}`}
