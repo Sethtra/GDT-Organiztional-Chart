@@ -36,26 +36,28 @@ function getNodeCenter(rect) {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
-// Person cards (Head/Deputy/Officer — see OrgNode.jsx) render an avatar
-// overlapping above the card and a team-size pill overlapping below it
-// (matching Claude Design turn 11b). The card's literal top/bottom edges sit
-// hidden behind those. We land the connector exactly on the visible outer
-// edge of the avatar (its topmost point) and the pill (its bottom), so the
-// line TOUCHES the node instead of floating in the empty space beyond it:
-//   · avatar: top:-42px in index.css → its apex is 42px above the card top
-//   · team pill: bottom:-13px        → its base is 13px below the card bottom
-// (A larger offset here left the arrowhead hanging in mid-air above the head.)
+// A person card (see OrgNode.jsx) renders its avatar overlapping ABOVE the
+// card, so the card's literal top edge is not the shape's visible top. The top
+// port therefore lands on the avatar's apex — `top: -42px` in chart-editor.css
+// — and an arrow into it meets the avatar instead of hanging in the air above
+// the head. This offset is only ever correct while something actually renders
+// out there: it is the visible outer edge of the node, not padding.
+//
+// There is deliberately NO matching bottom offset. One used to exist, at 13px,
+// to reach a headcount pill that hung below the card at `bottom: -13px`. That
+// pill was removed, and the offset outlived it — every person node's outgoing
+// connector then began 13px below the card with nothing to meet, which read as
+// a gap at the source while the arrow end still touched its target.
 const PERSON_TOP_OFFSET = 42;
-const PERSON_BOTTOM_OFFSET = 13;
 
 // The fixed point for a given side — matches the Handle dot's position
-// (or, for a person card's top/bottom, just outside the avatar/team pill).
+// (or, for a person card's top, the avatar apex that covers it).
 function getPort(rect, position, isPerson) {
   switch (position) {
     case Position.Top:
       return { x: rect.x + rect.width / 2, y: rect.y - (isPerson ? PERSON_TOP_OFFSET : 0) };
     case Position.Bottom:
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height + (isPerson ? PERSON_BOTTOM_OFFSET : 0) };
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height };
     case Position.Left:
       return { x: rect.x, y: rect.y + rect.height / 2 };
     case Position.Right:

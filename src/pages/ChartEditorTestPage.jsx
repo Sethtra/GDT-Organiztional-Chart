@@ -16,7 +16,11 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import CustomEdge from '../components/CustomEdge';
-import OrgNode from '../components/OrgNode';
+// OrgNodePro is the premium revision under review; it is mounted on this route
+// only. The live editor (FlowApp.jsx) still mounts OrgNode. OrgNodePro
+// delegates person cards straight back to OrgNode, so both node kinds render
+// here and only the unit card differs from production.
+import OrgNodePro from '../components/OrgNodePro';
 import ConfirmModal from '../components/ConfirmModal';
 import ContextMenu from '../components/ContextMenu';
 import PropertiesPanel from '../components/PropertiesPanel';
@@ -67,7 +71,7 @@ const TEST_CHART_ID = '00000000-0000-0000-0000-000000000000';
  * Not linked from any nav — reached only at /test-chart-editor.
  */
 
-const nodeTypes = { orgNode: OrgNode };
+const nodeTypes = { orgNode: OrgNodePro };
 const edgeTypes = { custom: CustomEdge };
 
 // Two nodes ship pre-resized (explicit width/height, bigger than the CSS
@@ -123,6 +127,10 @@ const initialNodes = [
       color: '#8a1f2b',
       name: 'ការិយាល័យនីតិកម្ម',
       nameEn: 'Custom band colour — checks readable-ink contrast',
+      // The only fixture carrying a description, so the card's third register
+      // (the recessed footer) is actually visible in review. Every other node
+      // stops at the name field on purpose — that contrast is the point.
+      description: 'Has a description, so the recessed footer renders here',
     },
   },
   {

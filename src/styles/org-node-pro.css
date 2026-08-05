@@ -1,0 +1,284 @@
+/* ── Unit node ──────────────────────────────────────────────────────────────
+   The live unit card, rendered by OrgNodePro.jsx on both the editor and
+   /test-chart-editor.
+
+   Every selector here is namespaced `.gdt-node*`. OrgNode.jsx — which still
+   renders the person card — emits `.org-node*` and never one of these, so the
+   two cards cannot restyle each other despite sharing a bundle. Nothing here
+   defines or redefines an --nx-* token either; they are all read, never
+   written, so this file cannot change any surface but its own. Both
+   properties are enforced by test/orgNodeIsolation.test.js.
+
+   The construction it is trying to earn: three registers, the way an official
+   plate or an identity card is set out — an identity band, a name field, and a
+   recessed footer for anything secondary. The live node is two flat registers
+   with one border, and that is most of why it reads as unfinished rather than
+   plain.                                                                     */
+
+.gdt-node {
+  /* Same wrapper-filling contract as .org-node — the resizer resizes the
+     .react-flow__node wrapper, and floatingEdge.js measures it, so the visible
+     card has to BE that box or handles and connectors drift off the shape. */
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 150px;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  /* Visible, not hidden: resize grips and connect anchors render outside. */
+  overflow: visible;
+  cursor: pointer;
+
+  --gdt-hairline: rgba(255, 255, 255, 0.055);
+  --gdt-catch:    rgba(255, 255, 255, 0.07);
+
+  background: var(--nx-paper);
+  border-radius: 10px;
+
+  /* Three strokes, not one border. An outer rule holds the shape against the
+     canvas; a hairline sits just inside it; a catch-light runs along the top
+     edge only. Stacked this way the edge has a thickness to it — the single
+     1px border it replaces is the main reason the old card read as a div
+     rather than as a printed object. Drawn as shadows so the box stays exactly
+     100%/100% and the wrapper measurement stays honest. */
+  box-shadow:
+    0 0 0 1px var(--nx-rule),
+    inset 0 0 0 1px var(--gdt-hairline),
+    inset 0 1px 0 0 var(--gdt-catch),
+    var(--nx-shadow);
+
+  transition:
+    box-shadow 150ms var(--nx-ease),
+    transform 150ms var(--nx-ease);
+}
+
+:root[data-theme="light"] .gdt-node {
+  /* On white paper a light catch is invisible and a heavy hairline reads as a
+     double border. Both drop to a faint ink instead. */
+  --gdt-hairline: rgba(22, 33, 27, 0.045);
+  --gdt-catch:    rgba(22, 33, 27, 0.03);
+}
+
+.gdt-node:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px var(--nx-green),
+    inset 0 0 0 1px var(--gdt-hairline),
+    inset 0 1px 0 0 var(--gdt-catch),
+    var(--nx-shadow-lift);
+}
+
+/* After :hover deliberately — a selected node stays reading as selected while
+   the pointer is over it. Same specificity, so source order is the whole rule. */
+.gdt-node--selected {
+  box-shadow:
+    0 0 0 2px var(--nx-green),
+    inset 0 0 0 1px var(--gdt-hairline),
+    var(--nx-shadow-lift);
+}
+
+.gdt-node--highlighted {
+  box-shadow:
+    0 0 0 2px var(--nx-gold),
+    inset 0 0 0 1px var(--gdt-hairline),
+    var(--nx-shadow-lift);
+}
+
+/* ── Register 1: identity band ─────────────────────────────────────────────
+   The author's colour, and the thing that makes a node identifiable across a
+   zoomed-out chart. Unchanged in role from the live node — it works, and the
+   brief was to make the card premium, not to relearn how it is recognised. */
+.gdt-node__band {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 27px;
+  padding: 6px 12px;
+  border-radius: 10px 10px 0 0;
+  background: var(--gdt-band);
+  color: var(--gdt-band-ink);
+  /* The keel: a 2px darkened underside where the band meets the paper. A band
+     that stops dead on the body reads as a coloured rectangle laid on a card;
+     one with a shadowed lower edge reads as inked into it. Derived from the
+     author's own colour with color-mix, so it holds for any band they pick. */
+  box-shadow: inset 0 -2px 0 0 var(--gdt-keel);
+}
+
+/* An unlabelled node used to render a full-height empty colour slab, which is
+   most of what made a node with no badge text look unfinished. With nothing to
+   carry, the band collapses to a rule — the identity colour is still there,
+   now as a deliberate edge rather than a blank bar waiting for content. */
+.gdt-node--rule .gdt-node__band {
+  min-height: 7px;
+  padding: 0;
+}
+
+.gdt-node__label {
+  font-family: var(--nx-font-kh);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  /* No-op on Khmer (no case); sharpens Latin labels into a title-block register. */
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+}
+
+.gdt-node__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.gdt-node__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 6px 1px 3px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 700;
+  /* Counts must not reflow as they change. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  color: inherit;
+  /* A wash of the band's own ink, so the chip belongs to the band whatever
+     colour the author chose and whichever way readableInk resolved. */
+  background: color-mix(in srgb, var(--gdt-band-ink) 20%, transparent);
+}
+
+.gdt-node__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  color: inherit;
+  background: color-mix(in srgb, var(--gdt-band-ink) 20%, transparent);
+}
+
+/* The edit affordance is always present, at low opacity, and brightens on
+   hover — it never enters or leaves the flex row. A hint that appears on hover
+   shifts everything beside it, which is exactly the layout jitter that reads as
+   cheap on a card this small. */
+.gdt-node__edit {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  opacity: 0.5;
+  transition: opacity 150ms var(--nx-ease);
+}
+
+.gdt-node:hover .gdt-node__edit {
+  opacity: 1;
+}
+
+/* ── Register 2: name field ────────────────────────────────────────────────── */
+.gdt-node__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 11px 14px 12px;
+}
+
+.gdt-node__name {
+  font-family: var(--nx-font-kh);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--nx-ink);
+  /* Even line lengths instead of a one-word orphan on the last line. On a card
+     the author resizes by hand this is the difference between a name that
+     looks set and one that looks like it happened to fit. */
+  text-wrap: balance;
+  /* NOT break-word. That is a legacy alias for overflow-wrap:anywhere, which
+     breaks Khmer between a base consonant and its subscript or vowel sign and
+     stacks the glyphs vertically. overflow-wrap handles the genuine overflow
+     case without ever splitting inside a cluster. */
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.gdt-node__name--empty {
+  color: var(--nx-ink-3);
+  font-weight: 600;
+}
+
+/* Printed-register convention for a transliteration line under a native-script
+   title: small, tracked, upper-case — a caption, not a second copy of the name. */
+.gdt-node__name-en {
+  margin-top: 5px;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  color: var(--nx-ink-3);
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* ── Register 3: recessed footer ───────────────────────────────────────────
+   Secondary text moves out of the name field entirely and into its own tinted
+   register. In the live node the description sits directly under the name
+   behind a hairline, which leaves one undifferentiated column of text; giving
+   it a floor of its own is what makes the card read as composed. Renders only
+   when there is something to put in it. */
+.gdt-node__footer {
+  flex-shrink: 0;
+  padding: 7px 14px 8px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--nx-ink-3);
+  background: var(--nx-paper-2);
+  border-top: 1px solid var(--nx-rule-hair);
+  border-radius: 0 0 10px 10px;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.gdt-node__collapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+  align-self: flex-start;
+}
+
+/* ── Handles ───────────────────────────────────────────────────────────────
+   .flow-handle's own styling is shared from chart-editor.css, but its
+   reveal rules are keyed to .org-node — this card needs its own. The
+   connection-drag reveal (.react-flow:has(...)) is already global. */
+.gdt-node:hover .flow-handle,
+.gdt-node--selected .flow-handle {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gdt-node,
+  .gdt-node__edit {
+    transition-duration: 1ms;
+  }
+  .gdt-node:hover {
+    transform: none;
+  }
+}

@@ -178,21 +178,16 @@ const OrgNode = memo(({ id, data, selected }) => {
           )}
         </div>
 
-        {teamSize > 0 && data.type !== 'officer' && (
+        {/* No headcount pill. The team size is on the profile drawer, where it
+            is a fact someone went looking for, rather than a number stamped on
+            every card. The chip stays only while the subtree is collapsed, as
+            the sole on-canvas sign that reports are hidden. */}
+        {isCollapsed && teamSize > 0 && data.type !== 'officer' && (
           <span
-            className={`person-node__team ${isCollapsed ? "person-node__team--collapsed" : ""}`}
-            title={
-              isCollapsed
-                ? `${teamSize} people under them (subtree collapsed)`
-                : `${teamSize} people under them`
-            }
+            className="person-node__team"
+            title="Subtree collapsed"
           >
-            {teamSize}
-            {isCollapsed ? (
-              <ChevronRight size={11} />
-            ) : (
-              <ChevronDown size={11} />
-            )}
+            <ChevronRight size={11} />
           </span>
         )}
       </div>

@@ -25,7 +25,10 @@ import '@xyflow/react/dist/style.css';
 import ConfirmModal from '../ConfirmModal';
 import ContextMenu from '../ContextMenu';
 import CustomEdge from '../CustomEdge';
-import OrgNode from '../OrgNode';
+// OrgNodePro renders the unit card and delegates person cards to OrgNode, so
+// this one import covers both kinds. /test-chart-editor mounts the same
+// component — test/orgNodeIsolation.test.js fails if the two routes drift.
+import OrgNodePro from '../OrgNodePro';
 import ProfileDrawer from '../ProfileDrawer';
 import PropertiesPanel from '../PropertiesPanel';
 import SearchBar from '../SearchBar';
@@ -61,7 +64,7 @@ import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../../utils/chartDat
 import { computeChartHierarchy } from '../../utils/chartHierarchy';
 import { getNodeAlignmentGuides } from '../../utils/nodeAlignment';
 
-const nodeTypes = { orgNode: OrgNode };
+const nodeTypes = { orgNode: OrgNodePro };
 const edgeTypes = { custom: CustomEdge };
 
 // Screen-px feel regardless of zoom: 6px reads the same whether the canvas

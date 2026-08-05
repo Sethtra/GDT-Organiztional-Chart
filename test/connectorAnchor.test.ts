@@ -72,6 +72,23 @@ describe("getStaticAnchor", () => {
     expect(getStaticAnchor(n, Position.Right)).toEqual({ x: 240, y: 232 });
   });
 
+  it("starts a person card's bottom connector on the card edge, not below it", () => {
+    // The bottom port used to sit 13px lower, to reach a headcount pill that
+    // hung off the bottom of the card. The pill is gone; an offset with nothing
+    // out there to meet is just a gap between the node and its own connector.
+    const p = node(100, 200, 220, 170, "individualNode");
+
+    expect(getStaticAnchor(p, Position.Bottom)).toEqual({ x: 210, y: 370 });
+  });
+
+  it("keeps the person top port on the avatar apex above the card", () => {
+    // This offset is still earned: the avatar really does render 42px above the
+    // card top, so an arrow stopping at the card edge would pierce the face.
+    const p = node(100, 200, 220, 170, "individualNode");
+
+    expect(getStaticAnchor(p, Position.Top)).toEqual({ x: 210, y: 158 });
+  });
+
   it("puts a parent and a centred child on the same vertical line", () => {
     // Different widths, same centre — the trunk between them must be straight.
     const parent = node(100, 0, 240, 80);   // centre 220

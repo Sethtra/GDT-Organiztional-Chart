@@ -98,8 +98,42 @@ text":
   avatar-photo path (not just its fallback) gets reviewed. No external
   network dependency, and it doesn't depict a real person.
 
-Person nodes keep their avatar geometry (84px at `-42px`, team pill at `-13px`)
-because `floatingEdge.js` aims connector endpoints at exactly those points. The
+### The unit card
+
+`OrgNodePro.jsx` + `src/styles/org-node-pro.css` render the unit card on both
+the live editor and `/test-chart-editor`. `OrgNode.jsx` still renders the
+**person** card, and `OrgNodePro` delegates to it — the redesign was scoped to
+the unit card, and a person card's avatar geometry is load-bearing for
+`floatingEdge.js`.
+
+Because CSS has no module scope, holding those two cards apart is not a matter
+of which component renders which: both stylesheets ship in the same bundle. The
+unit card is namespaced `.gdt-node*`, a class the person card never emits, and
+it reads `--nx-*` tokens without declaring any. `test/orgNodeIsolation.test.js`
+fails if either stops being true — or if the live editor and the test route
+ever mount different node components, which would make every review the test
+route produces a review of the wrong card.
+
+Three changes carry the redesign:
+
+- **Three registers instead of two** — identity band, name field, and a
+  recessed footer on `--nx-paper-2` for the description. The live card runs the
+  description under the name behind a hairline, leaving one undifferentiated
+  column of text below the band.
+- **The band collapses to a 7px rule when it has nothing to carry.** An
+  unlabelled node used to draw a full-height empty colour slab; that, more than
+  anything else about the card, is what made a badge-less node look unfinished
+  rather than plain.
+- **A stroke stack and a keel instead of a 1px border.** Outer rule, inner
+  hairline, top catch-light, plus a 2px darkened underside where the band meets
+  the paper (`color-mix` off the author's own colour, so it holds for any band).
+  Edge detail is what separates a printed object from a div.
+
+Delete `ChartEditorTestPage.jsx`'s lone `description` fixture and the footer
+register stops being reviewable — that is the only node carrying one, on purpose.
+
+Person nodes keep their avatar geometry (84px at `-42px`) because
+`floatingEdge.js` aims connector endpoints at exactly that point. The
 avatar placeholder is GDT green; an empty seat reads as a quiet neutral outline,
 not a red alert — a vacancy is a normal state.
 

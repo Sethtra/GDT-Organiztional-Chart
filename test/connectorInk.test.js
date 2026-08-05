@@ -106,6 +106,71 @@ test('per-edge colour and width are set inline so a stylesheet cannot override t
     /\n\s*stroke=\{/,
     'the main stroke must not use a presentation attribute; a stylesheet beats it',
   );
-  assert.match(mainPath[0], /stroke:\s*paintedStroke/);
+  assert.match(mainPath[0], /stroke:\s*strokeColor/);
   assert.match(mainPath[0], /strokeWidth,/);
+});
+
+test('selection is drawn around the line, never over its colour', async () => {
+  const edge = await readFile(
+    new URL('../src/components/CustomEdge.jsx', import.meta.url),
+    'utf8',
+  );
+
+  // Selecting an edge used to repaint its stroke, which hid the very property
+  // you select an edge in order to change. The main path must keep painting the
+  // author's colour in every state; the ring is a separate, wider pass beneath.
+  assert.doesNotMatch(
+    edge,
+    /paintedStroke/,
+    'the main stroke must not be swapped for a state colour',
+  );
+  assert.match(
+    edge,
+    /stroke:\s*"var\(--nx-select\)"/,
+    'the selection ring should paint in the selection token',
+  );
+});
+
+test('every editor token CustomEdge references is actually defined', async () => {
+  const [edge, css] = await Promise.all([
+    readFile(new URL('../src/components/CustomEdge.jsx', import.meta.url), 'utf8'),
+    readEditorCss(),
+  ]);
+
+  // `var(--nx-emerald)` was referenced here and defined nowhere. An unresolved
+  // var() does not fall back — it drops the property to its initial value, and
+  // `stroke`'s initial is `none`, so a selected edge rendered invisible. Cheap
+  // to catch by reading the stylesheet; invisible until someone clicks a line.
+  const defined = new Set(
+    [...css.matchAll(/(--nx-[a-z0-9-]+)\s*:/g)].map((m) => m[1]),
+  );
+  const referenced = new Set(
+    [...edge.matchAll(/var\(\s*(--nx-[a-z0-9-]+)/g)].map((m) => m[1]),
+  );
+
+  assert.ok(referenced.size > 0, 'expected CustomEdge to reference editor tokens');
+
+  const missing = [...referenced].filter((name) => !defined.has(name));
+  assert.deepEqual(
+    missing,
+    [],
+    `CustomEdge references token(s) chart-editor.css never defines: ${missing.join(', ')}`,
+  );
+});
+
+test('no hex-alpha is concatenated onto a token reference', async () => {
+  const edge = await readFile(
+    new URL('../src/components/CustomEdge.jsx', import.meta.url),
+    'utf8',
+  );
+
+  // `${strokeColor}40` produced a usable colour only while strokeColor was a
+  // literal hex. It defaults to `var(--nx-edge)`, and "var(--nx-edge)40" is
+  // simply invalid, so the waypoint dots and edge label lost their fill,
+  // border and shadow without any error anywhere.
+  assert.doesNotMatch(
+    edge,
+    /\$\{strokeColor\}[0-9a-f]{2}/i,
+    'append alpha to a resolved colour, never to a var() reference',
+  );
 });

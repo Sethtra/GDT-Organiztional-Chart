@@ -50,6 +50,10 @@
      stroke beneath it, so edges sharing a trunk paint that run repeatedly and
      it reads darker with every edge added. Opaque ink cannot accumulate. */
   --nx-edge:        #7e8f85;
+  /* Selection ring for connectors and their waypoint handles. Drawn AROUND
+     the line, never over it: repainting the stroke hid the one property you
+     select an edge to change. Opaque, for the same reason --nx-edge is. */
+  --nx-select:      #34a866;
 
   --nx-font:        'Manrope', system-ui, sans-serif;
   --nx-font-kh:     'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
@@ -90,6 +94,7 @@
   --nx-gold-border: #a8873f;  /* 3.25:1 on the tint */
   --nx-danger:      #b3261e;
   --nx-edge:        #6b7a71;
+  --nx-select:      #136232;
   --nx-guide:       #c81f8f;
 
   --nx-shadow:      0 1px 2px rgba(22, 33, 27, .05), 0 10px 30px rgba(22, 33, 27, .08);
@@ -112,8 +117,7 @@
 
 /* Counts, zoom and other measurements must not reflow as they change. */
 .status-item span,
-.org-node__child-count,
-.person-node__team {
+.org-node__child-count {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -731,30 +735,24 @@
   padding: 2px 8px;
 }
 
+/* Collapsed-subtree marker. Icon only — the headcount it used to carry was
+   noise on every card, and the drawer states team size properly. */
 .person-node__team {
   position: absolute;
   left: 50%;
-  bottom: -13px;
+  bottom: -11px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #ffffff;
-  background: var(--nx-green);
-  border: 2px solid var(--nx-paper);
-  padding: 3px 11px;
-  border-radius: 100px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 3;
-}
-
-.person-node__team--collapsed {
+  justify-content: center;
   color: var(--nx-green);
   background: var(--nx-paper);
+  border: 2px solid var(--nx-paper);
   box-shadow: inset 0 0 0 1px var(--nx-green);
+  padding: 2px;
+  border-radius: 100px;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .person-node__link-badge,
@@ -774,8 +772,13 @@
 .person-node__link-badge    { left: 10px;  color: var(--nx-green); }
 .person-node__history-badge { right: 10px; color: var(--nx-ink-3); }
 
+/* The avatar overlaps 42px above the card, so the top anchor has to clear it —
+   this matches PERSON_TOP_OFFSET in floatingEdge.js. There is no bottom
+   override any more: it existed to clear a headcount pill that hung below the
+   card, and with the pill gone the anchor dot has to sit where the connector
+   now actually attaches (the generic -7px rule below), or you drag a new
+   connector out of a dot 6px away from the line it produces. */
 .org-node--person .react-flow__handle-top { top: -42px !important; }
-.org-node--person .react-flow__handle-bottom { bottom: -13px !important; }
 
 /* ── Resize control ───────────────────────────────────────────────────────
    The selection outline is the node's own ring (.org-node--selected). React

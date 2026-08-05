@@ -330,7 +330,6 @@ const ControlHandles = memo(
     anchors,
     setEdges,
     screenToFlowPosition,
-    strokeColor,
     getEdges,
     getInternalNode,
   }) => {
@@ -722,14 +721,17 @@ const ControlHandles = memo(
               onMouseDown={(e) => onMouseDown(e, "ghost", h.index)}
               title="Drag to add waypoint"
             >
+              {/* Ghost (add-a-bend) dot: hollow and rule-coloured, so it stays
+                  quieter than a real waypoint. Editor affordances take the
+                  selection colour, not the edge's — an author who picks a pale
+                  line colour would otherwise get handles they cannot see. */}
               <div
                 style={{
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: `${strokeColor}40`,
-                  border: `1px solid ${strokeColor}80`,
-                  backdropFilter: "blur(2px)",
+                  background: "var(--nx-paper)",
+                  border: "1px solid var(--nx-rule)",
                 }}
               />
             </div>
@@ -759,9 +761,9 @@ const ControlHandles = memo(
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: "var(--bg-surface)",
-                  border: `1.5px solid ${strokeColor}`,
-                  boxShadow: `0 0 0 2px ${strokeColor}28, 0 1px 4px rgba(0,0,0,0.5)`,
+                  background: "var(--nx-paper)",
+                  border: "1.5px solid var(--nx-select)",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.28)",
                 }}
               />
             </div>
@@ -969,14 +971,13 @@ const CustomEdge = memo(
     const showHandles =
       showInteractive && lineStyle === "elbow" && activePts !== null;
 
-    // State is carried by swapping the stroke colour outright rather than by
-    // layering a translucent pass over the base one — an opaque swap reads the
-    // same whether the edge sits alone or under nine others on the same trunk.
-    const paintedStroke = selected
-      ? "var(--nx-emerald)"
-      : hovered
-        ? "var(--nx-ink)"
-        : strokeColor;
+    // The line always paints in the author's own colour. State is expressed by
+    // what is drawn AROUND it, never by replacing it: repainting the stroke hid
+    // the one property you select an edge in order to change. Worse, the token
+    // it repainted in was never defined anywhere, and an unresolved var() does
+    // not fall back — it drops `stroke` to its SVG initial of `none`. A
+    // selected line therefore vanished outright, leaving just its white casing
+    // and a black arrowhead.
 
     // ── Arrowhead trim (shorten the VISIBLE stroke so it stops at the arrowhead base) ──
     // Trims geometry directly (adjusting endpoint coordinates before rebuilding the path)
@@ -1042,6 +1043,22 @@ const CustomEdge = memo(
           onDoubleClick={onBezierDoubleClick}
         />
 
+        {/* ── Selection ring ───────────────────────────────────────────────
+            Three opaque passes, widest first: brand ring, paper gap, then the
+            author's stroke on top. The gap is what keeps the ring legible when
+            the line's own colour is itself green, and the core is what keeps
+            the chosen colour visible while you are choosing it. */}
+        {selected && (
+          <path
+            d={d}
+            fill="none"
+            strokeWidth={strokeWidth + 8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ stroke: "var(--nx-select)", pointerEvents: "none" }}
+          />
+        )}
+
         {/* ── Active casing ────────────────────────────────────────────────
             An OPAQUE paper-coloured casing beneath the active line, never a
             translucent halo. A translucent stroke composites with everything
@@ -1053,7 +1070,7 @@ const CustomEdge = memo(
           <path
             d={d}
             fill="none"
-            strokeWidth={strokeWidth + 7}
+            strokeWidth={selected ? strokeWidth + 4 : strokeWidth + 7}
             strokeLinecap="round"
             strokeLinejoin="round"
             style={{ stroke: "var(--nx-paper)", pointerEvents: "none" }}
@@ -1074,7 +1091,7 @@ const CustomEdge = memo(
           strokeLinejoin="round"
           className="react-flow__edge-path"
           style={{
-            stroke: paintedStroke,
+            stroke: strokeColor,
             strokeWidth,
             pointerEvents: "none",
           }}
@@ -1086,7 +1103,7 @@ const CustomEdge = memo(
           tx={targetX}
           ty={targetY}
           angle={arrowAngle}
-          color={paintedStroke}
+          color={strokeColor}
           sw={strokeWidth}
         />
         {arrowStart !== "none" && (
@@ -1095,7 +1112,7 @@ const CustomEdge = memo(
             tx={sourceX}
             ty={sourceY}
             angle={arrowStartAngle}
-            color={paintedStroke}
+            color={strokeColor}
             sw={strokeWidth}
           />
         )}
@@ -1112,16 +1129,15 @@ const CustomEdge = memo(
             <div
               xmlns="http://www.w3.org/1999/xhtml"
               style={{
-                background: "var(--bg-surface-translucent)",
-                color: strokeColor,
+                background: "var(--nx-paper)",
+                color: "var(--nx-ink-2)",
                 fontSize: 11,
                 fontWeight: 600,
                 padding: "3px 10px",
                 borderRadius: 5,
-                border: `1px solid ${strokeColor}50`,
+                border: "1px solid var(--nx-rule-hair)",
                 whiteSpace: "nowrap",
                 textAlign: "center",
-                backdropFilter: "blur(4px)",
                 letterSpacing: 0.4,
               }}
             >
@@ -1136,8 +1152,8 @@ const CustomEdge = memo(
             cx={labelX}
             cy={labelY}
             r={5}
-            fill="var(--bg-surface)"
-            stroke={strokeColor}
+            fill="var(--nx-paper)"
+            stroke="var(--nx-select)"
             strokeWidth={2}
             style={{
               pointerEvents: "none",
@@ -1161,7 +1177,6 @@ const CustomEdge = memo(
             }}
             setEdges={setEdges}
             screenToFlowPosition={screenToFlowPosition}
-            strokeColor={strokeColor}
             getEdges={getEdges}
             getInternalNode={getInternalNode}
           />
