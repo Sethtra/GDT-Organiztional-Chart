@@ -14,7 +14,6 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfilePage from './pages/ProfilePage';
-import DashboardPage from './pages/DashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminOrgStructurePage from './pages/AdminOrgStructurePage';
 import StaffDirectoryPage from './pages/StaffDirectoryPage';

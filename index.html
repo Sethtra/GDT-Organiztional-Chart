@@ -2,7 +2,15 @@
 <html lang="km">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      Downscaled from public/gdt-logo.png, not linked to it: the master is
+      1890x1890 and 2.9 MB, so pointing the tab icon straight at it would pull
+      three megabytes on every page load to paint 16 device pixels. Regenerate
+      both from the master by repeated halving if the mark ever changes — one
+      large downscale rasterises soft.
+    -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="GDT Organizational Chart - Interactive drag-and-drop org chart for the General Department of Taxation" />
     <title>GDT Organizational Chart | នាយកដ្ឋានពន្ធដារ</title>
