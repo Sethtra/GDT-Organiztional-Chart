@@ -44,38 +44,50 @@ export default function MoveModal({ chart, currentFolderId, folders, onClose, on
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="move-modal" onClick={e => e.stopPropagation()}>
-        
+      <div className="move-modal" onClick={(e) => e.stopPropagation()}>
         <div className="move-modal__header">
-          <h2 className="move-modal__title">Move {chart.name}</h2>
+          <h2 className="move-modal__title rg-khmer">Move {chart.name}</h2>
           <div className="move-modal__current-loc">
-            Current location: <span className="move-modal__loc-badge"><HardDrive size={12} /> {getCurrentLocationName()}</span>
+            Current location:{" "}
+            <span className="move-modal__loc-badge">
+              <HardDrive size={12} /> {getCurrentLocationName()}
+            </span>
           </div>
-          <button className="move-modal__close-btn" onClick={onClose}>
+          <button className="move-modal__close-btn" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
         <div className="move-modal__tabs">
-          <button 
-            className={`move-modal__tab ${activeTab === 'all' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('all'); setNavPath([null]); setSelectedFolderId(null); }}
+          <button
+            type="button"
+            className={`move-modal__tab ${activeTab === "all" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("all");
+              setNavPath([null]);
+              setSelectedFolderId(null);
+            }}
           >
             All locations
           </button>
-          <button 
-            className={`move-modal__tab ${activeTab === 'starred' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('starred'); setNavPath([null]); setSelectedFolderId(null); }}
+          <button
+            type="button"
+            className={`move-modal__tab ${activeTab === "starred" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("starred");
+              setNavPath([null]);
+              setSelectedFolderId(null);
+            }}
           >
             Starred
           </button>
         </div>
 
         <div className="move-modal__body">
-          {navPath.length > 1 && activeTab === 'all' && (
+          {navPath.length > 1 && activeTab === "all" && (
             <div className="move-modal__back-nav" onClick={handleNavigateBack}>
               <ArrowLeft size={16} />
-              <span>{getNavLocationName()}</span>
+              <span className="rg-khmer">{getNavLocationName()}</span>
             </div>
           )}
 
@@ -83,19 +95,26 @@ export default function MoveModal({ chart, currentFolderId, folders, onClose, on
             {displayFolders.length === 0 ? (
               <div className="move-modal__empty">No folders here</div>
             ) : (
-              displayFolders.map(folder => (
-                <div 
-                  key={folder.id} 
-                  className={`move-modal__item ${selectedFolderId === folder.id ? 'selected' : ''}`}
+              displayFolders.map((folder) => (
+                <div
+                  key={folder.id}
+                  className={`move-modal__item ${selectedFolderId === folder.id ? "selected" : ""}`}
                   onClick={() => setSelectedFolderId(folder.id)}
                   onDoubleClick={() => handleNavigateIn(folder.id)}
                 >
                   <div className="move-modal__item-icon">
-                    <Folder size={20} fill={selectedFolderId === folder.id ? "currentColor" : "none"} />
+                    <Folder size={18} fill={selectedFolderId === folder.id ? "currentColor" : "none"} />
                   </div>
-                  <div className="move-modal__item-name">{folder.name}</div>
-                  <button className="move-modal__item-nav" onClick={(e) => { e.stopPropagation(); handleNavigateIn(folder.id); }}>
-                    <ChevronRight size={20} />
+                  <div className="move-modal__item-name rg-khmer">{folder.name}</div>
+                  <button
+                    type="button"
+                    className="move-modal__item-nav"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNavigateIn(folder.id);
+                    }}
+                  >
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               ))
@@ -104,9 +123,12 @@ export default function MoveModal({ chart, currentFolderId, folders, onClose, on
         </div>
 
         <div className="move-modal__footer">
-          <button className="move-modal__btn move-modal__btn--cancel" onClick={onClose}>Cancel</button>
-          <button 
-            className="move-modal__btn move-modal__btn--primary" 
+          <button type="button" className="move-modal__btn move-modal__btn--cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="move-modal__btn move-modal__btn--primary"
             disabled={!canMove}
             onClick={() => {
               if (canMove) onMove(destinationId);

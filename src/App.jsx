@@ -5,8 +5,8 @@ import { TabProvider } from './contexts/TabProvider';
 import ProtectedRoute from './components/editor/ProtectedRoute';
 import EditorShell from './components/editor/EditorShell';
 import HrAdminRoute from './components/HrAdminRoute';
-import LandingPage from './pages/LandingPage';
 import LandingTestPage from './pages/LandingTestPage';
+import DashboardTestPage from './pages/DashboardTestPage';
 import LoginPage from './pages/LoginPage';
 import LoginTestPage from './pages/LoginTestPage';
 import RegisterPage from './pages/RegisterPage';
@@ -33,7 +33,7 @@ function AppLayout() {
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <Routes>
           {/* ── Public routes ────────────────────────────── */}
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LandingTestPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/test-login" element={<LoginTestPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -46,7 +46,7 @@ function AppLayout() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <DashboardTestPage />
               </ProtectedRoute>
             }
           />
@@ -54,7 +54,7 @@ function AppLayout() {
             path="/dashboard/folder/:folderId"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <DashboardTestPage />
               </ProtectedRoute>
             }
           />
@@ -112,7 +112,24 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
+          {/* ── Design sandboxes — never wired into the live routes ── */}
           <Route path="/test-landing" element={<LandingTestPage />} />
+          <Route
+            path="/test-dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardTestPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/test-dashboard/folder/:folderId"
+            element={
+              <ProtectedRoute>
+                <DashboardTestPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />

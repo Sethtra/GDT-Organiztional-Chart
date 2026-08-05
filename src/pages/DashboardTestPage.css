@@ -1,0 +1,682 @@
+/**
+ * /test-dashboard — the chart register.
+ *
+ * Light only, by design: this surface adopts the admin design system wholesale
+ * (src/styles/pa-theme.css) and deliberately carries no dark variant.
+ */
+@import "../styles/pa-theme.css";
+
+/* Flex column so the footer sits at the bottom of short pages (empty register,
+   a folder with one chart) instead of floating mid-viewport. */
+.gdt-register-dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard > main {
+  flex: 1;
+}
+
+/* Khmer voice font styling */
+.gdt-register-dashboard .rg-khmer {
+  font-family: "Kantumruy Pro", "Noto Sans Khmer", sans-serif;
+  line-height: 1.7;
+}
+
+/* ── Masthead ───────────────────────────────────── */
+.gdt-register-dashboard .rd-masthead {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pa-border);
+  box-shadow: inset 0 -4px 0 -3px var(--pa-primary);
+}
+
+/* ── Section panel ──────────────────────────────── */
+.gdt-register-dashboard .rd-panel {
+  overflow: visible;
+  border: 1px solid var(--pa-border);
+  border-radius: 14px;
+  background: var(--pa-surface);
+  box-shadow: var(--pa-shadow);
+}
+
+.gdt-register-dashboard .rd-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--pa-border);
+  border-top-left-radius: 13px;
+  border-top-right-radius: 13px;
+}
+
+.gdt-register-dashboard .rd-index {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--pa-gold);
+}
+
+/* ── Folder entries ─────────────────────────────── */
+/* Real gaps, not a 1px-gap-over-grey trick: an auto-fill grid leaves empty
+   cells on the last row, and those would otherwise render as grey blocks. */
+.gdt-register-dashboard .rd-folder-grid {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  background: var(--pa-surface);
+  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+}
+
+.gdt-register-dashboard .rd-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 60px;
+  padding: 0 10px 0 0;
+  border: 1px solid var(--pa-border);
+  border-radius: 11px;
+  background: var(--pa-surface);
+  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.gdt-register-dashboard .rd-folder:hover {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard .rd-folder-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 60px;
+  padding: 0 4px 0 20px;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+}
+
+.gdt-register-dashboard .rd-folder-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--pa-gold-border);
+  border-radius: 8px;
+  background: var(--pa-gold-soft);
+  color: #8a6716;
+}
+
+.gdt-register-dashboard .rd-folder-name {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Register rows (list view) ──────────────────── */
+.gdt-register-dashboard .rd-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--pa-border);
+  grid-template-columns: 34px minmax(0, 1fr) 84px;
+  transition: background-color 180ms ease-out;
+}
+
+.gdt-register-dashboard .rd-row:hover {
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard .rd-row-pending {
+  background: #fffdf6;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+
+@media (min-width: 720px) {
+  .gdt-register-dashboard .rd-row-pending {
+    grid-template-columns: 34px minmax(0, 1fr) 104px auto;
+  }
+}
+
+@media (min-width: 900px) {
+  .gdt-register-dashboard .rd-row-pending {
+    /* Wide enough that Accept and Decline stay on one line. */
+    grid-template-columns: 34px minmax(0, 1fr) 104px 106px 196px;
+  }
+}
+
+.gdt-register-dashboard .rd-row-index {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--pa-gold);
+}
+
+.gdt-register-dashboard .rd-row-name {
+  min-width: 0;
+}
+
+.gdt-register-dashboard .rd-row-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 0;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.gdt-register-dashboard .rd-row-glyph {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--pa-primary-border);
+  border-radius: 8px;
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.gdt-register-dashboard .rd-row-title {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The star button already carries this state; inline it only where the name
+   column has room to spare. */
+.gdt-register-dashboard .rd-row-star {
+  display: none;
+  flex-shrink: 0;
+  color: var(--pa-gold);
+}
+
+@media (min-width: 720px) {
+  .gdt-register-dashboard .rd-row-star {
+    display: block;
+  }
+}
+
+.gdt-register-dashboard .rd-row-standing,
+.gdt-register-dashboard .rd-row-date {
+  display: none;
+}
+
+.gdt-register-dashboard .rd-row-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pa-muted);
+}
+
+.gdt-register-dashboard .rd-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+/* Columns appear as the viewport earns them. */
+@media (min-width: 720px) {
+  .gdt-register-dashboard .rd-row {
+    grid-template-columns: 34px minmax(0, 1fr) 104px 84px;
+  }
+
+  .gdt-register-dashboard .rd-row-standing {
+    display: block;
+  }
+}
+
+@media (min-width: 900px) {
+  .gdt-register-dashboard .rd-row {
+    grid-template-columns: 34px minmax(0, 1fr) 110px 130px 72px;
+  }
+
+  .gdt-register-dashboard .rd-row-date {
+    display: block;
+    text-align: left;
+    padding-left: 4px;
+  }
+}
+
+.gdt-register-dashboard .rd-row-head {
+  display: none;
+  padding: 9px 20px;
+  border-top: 1px solid var(--pa-border);
+  background: var(--pa-canvas);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+  gap: 12px;
+  align-items: center;
+}
+
+@media (min-width: 720px) {
+  .gdt-register-dashboard .rd-row-head {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 104px 84px;
+  }
+}
+
+@media (min-width: 900px) {
+  .gdt-register-dashboard .rd-row-head {
+    grid-template-columns: 34px minmax(0, 1fr) 110px 130px 72px;
+  }
+}
+
+.gdt-register-dashboard .rd-head-date {
+  text-align: left;
+  padding-left: 4px;
+}
+
+/* ── Tiles (grid view) ──────────────────────────── */
+.gdt-register-dashboard .rd-tile-grid {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--pa-surface);
+  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+}
+
+.gdt-register-dashboard .rd-tile {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--pa-border);
+  border-radius: 12px;
+  background: var(--pa-surface);
+  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.gdt-register-dashboard .rd-tile:hover {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard .rd-tile-pending {
+  background: #fffdf6;
+}
+
+.gdt-register-dashboard .rd-tile-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  margin: 16px 16px 0;
+  border: 1px solid var(--pa-border);
+  border-radius: 10px;
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard .rd-tile-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gdt-register-dashboard .rd-tile-placeholder {
+  color: var(--pa-border-strong);
+}
+
+.gdt-register-dashboard .rd-tile-body {
+  padding: 12px 16px 16px;
+}
+
+.gdt-register-dashboard .rd-tile-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.gdt-register-dashboard .rd-tile-title {
+  display: -webkit-box;
+  overflow: hidden;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  color: var(--pa-text);
+  text-decoration: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.gdt-register-dashboard .rd-tile-controls {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.gdt-register-dashboard .rd-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.gdt-register-dashboard .rd-tile-date {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--pa-faint);
+}
+
+/* ── Badges ─────────────────────────────────────── */
+.gdt-register-dashboard .rd-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.gdt-register-dashboard .rd-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.gdt-register-dashboard .rd-badge-success {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.gdt-register-dashboard .rd-badge-info {
+  border-color: var(--pa-info-border);
+  background: var(--pa-info-soft);
+  color: var(--pa-info);
+}
+
+.gdt-register-dashboard .rd-badge-warning {
+  border-color: var(--pa-gold-border);
+  background: var(--pa-gold-soft);
+  color: #735413;
+}
+
+/* ── Icon buttons and menus ─────────────────────── */
+.gdt-register-dashboard .rd-icon-button {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--pa-faint);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.gdt-register-dashboard .rd-icon-button:hover {
+  background: var(--pa-surface-muted);
+  color: var(--pa-text);
+}
+
+.gdt-register-dashboard .rd-icon-button-starred {
+  color: var(--pa-gold);
+}
+
+.gdt-register-dashboard .rd-menu-anchor {
+  position: relative;
+}
+
+.gdt-register-dashboard .rd-row-menu-open,
+.gdt-register-dashboard .rd-tile-menu-open,
+.gdt-register-dashboard .rd-folder-menu-open,
+.gdt-register-dashboard .rd-menu-anchor-open {
+  z-index: 50;
+  position: relative;
+}
+
+.gdt-register-dashboard .rd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 208px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--pa-border);
+  border-radius: 12px;
+  background: var(--pa-surface);
+  box-shadow: var(--pa-shadow);
+}
+
+.gdt-register-dashboard .rd-menu-end {
+  right: 0;
+  left: auto;
+}
+
+.gdt-register-dashboard .rd-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pa-text);
+  text-align: left;
+  transition: background-color 150ms ease-out;
+}
+
+.gdt-register-dashboard .rd-menu-item:hover {
+  background: var(--pa-canvas);
+}
+
+.gdt-register-dashboard .rd-menu-item svg {
+  flex-shrink: 0;
+  color: var(--pa-muted);
+}
+
+.gdt-register-dashboard .rd-menu-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gdt-register-dashboard .rd-menu-item-danger {
+  color: var(--pa-danger);
+}
+
+.gdt-register-dashboard .rd-menu-item-danger:hover {
+  background: var(--pa-danger-soft);
+}
+
+.gdt-register-dashboard .rd-menu-item-danger svg {
+  color: var(--pa-danger);
+}
+
+.gdt-register-dashboard .rd-menu-divider {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--pa-border);
+}
+
+.gdt-register-dashboard .rd-menu-label {
+  padding: 6px 10px 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pa-faint);
+}
+
+/* ── Inline rename ──────────────────────────────── */
+.gdt-register-dashboard .rd-rename-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gdt-register-dashboard .rd-rename-input {
+  min-width: 0;
+  flex: 1;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--pa-primary);
+  border-radius: 8px;
+  outline: none;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pa-text);
+}
+
+.gdt-register-dashboard .rd-rename-confirm,
+.gdt-register-dashboard .rd-rename-cancel {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+
+.gdt-register-dashboard .rd-rename-confirm {
+  background: var(--pa-primary);
+  color: #fff;
+}
+
+.gdt-register-dashboard .rd-rename-cancel {
+  border: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+  color: var(--pa-muted);
+}
+
+/* ── Invitation actions ─────────────────────────── */
+.gdt-register-dashboard .rd-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.gdt-register-dashboard .rd-invite-accept,
+.gdt-register-dashboard .rd-invite-decline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.gdt-register-dashboard .rd-invite-accept {
+  background: var(--pa-primary);
+  color: #fff;
+}
+
+.gdt-register-dashboard .rd-invite-accept:hover:not(:disabled) {
+  background: var(--pa-primary-hover);
+}
+
+.gdt-register-dashboard .rd-invite-decline {
+  border: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+  color: var(--pa-muted);
+}
+
+.gdt-register-dashboard .rd-invite-decline:hover:not(:disabled) {
+  border-color: var(--pa-border-strong);
+  color: var(--pa-text);
+}
+
+.gdt-register-dashboard .rd-invite-accept:disabled,
+.gdt-register-dashboard .rd-invite-decline:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gdt-register-dashboard .rd-invite-error {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--pa-danger);
+}
+
+.gdt-register-dashboard .rd-spin {
+  animation: rd-spin 900ms linear infinite;
+}
+
+@keyframes rd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Skeletons ──────────────────────────────────── */
+.gdt-register-dashboard .rd-skeleton {
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--pa-surface-muted) 0%,
+    #f6f8f6 50%,
+    var(--pa-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: rd-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes rd-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gdt-register-dashboard .rd-skeleton,
+  .gdt-register-dashboard .rd-spin {
+    animation: none;
+  }
+}

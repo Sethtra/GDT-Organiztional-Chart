@@ -97,7 +97,7 @@ export default function EdgePropertiesPanel({ edge, onUpdate, onDelete, onClose 
   }, [strokeColor, strokeWidth, arrowType, arrowStart, animated, label, lineStyle, cornerRadius, dynamic]);
 
   return (
-    <div className="properties-panel">
+    <div className="properties-panel pp-light pa-theme">
       <div className="pp-header">
         <div className="pp-header-left">
           <div className="pp-dot" style={{ background: strokeColor, borderRadius: 0, height: 3, width: 18 }} />

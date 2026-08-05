@@ -2,30 +2,18 @@
 version: 1
 slug: "src-pages-landingtestpage-tsx"
 primary_target: "src/pages/LandingTestPage.tsx"
-related_targets: ["src/pages/LandingTestPage.css","index.html"]
+related_targets: ["src/pages/LandingTestPage.css","src/styles/pa-theme.css"]
 ---
 
 # Test landing surface brief
 
-- Scope: isolated `/test-landing` preview; Persuade mode. Do not restyle or reroute the live landing page.
-- Audience and job: public visitors, chart owners, and HR administrators should recognize the official GDT product, understand how people, structure, and jobs connect, then enter the correct role-aware destination.
-- Proof and content: official theme-aware GDT wordmarks, the existing GDT headquarters photograph, the real Department → Office → Position model, the live Staff Directory / Organization / Job Architecture modules, and privacy enforced by database permissions. Do not expose personnel or invent counts.
-- Direction: approved composition A, “Civic structure ribbon,” at `.impeccable/mocks/test-landing-structure-ribbon-a.png`. Keep the photo-led 5/7 split, content at left, and one uninterrupted green module band crossing the page. User adjustment: make the wordmark quieter than the comp (about 210–220px wide on desktop, smaller on mobile).
-- Memorable moment: the green band turns three product areas into one connected path immediately beneath the institution and its purpose.
-- Responsive behavior: hero stacks content before image; the ribbon becomes a vertical indexed sequence; mobile navigation is a focus-managed sheet; account disclosure closes on Escape/outside interaction and restores focus.
-- Theme behavior: this isolated preview supports light and dark presentation without changing the live app. Light surfaces use `GDT-Logo (Light).png`; dark surfaces use `GDT-Logo (Dark).png`.
-
-## Implementation inventory
-
-| Visible ingredient | Medium | Commitment |
-| --- | --- | --- |
-| Compact official wordmark | Existing PNG assets | Correct light/dark file; intentionally smaller than comp |
-| Hero headquarters image | Existing `building-city.png` | Wide architectural crop; no badges or invented overlays |
-| Khmer-first headline and actions | Semantic HTML/CSS | Manrope + Noto Sans Khmer; primary action remains visible |
-| Three-part structure ribbon | Semantic links, CSS grid, Lucide icons | One continuous band and brass indexed connector; never card tiles |
-| Department → Office → Position proof | Semantic ordered flow | Text and arrows carry meaning without color alone |
-| Account/profile disclosure | React + semantic buttons/links | Identity, My charts, profile, theme, HR portal when authorized, logout/error state |
-| Mobile navigation | Existing Radix/shadcn dialog primitive | Focus trap, Escape/overlay close, scroll-safe sheet |
-| Motion | CSS transforms/transitions | One ribbon-marker/arrow language; reduced-motion fallback |
-
-- Unresolved decisions: none for this preview. Production adoption remains a separate user decision.
+- Scope: isolated `/test-landing` preview; Persuade mode, with an Operate register for the signed-in state. The live landing (`/`) is a separate component (`LandingCivicPage`) and must not be restyled or rerouted from here.
+- Audience and job: public visitors should recognize the official GDT product and understand how to obtain access; signed-in officers should reach their own charts first. HR administration is deliberately not an audience for this page.
+- Admin access rule (user-set, 2026-08-04): the ONLY route to the admin dashboard is the "Admin portal" item inside the profile dropdown, rendered only when `useHrAdmin()` resolves true. No staff-directory, org-structure or job-architecture links anywhere on the page, and no locked/teaser admin links for non-admins.
+- Proof and content: the real Department → Office → Position model, the visitor's own chart rows from `useChart()`, and the four access tiers the database enforces. No personnel data, no invented counts, no marketing claims.
+- Direction: "Register" — the department's structure presented as an official ruled record. Numbered articles, hairline rules, brass index numerals, tabular figures, a table for the officer's own entries. Refuses hero-plus-feature-cards.
+- Visual world: inherited wholesale from the admin design system (`src/styles/pa-theme.css`, `--pa-*`). Light only — no theme toggle, unlike the civic landing. Moul is reserved for the single Khmer display line.
+- Memorable moment: the deep-green article band (`#0b2b20`, the admin sidebar's own field) carrying the three structural levels as numbered clauses under one brass-ticked rule.
+- Responsive behavior: hero 7/5 split collapses to stacked; the entries table becomes ruled cards below `sm`; the article band becomes a vertical numbered sequence; the masthead drops the English wordmark line rather than truncating it.
+- States handled: session loading, chart loading (skeletons), empty register, sign-out failure. `useChart` never clears `loading` without a session, so the skeletons are gated on `user` rather than on the hook's flag.
+- Unresolved decisions: `useChart` swallows fetch errors, so a failed load is indistinguishable from an empty register; the empty state is written to be honest in both cases. Production adoption remains a separate user decision.

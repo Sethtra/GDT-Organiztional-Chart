@@ -14,13 +14,13 @@ async function preparePage(page) {
     route.fulfill({ status: 204, body: "" }),
   );
   await page.addInitScript(() => {
-    localStorage.setItem("gdt_test_landing_theme", "light");
+    localStorage.setItem("gdt_landing_theme", "light");
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
 }
 
 for (const viewport of VIEWPORTS) {
-  test(`test landing is stable on ${viewport.name}`, async ({ page }, testInfo) => {
+  test(`civic landing is stable on ${viewport.name}`, async ({ page }, testInfo) => {
     const consoleProblems = [];
     const failedRequests = [];
 
@@ -35,7 +35,7 @@ for (const viewport of VIEWPORTS) {
 
     await preparePage(page);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.goto("/test-landing");
+    await page.goto("/");
 
     await expect(page.getByText("One structure. Every role in view.")).toBeVisible();
     await expect(page.getByRole("link", { name: "GDT organizational chart home" })).toBeVisible();
@@ -51,10 +51,10 @@ for (const viewport of VIEWPORTS) {
     const moduleRegion = page.getByRole("region", {
       name: "Explore the connected GDT work areas",
     });
-    await expect(moduleRegion.locator(".tl-module")).toHaveCount(3);
+    await expect(moduleRegion.locator(".lc-module")).toHaveCount(3);
 
     const overflow = await page.evaluate(() => {
-      const landing = document.querySelector(".landing-test-page");
+      const landing = document.querySelector(".landing-civic-page");
       return {
         document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         landing: landing ? landing.scrollWidth - landing.clientWidth : Number.POSITIVE_INFINITY,
@@ -64,7 +64,7 @@ for (const viewport of VIEWPORTS) {
     expect(overflow.landing).toBeLessThanOrEqual(1);
 
     await page.screenshot({
-      path: testInfo.outputPath(`test-landing-${viewport.name}.png`),
+      path: testInfo.outputPath(`landing-civic-${viewport.name}.png`),
     });
 
     const menuTrigger = page.getByRole("button", { name: "Open navigation" });
@@ -91,7 +91,7 @@ for (const viewport of VIEWPORTS) {
         name: "How the organization is structured, and how privacy is protected",
       }).scrollIntoViewIfNeeded();
       await page.screenshot({
-        path: testInfo.outputPath("test-landing-mobile-proof.png"),
+        path: testInfo.outputPath("landing-civic-mobile-proof.png"),
       });
     }
 
@@ -103,9 +103,9 @@ for (const viewport of VIEWPORTS) {
 test("theme switch swaps the wordmark and preserves the civic palette", async ({ page }) => {
   await preparePage(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/test-landing");
+  await page.goto("/");
 
-  const landing = page.locator(".landing-test-page");
+  const landing = page.locator(".landing-civic-page");
   const brandImage = page
     .getByRole("link", { name: "GDT organizational chart home" })
     .getByRole("img");
@@ -173,9 +173,9 @@ test("signed-in profile exposes settings and completes logout", async ({ page })
   });
 
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/test-landing");
+  await page.goto("/");
 
-  const profile = page.locator(".tl-profile-trigger");
+  const profile = page.locator(".lc-profile-trigger");
   await expect(profile).toBeVisible();
   await profile.click();
   const accountOptions = page.getByLabel("Account options");

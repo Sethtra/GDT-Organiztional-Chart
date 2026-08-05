@@ -76,8 +76,9 @@ export default function LoginTestPage() {
       <header className="login-test-topbar">
         <Link to="/" className="login-test-brand" aria-label="GDT home">
           <img
-            src={theme === 'dark' ? '/GDT-Logo (Dark).png' : '/GDT-Logo (Light).png'}
-            alt=""
+            src="/GDT Logo (Soft).png"
+            alt="GDT"
+            className="h-9 w-auto object-contain"
           />
         </Link>
 
@@ -158,14 +159,12 @@ export default function LoginTestPage() {
         </section>
 
         <section className="login-test-card" aria-labelledby="login-test-title">
-          <div className="login-test-card__heading">
-            <div className="login-test-seal-wrap">
-              <img src="/gdt-seal.png" alt="" />
-            </div>
-            <div>
-              <p lang="km">អគ្គនាយកដ្ឋានពន្ធដារ</p>
-              <span>Internal Organization Workspace</span>
-            </div>
+          <div className="login-test-card__heading justify-center">
+            <img
+              src="/GDT-Logo (Soft).png"
+              alt="GDT — General Department of Taxation"
+              className="gov-auth-logo-img"
+            />
           </div>
 
           <div className="login-test-card__intro">

@@ -50,7 +50,7 @@ export default function Navbar({ search, setSearch }) {
         {/* Brand */}
         <Link to="/" className="navbar__brand">
           <img
-            src={theme === 'dark' ? "/GDT-Logo (Dark).png" : "/GDT-Logo (Light).png"}
+            src="/GDT-Logo (Light).png"
             alt="GDT - General Department of Taxation"
             style={{ height: 36, objectFit: "contain" }}
           />

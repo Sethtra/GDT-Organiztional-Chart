@@ -1,0 +1,469 @@
+/**
+ * Properties panel — GDT design system (pa-theme.css).
+ *
+ * Applied by adding `pp-light` to the panel root, which gives every rule here
+ * one extra class of specificity over the legacy `.pp-*` rules still in
+ * index.css. That makes the override independent of stylesheet order, so it
+ * cannot break if import order shifts.
+ *
+ * Light only, by design.
+ */
+
+.properties-panel.pp-light {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  bottom: 60px;
+  z-index: 40;
+  display: flex;
+  width: var(--panel-width, 320px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--pa-border);
+  border-radius: 14px;
+  background: var(--pa-surface);
+  box-shadow: var(--pa-shadow);
+  backdrop-filter: none;
+  animation: pp-slide-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pp-slide-in {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .properties-panel.pp-light {
+    animation: none;
+  }
+}
+
+/* ── Header ─────────────────────────────────────── */
+.pp-light .pp-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px 13px 16px;
+  border-bottom: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+  box-shadow: inset 0 -4px 0 -3px var(--pa-primary);
+}
+
+.pp-light .pp-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-light .pp-dot {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 1px solid rgba(11, 43, 32, 0.18);
+  border-radius: 4px;
+}
+
+.pp-light .pp-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--pa-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-light .pp-close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--pa-muted);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.pp-light .pp-close:hover {
+  background: var(--pa-canvas);
+  color: var(--pa-text);
+}
+
+/* ── Body and sections ──────────────────────────── */
+.pp-light .pp-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+  background: var(--pa-canvas);
+  scrollbar-color: var(--pa-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.pp-light .pp-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pp-light .pp-body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--pa-border-strong);
+  background-clip: padding-box;
+}
+
+.pp-light .pp-section {
+  margin: 12px;
+  padding: 14px;
+  border: 1px solid var(--pa-border);
+  border-radius: 12px;
+  background: var(--pa-surface);
+}
+
+.pp-light .pp-section + .pp-section {
+  margin-top: 0;
+}
+
+.pp-light .pp-section-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pa-border);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-section-label svg {
+  flex-shrink: 0;
+  color: var(--pa-primary);
+}
+
+/* ── Fields ─────────────────────────────────────── */
+.pp-light .pp-label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.pp-light .pp-label:first-of-type {
+  margin-top: 0;
+}
+
+.pp-light .pp-input,
+.pp-light .pp-textarea {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  outline: none;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--pa-text);
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  color-scheme: light;
+}
+
+.pp-light .pp-input {
+  height: 38px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.pp-light .pp-textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.pp-light .pp-input::placeholder,
+.pp-light .pp-textarea::placeholder {
+  font-weight: 500;
+  color: var(--pa-faint);
+}
+
+.pp-light .pp-input:focus,
+.pp-light .pp-textarea:focus {
+  border-color: var(--pa-primary);
+  box-shadow: 0 0 0 3px rgba(19, 98, 50, 0.14);
+}
+
+.pp-light select.pp-input {
+  cursor: pointer;
+}
+
+/* ── Node type / alignment grids ────────────────── */
+.pp-light .pp-type-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+}
+
+.pp-light .pp-type-btn,
+.pp-light .pp-align-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--pa-border);
+  border-radius: 8px;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pa-muted);
+  transition: border-color 150ms ease-out, background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.pp-light .pp-type-btn:hover,
+.pp-light .pp-align-btn:hover {
+  border-color: var(--pa-border-strong);
+  color: var(--pa-text);
+}
+
+.pp-light .pp-type-btn.active,
+.pp-light .pp-align-btn.active {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Colour swatches ────────────────────────────── */
+.pp-light .pp-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.pp-light .pp-swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(11, 43, 32, 0.16);
+  border-radius: 7px;
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.pp-light .pp-swatch:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(11, 43, 32, 0.16);
+}
+
+.pp-light .pp-swatch.active,
+.pp-light .pp-swatch[data-active="true"] {
+  box-shadow: 0 0 0 2px var(--pa-surface), 0 0 0 4px var(--pa-primary);
+}
+
+.pp-light .pp-swatch--custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+  color: var(--pa-muted);
+}
+
+.pp-light .pp-color-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--pa-border);
+  border-radius: 8px;
+  background: var(--pa-canvas);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--pa-muted);
+}
+
+/* ── Buttons ────────────────────────────────────── */
+.pp-light .pp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--pa-surface-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  transition: background-color 150ms ease-out, border-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.pp-light .pp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pp-light .pp-btn--save,
+.pp-light .pp-btn--confirm-add {
+  background: var(--pa-primary);
+  color: #fff;
+}
+
+.pp-light .pp-btn--save:hover:not(:disabled),
+.pp-light .pp-btn--confirm-add:hover:not(:disabled) {
+  background: var(--pa-primary-hover);
+}
+
+.pp-light .pp-btn--ghost,
+.pp-light .pp-btn--add {
+  border-color: var(--pa-border);
+  background: var(--pa-surface);
+  color: var(--pa-text);
+}
+
+.pp-light .pp-btn--ghost:hover:not(:disabled),
+.pp-light .pp-btn--add:hover:not(:disabled) {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+}
+
+.pp-light .pp-btn--delete {
+  background: var(--pa-danger);
+  color: #fff;
+}
+
+.pp-light .pp-btn--delete:hover:not(:disabled) {
+  background: #862b26;
+}
+
+.pp-light .pp-btn--delete-ghost {
+  border-color: var(--pa-danger-border);
+  background: var(--pa-danger-soft);
+  color: var(--pa-danger);
+}
+
+.pp-light .pp-btn--delete-ghost:hover:not(:disabled) {
+  background: #fbdedb;
+}
+
+.pp-light .pp-add-child {
+  width: 100%;
+}
+
+/* ── Delete confirmation ────────────────────────── */
+.pp-light .pp-delete-confirm {
+  padding: 12px;
+  border: 1px solid var(--pa-danger-border);
+  border-radius: 10px;
+  background: var(--pa-danger-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--pa-danger);
+}
+
+.pp-light .pp-delete-btns {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.pp-light .pp-delete-btns .pp-btn {
+  flex: 1;
+}
+
+/* ── Sticky footer ──────────────────────────────── */
+.pp-light .pp-sticky-footer {
+  flex-shrink: 0;
+  padding: 12px;
+  border-top: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+}
+
+.pp-light .pp-footer-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.pp-light .pp-footer-actions .pp-btn {
+  flex: 1;
+}
+
+/* ── Node preview card ──────────────────────────── */
+.pp-light .pp-preview__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--pa-gold-border);
+  border-radius: 5px;
+  background: var(--pa-gold-soft);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #735413;
+}
+
+.pp-light .pp-preview__name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--pa-text);
+}
+
+.pp-light .pp-preview__name-en {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pa-muted);
+}
+
+.pp-light .pp-focus-ring:focus-visible,
+.pp-light button:focus-visible,
+.pp-light input:focus-visible,
+.pp-light textarea:focus-visible,
+.pp-light select:focus-visible {
+  outline: 3px solid rgba(19, 98, 50, 0.28);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .properties-panel.pp-light {
+    top: 12px;
+    right: 12px;
+    bottom: 68px;
+    left: 12px;
+    width: auto;
+  }
+}

@@ -1,92 +1,11 @@
-.admin-dashboard-test {
-  --pa-canvas: #f3f5f2;
-  --pa-surface: #ffffff;
-  --pa-surface-muted: #eef2ee;
-  --pa-sidebar: #0b2b20;
-  --pa-sidebar-hover: #12392b;
-  --pa-sidebar-border: rgba(255, 255, 255, 0.11);
-  --pa-sidebar-text: #f5f8f6;
-  --pa-sidebar-muted: #a9bdb1;
-  --pa-text: #16211b;
-  --pa-muted: #66716b;
-  --pa-faint: #87918b;
-  --pa-border: #d9e1dc;
-  --pa-border-strong: #bfcac3;
-  --pa-primary: #136232;
-  --pa-primary-hover: #0f5129;
-  --pa-primary-soft: #e7f3ec;
-  --pa-primary-border: #c6e1d1;
-  --pa-gold: #b48728;
-  --pa-gold-soft: #fff6dd;
-  --pa-gold-border: #ead7a1;
-  --pa-info: #315c6b;
-  --pa-info-soft: #eaf1f5;
-  --pa-info-border: #cbdde4;
-  --pa-danger: #9c332d;
-  --pa-danger-soft: #fdecea;
-  --pa-danger-border: #efc8c4;
-  --pa-shadow: 0 1px 2px rgba(11, 43, 32, 0.04),
-    0 10px 30px rgba(11, 43, 32, 0.055);
+/* The `--pa-*` tokens and `pa-*` utilities now live in the shared theme file so
+   other surfaces can adopt the same design system. This file keeps only the
+   admin shell's own layout rules. */
+@import "../styles/pa-theme.css";
 
+.admin-dashboard-test {
   height: 100dvh;
   min-height: 100%;
   overflow: hidden;
   background: var(--pa-canvas);
-  color: var(--pa-text);
-  font-family: "Manrope", "Noto Sans Khmer", system-ui, sans-serif;
 }
-
-.admin-dashboard-test * {
-  box-sizing: border-box;
-}
-
-.admin-dashboard-test ::selection {
-  background: var(--pa-primary-border);
-  color: var(--pa-text);
-}
-
-.admin-dashboard-test .pa-scrollbar {
-  scrollbar-color: var(--pa-border-strong) transparent;
-  scrollbar-width: thin;
-}
-
-.admin-dashboard-test .pa-scrollbar::-webkit-scrollbar {
-  width: 8px;
-}
-
-.admin-dashboard-test .pa-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.admin-dashboard-test .pa-scrollbar::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--pa-border-strong);
-  background-clip: padding-box;
-}
-
-.admin-dashboard-test .pa-focus-ring:focus-visible {
-  outline: 3px solid rgba(19, 98, 50, 0.28);
-  outline-offset: 2px;
-}
-
-.admin-dashboard-test .pa-tabular {
-  font-variant-numeric: tabular-nums;
-}
-
-.admin-dashboard-test .pa-chart-line,
-.admin-dashboard-test .pa-chart-grid {
-  vector-effect: non-scaling-stroke;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin-dashboard-test *,
-  .admin-dashboard-test *::before,
-  .admin-dashboard-test *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-

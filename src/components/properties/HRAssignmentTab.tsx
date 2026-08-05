@@ -99,29 +99,29 @@ function StaffCombobox({
         onClick={() => setIsOpen((prev) => !prev)}
         className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-all ${
           disabled
-            ? "opacity-50 cursor-not-allowed bg-slate-800/40 border-white/10"
+            ? "opacity-60 cursor-not-allowed bg-slate-100/90 border-slate-200 text-slate-400"
             : isOpen
-              ? "border-emerald-500/60 bg-slate-800/90 ring-2 ring-emerald-500/20 shadow-md"
-              : "border-white/15 bg-slate-850/80 hover:border-emerald-500/40 hover:bg-slate-800/70"
+              ? "border-emerald-600 bg-white ring-2 ring-emerald-500/20 shadow-sm text-slate-800"
+              : "border-slate-200 bg-white hover:border-emerald-500/50 hover:bg-slate-50/50 text-slate-800 shadow-sm"
         }`}
       >
         {selectedStaff ? (
           <div className="flex items-center gap-2 truncate min-w-0">
-            <span className="font-semibold text-white truncate">{selectedStaff.name}</span>
+            <span className="font-semibold text-slate-800 truncate">{selectedStaff.name}</span>
             {selectedStaff.employeeId && (
-              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 flex-shrink-0">
+              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 flex-shrink-0 font-medium">
                 ID: {selectedStaff.employeeId}
               </span>
             )}
           </div>
         ) : (
-          <span className="text-slate-400 truncate">{placeholder}</span>
+          <span className="text-slate-400 truncate font-medium">{placeholder}</span>
         )}
-        <ChevronDown className={`size-3.5 text-slate-400 transition-transform ${isOpen ? "rotate-180 text-emerald-400" : ""}`} />
+        <ChevronDown className={`size-3.5 text-slate-400 transition-transform ${isOpen ? "rotate-180 text-emerald-600" : ""}`} />
       </button>
 
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-hidden rounded-xl border border-white/15 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-hidden rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
           <div className="relative mb-2">
             <Search className="absolute left-2.5 top-2.5 size-3.5 text-slate-400" />
             <input
@@ -130,7 +130,7 @@ function StaffCombobox({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search officer by name or ID…"
-              className="w-full rounded-lg border border-white/10 bg-slate-800/90 pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/30"
             />
           </div>
 
@@ -149,37 +149,24 @@ function StaffCombobox({
                     onClick={() => {
                       onSelect(s.id);
                       setIsOpen(false);
-                      setSearch("");
                     }}
-                    className={`w-full flex items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-all ${
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors flex items-center justify-between ${
                       isSelected
-                        ? "bg-emerald-600/30 border border-emerald-500/50 text-white font-semibold"
-                        : "hover:bg-slate-800/80 hover:text-white text-slate-200"
+                        ? "bg-emerald-50 text-emerald-800 font-semibold"
+                        : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    {/* Left: Officer Khmer & English Name */}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-bold text-white leading-tight truncate">{s.name}</div>
+                    <div className="min-w-0 flex-1 truncate">
+                      <div className="font-medium truncate text-slate-800">{s.name}</div>
                       {s.nameEn && (
-                        <div className="text-[10px] font-medium text-slate-400 uppercase mt-0.5 truncate">
-                          {s.nameEn}
-                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">{s.nameEn}</div>
                       )}
                     </div>
-
-                    {/* Right: Badges (Position & ID stacked) */}
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      {s.jobTitle && (
-                        <span className="text-[10px] bg-emerald-500/15 px-2 py-0.5 rounded-md text-emerald-300 border border-emerald-500/30 font-medium">
-                          {s.jobTitle.name}
-                        </span>
-                      )}
-                      {s.employeeId && (
-                        <span className="text-[9.5px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
-                          ID: {s.employeeId}
-                        </span>
-                      )}
-                    </div>
+                    {s.employeeId && (
+                      <span className="text-[10px] text-slate-500 font-mono ml-2 flex-shrink-0 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        ID: {s.employeeId}
+                      </span>
+                    )}
                   </button>
                 );
               })
@@ -539,25 +526,25 @@ export default function HRAssignmentTab({
       {/* ── Current occupant card ─────────────────────────── */}
       {summary?.occupant ? (
         <div
-          className="group relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-900/90 to-slate-850 p-3.5 shadow-md transition-all duration-200 hover:border-emerald-500/40 hover:bg-slate-800/90 cursor-pointer"
+          className="group relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-50/70 via-white to-slate-50/80 p-3.5 shadow-sm transition-all duration-200 hover:border-emerald-500/60 hover:shadow-md cursor-pointer"
           onClick={() => onViewStaffProfile?.(summary.occupant?.staffId ?? "")}
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               {/* Avatar circle */}
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-700/80 text-white font-bold text-xs shadow-inner border border-emerald-400/30">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-xs shadow-sm border border-emerald-500/30">
                 {summary.occupant.nameEn
                   ? summary.occupant.nameEn.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
-                  : <User className="size-4 text-emerald-200" />}
+                  : <User className="size-4 text-white" />}
               </div>
 
               {/* Names */}
               <div>
-                <div className="text-sm font-bold text-white leading-snug group-hover:text-emerald-300 transition-colors">
+                <div className="text-sm font-extrabold text-slate-800 leading-snug group-hover:text-emerald-700 transition-colors">
                   {summary.occupant.name}
                 </div>
                 {summary.occupant.nameEn && (
-                  <div className="text-[11px] font-medium tracking-wide text-slate-400 uppercase mt-0.5">
+                  <div className="text-[11px] font-bold tracking-wide text-slate-500 uppercase mt-0.5">
                     {summary.occupant.nameEn}
                   </div>
                 )}
@@ -565,32 +552,32 @@ export default function HRAssignmentTab({
             </div>
 
             {/* View profile hint button */}
-            <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all flex-shrink-0">
+            <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-1 rounded-md border border-emerald-300/60 group-hover:bg-emerald-200/80 transition-all flex-shrink-0">
               Profile <ExternalLink className="size-3" />
             </div>
           </div>
 
           {/* Details metadata row */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-2.5 text-[11px]">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200/80 pt-2.5 text-[11px]">
             {summary.occupant.employeeId && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 text-slate-300 border border-white/10">
-                ID: <strong className="text-white font-semibold">{summary.occupant.employeeId}</strong>
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-slate-600 border border-slate-200 font-medium">
+                ID: <strong className="text-slate-800 font-bold">{summary.occupant.employeeId}</strong>
               </span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-0.5 text-slate-400 border border-white/10">
-              <Calendar className="size-3 text-emerald-400" />
-              Joined: <span className="text-slate-200">{summary.occupant.joinedDate || "Not recorded"}</span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-slate-600 border border-slate-200 font-medium">
+              <Calendar className="size-3 text-emerald-600" />
+              Joined: <span className="text-slate-700 font-semibold">{summary.occupant.joinedDate || "Not recorded"}</span>
             </span>
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-50/70 p-3 text-xs font-semibold text-amber-900">
           This position is vacant.
         </div>
       )}
 
       {/* ── Unified Position, Department, Office & Search Section ───── */}
-      <div className="grid gap-3 rounded-md border border-border bg-secondary/20 p-3">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
         {/* Node Position Dropdown — real job title, not a fixed string list */}
         <div className="grid gap-1">
           <label className="pp-label flex items-center gap-1">

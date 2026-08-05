@@ -1,0 +1,532 @@
+/**
+ * Share chart card — rebuilt on the GDT design system (pa-theme.css).
+ *
+ * Light only, and self-contained: it no longer borrows the `share-*` /
+ * `auth-*` classes from index.css, so it renders the same wherever it is
+ * opened — the editor, the live dashboard, or the chart register.
+ */
+
+.gdt-share-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 26, 18, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.gdt-share-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 470px;
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+  border: 1px solid var(--pa-border);
+  border-radius: 14px;
+  background: var(--pa-surface);
+  box-shadow: var(--pa-shadow);
+}
+
+/* ── Header ─────────────────────────────────────── */
+.gdt-share-modal .sm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--pa-border);
+}
+
+.gdt-share-modal .sm-eyebrow {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-title {
+  margin: 6px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--pa-text);
+}
+
+.gdt-share-modal .sm-sub {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pa-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gdt-share-modal .sm-close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: none;
+  color: var(--pa-muted);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-close:hover {
+  background: var(--pa-canvas);
+  color: var(--pa-text);
+}
+
+/* ── Tabs ───────────────────────────────────────── */
+.gdt-share-modal .sm-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid var(--pa-border);
+}
+
+.gdt-share-modal .sm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--pa-muted);
+  transition: color 150ms ease-out, border-color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-tab:hover {
+  color: var(--pa-text);
+}
+
+.gdt-share-modal .sm-tab-active {
+  border-bottom-color: var(--pa-primary);
+  color: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-body {
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* ── Public link toggle ─────────────────────────── */
+.gdt-share-modal .sm-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 15px;
+  border: 1px solid var(--pa-border);
+  border-radius: 11px;
+  background: var(--pa-canvas);
+}
+
+.gdt-share-modal .sm-toggle-label {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+}
+
+.gdt-share-modal .sm-toggle-sub {
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--pa-muted);
+}
+
+.gdt-share-modal .sm-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--pa-border-strong);
+  border-radius: 999px;
+  background: var(--pa-surface-muted);
+  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.gdt-share-modal .sm-switch-on {
+  border-color: var(--pa-primary);
+  background: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-switch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gdt-share-modal .sm-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: var(--pa-surface);
+  box-shadow: 0 1px 2px rgba(11, 43, 32, 0.25);
+  transition: left 180ms ease-out;
+}
+
+.gdt-share-modal .sm-switch-on .sm-switch-knob {
+  left: 23px;
+}
+
+/* ── Permission row ─────────────────────────────── */
+.gdt-share-modal .sm-permission {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.gdt-share-modal .sm-permission-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.gdt-share-modal .sm-pills {
+  display: flex;
+  gap: 6px;
+}
+
+.gdt-share-modal .sm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--pa-border);
+  border-radius: 8px;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--pa-muted);
+  transition: border-color 150ms ease-out, background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-pill:hover:not(:disabled) {
+  border-color: var(--pa-border-strong);
+  color: var(--pa-text);
+}
+
+.gdt-share-modal .sm-pill-active {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-pill:disabled {
+  cursor: default;
+}
+
+/* ── URL row ────────────────────────────────────── */
+.gdt-share-modal .sm-url-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.gdt-share-modal .sm-url-box {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  background: var(--pa-canvas);
+}
+
+.gdt-share-modal .sm-url-box svg {
+  flex-shrink: 0;
+  color: var(--pa-faint);
+}
+
+.gdt-share-modal .sm-url-text {
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pa-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gdt-share-modal .sm-copy {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: var(--pa-primary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+  transition: background-color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-copy:hover {
+  background: var(--pa-primary-hover);
+}
+
+.gdt-share-modal .sm-copy-done {
+  background: var(--pa-info);
+}
+
+/* ── Notices ────────────────────────────────────── */
+.gdt-share-modal .sm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--pa-gold-border);
+  border-radius: 10px;
+  background: var(--pa-gold-soft);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #735413;
+}
+
+.gdt-share-modal .sm-note svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.gdt-share-modal .sm-error,
+.gdt-share-modal .sm-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.gdt-share-modal .sm-error {
+  border-color: var(--pa-danger-border);
+  background: var(--pa-danger-soft);
+  color: var(--pa-danger);
+}
+
+.gdt-share-modal .sm-success {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-error svg,
+.gdt-share-modal .sm-success svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Invite form ────────────────────────────────── */
+.gdt-share-modal .sm-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.gdt-share-modal .sm-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  outline: none;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pa-text);
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.gdt-share-modal .sm-input::placeholder {
+  font-weight: 500;
+  color: var(--pa-faint);
+}
+
+.gdt-share-modal .sm-input:focus {
+  border-color: var(--pa-primary);
+  box-shadow: 0 0 0 3px rgba(19, 98, 50, 0.14);
+}
+
+.gdt-share-modal .sm-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  margin-top: 14px;
+  border-radius: 9px;
+  background: var(--pa-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  transition: background-color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-submit:hover:not(:disabled) {
+  background: var(--pa-primary-hover);
+}
+
+.gdt-share-modal .sm-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── People with access ─────────────────────────── */
+.gdt-share-modal .sm-people {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pa-border);
+}
+
+.gdt-share-modal .sm-people-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.gdt-share-modal .sm-person {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--pa-border);
+}
+
+.gdt-share-modal .sm-person:last-child {
+  border-bottom: 0;
+}
+
+.gdt-share-modal .sm-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  background: var(--pa-canvas);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--pa-primary);
+}
+
+.gdt-share-modal .sm-person-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.gdt-share-modal .sm-person-email {
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gdt-share-modal .sm-person-access {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--pa-muted);
+}
+
+.gdt-share-modal .sm-remove {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: none;
+  color: var(--pa-faint);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.gdt-share-modal .sm-remove:hover {
+  background: var(--pa-danger-soft);
+  color: var(--pa-danger);
+}
+
+.gdt-share-modal .sm-empty {
+  padding: 14px 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pa-faint);
+}
+
+.gdt-share-modal .sm-spin {
+  animation: sm-spin 900ms linear infinite;
+}
+
+@keyframes sm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gdt-share-modal .sm-spin {
+    animation: none;
+  }
+
+  .gdt-share-modal .sm-switch,
+  .gdt-share-modal .sm-switch-knob {
+    transition: none;
+  }
+}

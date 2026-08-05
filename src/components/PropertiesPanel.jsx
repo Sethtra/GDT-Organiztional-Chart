@@ -1,3 +1,4 @@
+import "../styles/properties-panel.css";
 import EdgePropertiesPanel from "./properties/EdgePropertiesPanel";
 import NodePropertiesPanel from "./properties/NodePropertiesPanel";
 

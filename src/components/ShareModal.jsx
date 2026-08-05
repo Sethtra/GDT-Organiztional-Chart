@@ -1,7 +1,19 @@
-import { useState, useEffect } from 'react';
-import { X, Link as LinkIcon, Copy, Check, Eye, Edit3, Loader2, AlertCircle, Users } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  Edit3,
+  Eye,
+  Link as LinkIcon,
+  Loader2,
+  UserRound,
+  Users,
+  X,
+} from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import '../styles/share-modal.css';
 
 export default function ShareModal({ chartId, chartName, isPublic: initialIsPublic, onClose }) {
   const { user } = useAuth();
@@ -11,6 +23,7 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
   const [isPublic, setIsPublic] = useState(initialIsPublic || false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState('');
 
   // Email sharing
   const [email, setEmail] = useState('');
@@ -21,7 +34,20 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
   const [sharedList, setSharedList] = useState([]);
   const [listLoading, setListLoading] = useState(true);
 
+  const titleId = useId();
+  const emailFieldId = useId();
+  const closeRef = useRef(null);
+
   const shareUrl = `${window.location.origin}/chart/${chartId}`;
+
+  useEffect(() => {
+    closeRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // Load existing shares
   useEffect(() => {
@@ -48,13 +74,14 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
 
   const togglePublic = async (val) => {
     setLinkLoading(true);
+    setLinkError('');
     const { error } = await supabase.from('charts')
       .update({ is_public: val, public_access_level: 'view' })
       .eq('id', chartId);
     setLinkLoading(false);
     if (error) {
       console.error('Failed to update sharing:', error);
-      window.alert('Failed to update sharing settings. Please try again.');
+      setLinkError('Could not update the sharing setting. Please try again.');
       return;
     }
     setIsPublic(val);
@@ -82,7 +109,7 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
     setEmailLoading(false);
 
     if (error) {
-      console.error("Invite error:", error);
+      console.error('Invite error:', error);
       setEmailError(error.message);
     } else {
       setEmailSuccess(`Invite sent to ${email.trim()}`);
@@ -94,152 +121,233 @@ export default function ShareModal({ chartId, chartName, isPublic: initialIsPubl
   };
 
   const removeShare = async (id) => {
+    setEmailError('');
     const { error } = await supabase.from('chart_shares').delete().eq('id', id);
     if (error) {
-      console.error("Failed to delete share:", error);
-      alert("Failed to remove user access. Check console for details.");
+      console.error('Failed to delete share:', error);
+      setEmailError('Could not remove that person. Please try again.');
       return;
     }
-    setSharedList(prev => prev.filter(s => s.id !== id));
+    setSharedList((prev) => prev.filter((s) => s.id !== id));
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="share-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="share-modal__header">
-          <div>
-            <h2 className="share-modal__title">Share Chart</h2>
-            <p className="share-modal__sub">"{chartName}"</p>
+    <div className="gdt-share-backdrop" onClick={onClose}>
+      <div
+        className="gdt-share-modal pa-theme"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Header ─────────────────────────────────── */}
+        <div className="sm-header">
+          <div className="min-w-0">
+            <div className="sm-eyebrow">Chart access</div>
+            <h2 id={titleId} className="sm-title">Share chart</h2>
+            <span className="sm-sub">{chartName}</span>
           </div>
-          <button className="modal-close-btn" onClick={onClose}><X size={18} /></button>
+          <button
+            ref={closeRef}
+            type="button"
+            className="sm-close pa-focus-ring"
+            onClick={onClose}
+            aria-label="Close share dialog"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="share-modal__tabs">
+        {/* ── Tabs ───────────────────────────────────── */}
+        <div className="sm-tabs" role="tablist" aria-label="Sharing method">
           <button
-            className={`share-modal__tab ${tab === 'link' ? 'share-modal__tab--active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'link'}
+            className={`sm-tab pa-focus-ring ${tab === 'link' ? 'sm-tab-active' : ''}`}
             onClick={() => setTab('link')}
           >
-            <LinkIcon size={14} /> Link Sharing
+            <LinkIcon size={14} aria-hidden="true" /> Link sharing
           </button>
           <button
-            className={`share-modal__tab ${tab === 'email' ? 'share-modal__tab--active' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'email'}
+            className={`sm-tab pa-focus-ring ${tab === 'email' ? 'sm-tab-active' : ''}`}
             onClick={() => setTab('email')}
           >
-            <Users size={14} /> Invite People
+            <Users size={14} aria-hidden="true" /> Invite people
           </button>
         </div>
 
-        <div className="share-modal__body">
+        <div className="sm-body">
           {/* ── LINK TAB ─────────────────────────────── */}
           {tab === 'link' && (
-            <div className="share-link-section">
-              {/* Toggle */}
-              <div className="share-toggle-row">
-                <div>
-                  <div className="share-toggle-label">Public Link</div>
-                  <div className="share-toggle-sub">Anyone with the link can access this chart</div>
+            <div>
+              <div className="sm-toggle-row">
+                <div className="min-w-0">
+                  <div className="sm-toggle-label">Public link</div>
+                  <div className="sm-toggle-sub">Anyone with the link can open this chart</div>
                 </div>
                 <button
-                  className={`share-toggle ${isPublic ? 'share-toggle--on' : ''}`}
+                  type="button"
+                  className={`sm-switch pa-focus-ring ${isPublic ? 'sm-switch-on' : ''}`}
                   onClick={() => togglePublic(!isPublic)}
                   disabled={linkLoading}
+                  role="switch"
+                  aria-checked={isPublic}
+                  aria-label="Public link"
                 >
-                  {linkLoading ? <Loader2 size={12} className="spin" /> : (
-                    <span className="share-toggle__knob" />
-                  )}
+                  <span className="sm-switch-knob">
+                    {linkLoading && (
+                      <Loader2
+                        size={11}
+                        className="sm-spin"
+                        style={{ color: 'var(--pa-primary)' }}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </span>
                 </button>
               </div>
 
-              {/* Access level selector */}
-              <div className="share-access-row">
-                <span className="share-access-label">Permission:</span>
-                <div className="share-access-pills">
-                  <button
-                    className="share-access-pill share-access-pill--active"
-                    disabled
-                  >
-                    <Eye size={13} /> View Only
+              {linkError && (
+                <p className="sm-error" role="alert">
+                  <AlertCircle size={13} aria-hidden="true" />
+                  <span>{linkError}</span>
+                </p>
+              )}
+
+              <div className="sm-permission">
+                <span className="sm-permission-label">Permission</span>
+                <div className="sm-pills">
+                  <button type="button" className="sm-pill sm-pill-active" disabled>
+                    <Eye size={13} aria-hidden="true" /> View only
                   </button>
                 </div>
               </div>
 
-              {/* Copy URL */}
-              <div className="share-url-row">
-                <div className="share-url-box">
-                  <LinkIcon size={13} style={{ color: 'var(--gray-500)', flexShrink: 0 }} />
-                  <span className="share-url-text">{shareUrl}</span>
+              <div className="sm-url-row">
+                <div className="sm-url-box">
+                  <LinkIcon size={13} aria-hidden="true" />
+                  <span className="sm-url-text">{shareUrl}</span>
                 </div>
                 <button
-                  className={`share-copy-btn ${linkCopied ? 'share-copy-btn--copied' : ''}`}
+                  type="button"
+                  className={`sm-copy pa-focus-ring ${linkCopied ? 'sm-copy-done' : ''}`}
                   onClick={copyLink}
                 >
-                  {linkCopied ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Link</>}
+                  {linkCopied ? (
+                    <><Check size={14} aria-hidden="true" /> Copied</>
+                  ) : (
+                    <><Copy size={14} aria-hidden="true" /> Copy link</>
+                  )}
                 </button>
               </div>
 
               {!isPublic && (
-                <div className="share-note">
-                  <AlertCircle size={13} />
-                  Turn on Public Link for anyone to access via URL
-                </div>
+                <p className="sm-note">
+                  <AlertCircle size={13} aria-hidden="true" />
+                  <span>
+                    The public link is off. Turn it on for anyone with the URL to
+                    open this chart — they will see chart display data only, never
+                    staff profiles.
+                  </span>
+                </p>
               )}
             </div>
           )}
 
           {/* ── EMAIL TAB ────────────────────────────── */}
           {tab === 'email' && (
-            <div className="share-email-section">
-              <form onSubmit={inviteByEmail} className="share-invite-form">
+            <div>
+              <form onSubmit={inviteByEmail} noValidate>
+                <label htmlFor={emailFieldId} className="sm-label">
+                  Invite by email
+                </label>
                 <input
+                  id={emailFieldId}
                   type="email"
-                  className="auth-input"
-                  placeholder="Enter email address..."
+                  className="sm-input pa-focus-ring"
+                  placeholder="name@tax.gov.kh"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={emailLoading}
+                  autoComplete="email"
                 />
-                <div className="share-access-pills" style={{ marginTop: 10 }}>
-                  <button
-                    type="button"
-                    className={`share-access-pill ${emailAccess === 'view' ? 'share-access-pill--active' : ''}`}
-                    onClick={() => setEmailAccess('view')}
-                  >
-                    <Eye size={13} /> View Only
-                  </button>
-                  <button
-                    type="button"
-                    className={`share-access-pill ${emailAccess === 'edit' ? 'share-access-pill--active' : ''}`}
-                    onClick={() => setEmailAccess('edit')}
-                  >
-                    <Edit3 size={13} /> Can Edit
-                  </button>
+
+                <div className="sm-permission">
+                  <span className="sm-permission-label">Access</span>
+                  <div className="sm-pills">
+                    <button
+                      type="button"
+                      className={`sm-pill pa-focus-ring ${emailAccess === 'view' ? 'sm-pill-active' : ''}`}
+                      aria-pressed={emailAccess === 'view'}
+                      onClick={() => setEmailAccess('view')}
+                    >
+                      <Eye size={13} aria-hidden="true" /> View only
+                    </button>
+                    <button
+                      type="button"
+                      className={`sm-pill pa-focus-ring ${emailAccess === 'edit' ? 'sm-pill-active' : ''}`}
+                      aria-pressed={emailAccess === 'edit'}
+                      onClick={() => setEmailAccess('edit')}
+                    >
+                      <Edit3 size={13} aria-hidden="true" /> Can edit
+                    </button>
+                  </div>
                 </div>
-                {emailError && <div className="auth-error" style={{ marginTop: 10 }}><AlertCircle size={13} /><span>{emailError}</span></div>}
-                {emailSuccess && <div className="auth-success" style={{ marginTop: 10 }}><Check size={13} /><span>{emailSuccess}</span></div>}
-                <button type="submit" className="auth-submit-btn" disabled={emailLoading} style={{ marginTop: 12 }}>
-                  {emailLoading ? <><Loader2 size={15} className="spin" /> Inviting...</> : 'Send Invite'}
+
+                {emailError && (
+                  <p className="sm-error" role="alert">
+                    <AlertCircle size={13} aria-hidden="true" />
+                    <span>{emailError}</span>
+                  </p>
+                )}
+                {emailSuccess && (
+                  <p className="sm-success" role="status">
+                    <Check size={13} aria-hidden="true" />
+                    <span>{emailSuccess}</span>
+                  </p>
+                )}
+
+                <button type="submit" className="sm-submit pa-focus-ring" disabled={emailLoading}>
+                  {emailLoading ? (
+                    <><Loader2 size={15} className="sm-spin" aria-hidden="true" /> Inviting…</>
+                  ) : (
+                    'Send invite'
+                  )}
                 </button>
               </form>
 
-              {/* People list */}
-              <div className="share-people-list">
-                <div className="share-people-title">People with access</div>
+              <div className="sm-people">
+                <div className="sm-people-title">
+                  <UserRound size={12} aria-hidden="true" />
+                  People with access
+                </div>
                 {listLoading ? (
-                  <div style={{ color: 'var(--gray-500)', fontSize: 13, padding: '12px 0' }}>Loading...</div>
+                  <p className="sm-empty" aria-live="polite">Loading…</p>
                 ) : sharedList.length === 0 ? (
-                  <div style={{ color: 'var(--gray-500)', fontSize: 13, padding: '12px 0' }}>No one invited yet</div>
+                  <p className="sm-empty">No one has been invited yet.</p>
                 ) : (
                   sharedList.map((s) => (
-                    <div key={s.id} className="share-person-row">
-                      <div className="share-person-avatar">{s.shared_email.charAt(0).toUpperCase()}</div>
-                      <div className="share-person-info">
-                        <div className="share-person-email">{s.shared_email}</div>
-                        <div className="share-person-access">{s.access_level === 'edit' ? 'Can edit' : 'View only'}</div>
+                    <div key={s.id} className="sm-person">
+                      <span className="sm-avatar" aria-hidden="true">
+                        {s.shared_email.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="sm-person-info">
+                        <div className="sm-person-email">{s.shared_email}</div>
+                        <div className="sm-person-access">
+                          {s.access_level === 'edit' ? 'Can edit' : 'View only'}
+                        </div>
                       </div>
-                      <button className="share-remove-btn" onClick={() => removeShare(s.id)} title="Remove access">
-                        <X size={13} />
+                      <button
+                        type="button"
+                        className="sm-remove pa-focus-ring"
+                        onClick={() => removeShare(s.id)}
+                        aria-label={`Remove access for ${s.shared_email}`}
+                      >
+                        <X size={14} aria-hidden="true" />
                       </button>
                     </div>
                   ))

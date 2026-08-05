@@ -62,22 +62,12 @@ export default function AdminSidebar({ currentTab, onNavigate }: AdminSidebarPro
     <div className="flex h-full w-full flex-col bg-[var(--pa-sidebar)]">
       {/* Brand Header */}
       <div className="border-b border-[var(--pa-sidebar-border)] px-4 pb-4 pt-4 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-white">
-            <img
-              src="/gdt-seal.png"
-              alt="GDT Seal"
-              className="size-8 object-contain"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="truncate text-[14px] font-extrabold tracking-[-0.015em] text-[var(--pa-sidebar-text)]">
-              GDT Administration
-            </div>
-            <div className="mt-0.5 truncate text-[9.5px] font-semibold uppercase tracking-[0.1em] text-[var(--pa-sidebar-muted)]">
-              People command center
-            </div>
-          </div>
+        <div className="flex items-center justify-center py-1">
+          <img
+            src="/GDT-Logo (Light).png"
+            alt="GDT Administration"
+            className="h-9 w-auto object-contain brightness-110"
+          />
         </div>
         <div className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.055] px-2.5 py-1.5">
           <span className="text-[10.5px] font-semibold text-[var(--pa-sidebar-muted)]">

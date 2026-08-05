@@ -1,0 +1,477 @@
+/**
+ * GOV AUTH PAGES — Login, Register, Forgot / Reset Password, Verify Email.
+ *
+ * Rebuilt on the GDT design system (pa-theme.css): the same ruled, light,
+ * green-and-gold register language as the admin dashboard and the landing.
+ * Light only by design — these pages no longer follow the app's dark/light
+ * theme tokens.
+ */
+
+.gov-auth-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 72px 20px 40px;
+  background: var(--pa-canvas);
+}
+
+.gov-auth-back-link {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  background: var(--pa-surface);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  text-decoration: none;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.gov-auth-back-link:hover {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+}
+
+.gov-auth-back-link:focus-visible {
+  outline: 3px solid rgba(19, 98, 50, 0.28);
+  outline-offset: 2px;
+}
+
+.gov-auth-card {
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  border: 1px solid var(--pa-border);
+  border-radius: 14px;
+  background: var(--pa-surface);
+  box-shadow: var(--pa-shadow);
+}
+
+/* Masthead: the seal over a hairline carrying the green rule, the way the
+   register opens on every other surface. */
+.gov-auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--pa-border);
+  box-shadow: inset 0 -4px 0 -3px var(--pa-primary);
+  text-decoration: none;
+  background: var(--pa-surface);
+  transition: background-color 150ms ease;
+}
+
+.gov-auth-header:hover {
+  background: rgba(19, 98, 50, 0.02);
+}
+
+.gov-auth-logo-img {
+  height: 80px;
+  max-height: 96px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  transition: transform 200ms ease;
+}
+
+.gov-auth-header:hover .gov-auth-logo-img {
+  transform: scale(1.02);
+}
+
+.gov-auth-seal {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.gov-auth-brand {
+  text-align: center;
+}
+
+.gov-auth-brand-khm {
+  font-family: "Kantumruy Pro", "Noto Sans Khmer", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--pa-text);
+}
+
+.gov-auth-brand-en {
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.gov-auth-body {
+  padding: 26px 32px 28px;
+}
+
+.gov-auth-intro {
+  margin-bottom: 20px;
+}
+
+.gov-auth-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--pa-text);
+}
+
+.gov-auth-subtitle {
+  margin: 7px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--pa-muted);
+}
+
+.gov-auth-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--pa-text);
+  transition: border-color 150ms ease-out, background-color 150ms ease-out;
+}
+
+.gov-auth-google-btn:hover:not(:disabled) {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-canvas);
+}
+
+.gov-auth-google-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gov-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.gov-auth-divider__line {
+  flex: 1;
+  height: 1px;
+  background: var(--pa-border);
+}
+
+.gov-auth-divider__text {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-faint);
+}
+
+.gov-auth-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 11px 13px;
+  border: 1px solid var(--pa-danger-border);
+  border-radius: 10px;
+  background: var(--pa-danger-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--pa-danger);
+}
+
+.gov-auth-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.gov-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.gov-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gov-auth-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gov-auth-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.gov-auth-forgot-link {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pa-primary);
+  text-decoration: none;
+}
+
+.gov-auth-forgot-link:hover {
+  text-decoration: underline;
+}
+
+.gov-auth-input-wrap {
+  position: relative;
+}
+
+.gov-auth-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  outline: none;
+  background: var(--pa-surface);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pa-text);
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.gov-auth-input::placeholder {
+  font-weight: 500;
+  color: var(--pa-faint);
+}
+
+.gov-auth-input:focus {
+  border-color: var(--pa-primary);
+  box-shadow: 0 0 0 3px rgba(19, 98, 50, 0.14);
+}
+
+.gov-auth-input:disabled {
+  background: var(--pa-surface-muted);
+  cursor: not-allowed;
+}
+
+.gov-auth-input--icon {
+  padding-right: 46px;
+}
+
+.gov-auth-input-icon-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  transform: translateY(-50%);
+  border-radius: 7px;
+  background: none;
+  color: var(--pa-faint);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.gov-auth-input-icon-btn:hover {
+  background: var(--pa-surface-muted);
+  color: var(--pa-text);
+}
+
+.gov-auth-hint {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--pa-faint);
+}
+
+.gov-auth-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.gov-auth-checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--pa-primary);
+}
+
+.gov-auth-checkbox-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pa-muted);
+}
+
+.gov-auth-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  height: 46px;
+  margin-top: 4px;
+  border-radius: 9px;
+  background: var(--pa-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #fff;
+  transition: background-color 150ms ease-out;
+}
+
+.gov-auth-submit-btn:hover:not(:disabled) {
+  background: var(--pa-primary-hover);
+}
+
+.gov-auth-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gov-auth-switch {
+  margin: 20px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--pa-muted);
+}
+
+.gov-auth-switch-link {
+  font-weight: 800;
+  color: var(--pa-primary);
+  text-decoration: none;
+}
+
+.gov-auth-switch-link:hover {
+  text-decoration: underline;
+}
+
+.gov-auth-footer {
+  padding: 13px 32px;
+  border-top: 1px solid var(--pa-border);
+  background: var(--pa-canvas);
+}
+
+.gov-auth-footer-text {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--pa-faint);
+}
+
+/* Success and confirmation states (forgot password, verify email). */
+.gov-auth-success-block {
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.gov-auth-success-block svg {
+  color: var(--pa-primary);
+}
+
+.gov-auth-success-block h3 {
+  margin: 14px 0 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--pa-text);
+}
+
+.gov-auth-success-block p {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--pa-muted);
+}
+
+.gov-auth-step-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
+}
+
+.gov-auth-step-badge {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.gov-auth-step-badge--1 {
+  border: 1px solid var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.gov-auth-step-badge--2 {
+  border: 1px solid var(--pa-gold-border);
+  background: var(--pa-gold-soft);
+  color: #735413;
+}
+
+.gov-auth-step-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pa-text);
+}
+
+@media (max-width: 480px) {
+  .gov-auth-page {
+    padding: 64px 14px 28px;
+  }
+
+  .gov-auth-back-link {
+    top: 14px;
+    left: 14px;
+  }
+
+  .gov-auth-header {
+    padding: 24px 20px 18px;
+  }
+
+  .gov-auth-body {
+    padding: 22px 20px 24px;
+  }
+
+  .gov-auth-footer {
+    padding: 12px 20px;
+  }
+}

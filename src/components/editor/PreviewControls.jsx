@@ -14,31 +14,20 @@ export default function PreviewControls({
     <>
       {/* Back button for Viewers (read-only shared links) */}
       {!canEdit && (
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}>
+        <div className="absolute top-5 left-5 z-10">
           <button
-            className="tb-btn"
+            className="tb-btn tb-btn--secondary"
             onClick={onBackToHome}
-            style={{
-              background: 'var(--bg-surface-translucent)',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '8px 16px',
-              borderRadius: 8,
-              border: '1px solid rgba(var(--surface-rgb),0.1)',
-              backdropFilter: 'blur(12px)',
-            }}
           >
             <svg
-              width="16"
-              height="16"
+              width="15"
+              height="15"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ marginRight: 8 }}
             >
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
@@ -47,31 +36,11 @@ export default function PreviewControls({
         </div>
       )}
 
-      <div
-        style={{
-          position: 'absolute',
-          top: 20,
-          right: 20,
-          zIndex: 10,
-          display: 'flex',
-          gap: 10,
-        }}
-      >
+      <div className="absolute top-5 right-5 z-10 flex items-center gap-2.5">
         {/* Show read-only badge if they lack edit access */}
         {!canEdit && (
-          <div
-            style={{
-              background: 'var(--bg-surface-translucent)',
-              color: 'var(--text-primary)',
-              padding: '6px 12px',
-              borderRadius: 6,
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              fontWeight: 600,
-            }}
-          >
-            <Eye size={14} style={{ marginRight: 6 }} /> Read Only
+          <div className="hint-chip !m-0 flex items-center gap-1.5 font-semibold text-xs text-[var(--text-primary)]">
+            <Eye size={13} /> Read Only
           </div>
         )}
         <button className="tb-btn tb-btn--primary" onClick={onDownloadImage}>
@@ -86,3 +55,4 @@ export default function PreviewControls({
     </>
   );
 }
+

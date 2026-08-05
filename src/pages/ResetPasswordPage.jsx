@@ -49,13 +49,13 @@ export default function ResetPasswordPage() {
   return (
     <div className="gov-auth-page">
       <div className="gov-auth-card">
-        <div className="gov-auth-header">
-          <img src="/gdt-seal.png" alt="GDT seal" className="gov-auth-seal" />
-          <div className="gov-auth-brand">
-            <div className="gov-auth-brand-khm">អគ្គនាយកដ្ឋានពន្ធដារ</div>
-            <div className="gov-auth-brand-en">General Department of Taxation</div>
-          </div>
-        </div>
+        <Link to="/" className="gov-auth-header">
+          <img
+            src="/GDT-Logo (Soft).png"
+            alt="GDT — General Department of Taxation"
+            className="gov-auth-logo-img"
+          />
+        </Link>
 
         <div className="gov-auth-body">
           {done ? (
