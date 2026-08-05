@@ -36,6 +36,7 @@ import VersionHistoryModal from '../VersionHistoryModal';
 import StaffProfileDialog from '../staff/StaffProfileDialog';
 import PositionDetailDialog from '../PositionDetailDialog';
 import EditorHeader from './EditorHeader';
+import AlignmentGuides from './AlignmentGuides';
 import LinkedChartPopup from './LinkedChartPopup';
 import PreviewControls from './PreviewControls';
 
@@ -58,9 +59,19 @@ import { TYPE_META } from '../../data/nodeTypes';
 import { supabase } from '../../supabaseClient';
 import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../../utils/chartData';
 import { computeChartHierarchy } from '../../utils/chartHierarchy';
+import { getNodeAlignmentGuides } from '../../utils/nodeAlignment';
 
 const nodeTypes = { orgNode: OrgNode };
 const edgeTypes = { custom: CustomEdge };
+
+// Screen-px feel regardless of zoom: 6px reads the same whether the canvas
+// is zoomed to 50% or 200%, a flat flow-space threshold would not.
+const ALIGNMENT_THRESHOLD_PX = 6;
+// Matches the visible dot grid (Background gap={20} below) and the old
+// snapGrid={[20, 20]} this replaces — see nodeAlignment.js for why grid and
+// sibling alignment need to be one candidate pool rather than the grid
+// rounding unconditionally before alignment ever gets a say.
+const GRID_SIZE = 20;
 
 // Older/legacy charts (e.g. anything seeded before the GDT template edges
 // carried a `type`) can have edges missing `type: "custom"`. Without it,
@@ -79,7 +90,7 @@ export default function FlowApp({
   const { theme, toggleTheme } = useTheme();
   const { activeTabId } = useContext(TabContext);
   const navigate = useNavigate();
-  const { getNodes, setCenter } = useReactFlow();
+  const { getNodes, setCenter, getZoom } = useReactFlow();
   const viewport = useViewport();
 
   // ── Core state ─────────────────────────────────────────────────
@@ -274,6 +285,76 @@ export default function FlowApp({
     setLayoutDir,
     setCollapsedNodes,
   });
+
+  // ── Alignment guides ────────────────────────────────────────────
+  // Figma/Visio-style smart guides: snap the dragged node onto any visible
+  // sibling's edge/centre line — or the position grid — the moment it's
+  // within tolerance, and surface whichever matched for AlignmentGuides to
+  // render. Grid and sibling alignment are ONE candidate pool (see
+  // nodeAlignment.js), not the grid rounding unconditionally with guides
+  // layered on top: snapToGrid/snapGrid are deliberately gone from the
+  // <ReactFlow> props below, so movement is free everywhere except near an
+  // actual candidate line. An unconditional round can put a node's
+  // position out of a sibling's alignment tolerance for good (half a 20px
+  // cell can exceed a 6px threshold) even when the two are dragged
+  // together, which is what made every drag feel like it "always defined a
+  // place for it" rather than following the pointer.
+  //
+  // Applied in BOTH onNodeDrag and onNodeDragStop, not just the former:
+  // xyflow's drag-end doesn't fire another onNodeDrag before
+  // onNodeDragStop, so a version that only snapped in onNodeDrag left the
+  // final dropped position wherever the pointer released — every guide
+  // during the drag was cosmetically correct and the one position the user
+  // actually looks at afterward was not.
+  const [alignmentGuides, setAlignmentGuides] = useState({ guideX: null, guideY: null });
+
+  const applyAlignmentSnap = useCallback(
+    (node) => {
+      const dragged = {
+        x: node.position.x,
+        y: node.position.y,
+        width: node.measured?.width ?? node.width ?? 0,
+        height: node.measured?.height ?? node.height ?? 0,
+      };
+      const others = visibleNodes
+        .filter((n) => n.id !== node.id)
+        .map((n) => ({
+          x: n.position.x,
+          y: n.position.y,
+          width: n.measured?.width ?? n.width ?? 0,
+          height: n.measured?.height ?? n.height ?? 0,
+        }));
+
+      const threshold = ALIGNMENT_THRESHOLD_PX / getZoom();
+      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(dragged, others, threshold, GRID_SIZE);
+
+      setAlignmentGuides({ guideX, guideY });
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === node.id
+              ? { ...n, position: { x: n.position.x + deltaX, y: n.position.y + deltaY } }
+              : n,
+          ),
+        );
+      }
+    },
+    [visibleNodes, setNodes, getZoom],
+  );
+
+  const onNodeDrag = useCallback(
+    (_event, node) => applyAlignmentSnap(node),
+    [applyAlignmentSnap],
+  );
+
+  const onNodeDragStop = useCallback(
+    (_event, node) => {
+      applyAlignmentSnap(node);
+      setAlignmentGuides({ guideX: null, guideY: null });
+    },
+    [applyAlignmentSnap],
+  );
 
   // Creating or duplicating a node is itself an explicit edit action, so
   // (unlike a plain click) it should open the properties panel — these
@@ -573,6 +654,8 @@ export default function FlowApp({
                   onSelectionChange={onSelectionChange}
                   multiSelectionKeyCode="Shift"
                   onNodeDragStart={onNodeDragStart}
+                  onNodeDrag={onNodeDrag}
+                  onNodeDragStop={onNodeDragStop}
                   onConnect={onConnect}
                   onReconnect={onReconnect}
                   onNodeClick={onNodeClick}
@@ -591,8 +674,6 @@ export default function FlowApp({
                   edgesFocusable={canEdit && !previewMode}
                   fitView
                   fitViewOptions={{ padding: 0.15 }}
-                  snapToGrid
-                  snapGrid={[20, 20]}
                   minZoom={0.05}
                   maxZoom={2.5}
                   proOptions={{ hideAttribution: true }}
@@ -611,6 +692,9 @@ export default function FlowApp({
                       gap={20}
                       size={1}
                     />
+                  )}
+                  {!previewMode && (
+                    <AlignmentGuides guideX={alignmentGuides.guideX} guideY={alignmentGuides.guideY} />
                   )}
                   {!previewMode && <Controls />}
                   {!previewMode && (

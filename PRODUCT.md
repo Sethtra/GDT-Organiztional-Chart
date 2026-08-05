@@ -81,6 +81,19 @@ chart artifact itself ever leaking private data.
 - Local-first save/recovery: immediate browser-storage copy, debounced
   serialized cloud saves, a safety version every five minutes, and
   downloadable/restorable JSON chart backups.
+- Officer profile photos: upload with a Visio-style crop/zoom control,
+  stored as a resized WebP in Supabase Storage; shown (with initials
+  fallback) in the Staff Directory table, the Staff Profile dialog with a
+  full-size lightbox, and org chart person nodes. `photoUrl` is carried
+  through the safe chart-node projection — the one personal field besides
+  the display label that chart JSON is allowed to hold.
+- Public landing page (root route `/`) is live in production: GDT identity,
+  the Department → Office → Position model, and role-aware entry points into
+  the three live modules (Staff Directory, Organization, Job Architecture) —
+  no personnel data or invented counts exposed. The admin dashboard and Staff
+  Directory were promoted from preview to live routes the same way. (Not
+  every `*TestPage` file follows this pattern — `LoginTestPage` is an older,
+  unrelated demo mock still separate from the real `LoginPage`.)
 - Constraint: chart JSON must never carry phone, email, address, National ID,
   education, skills, or history — only safe occupant labels/IDs.
 - Constraint: holding the HR administrator role does not, on its own, grant
@@ -106,6 +119,8 @@ chart artifact itself ever leaking private data.
   (job titles, skill catalog, requirements) are already populated.
 - No fabricated testimonials, pricing, or marketing claims exist or are
   needed — this is an internal operational tool, not a marketed product.
+- Official theme-aware GDT wordmarks and the GDT headquarters photograph are
+  real production assets, now live on the landing page.
 
 ## Product Principles
 

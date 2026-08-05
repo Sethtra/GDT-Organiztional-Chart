@@ -281,6 +281,59 @@
   cursor: not-allowed;
 }
 
+/* Invalid field. Ported from the pre-redesign sheet, which still carried these
+   rules while RegisterPage and ResetPasswordPage were rebuilt against them —
+   the redesign dropped the rules but kept the markup, so the strength meter and
+   error hints were rendering unstyled. Rewritten on --pa-* rather than pasted,
+   so they belong to this sheet's system. */
+.gov-auth-input--error,
+.gov-auth-input--error:focus {
+  border-color: var(--pa-danger-border);
+  box-shadow: 0 0 0 3px var(--pa-danger-soft);
+}
+
+.gov-auth-field-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pa-muted);
+}
+
+.gov-auth-field-hint--error {
+  color: var(--pa-danger);
+}
+
+/* Password strength. The bars are a redundant cue — the label carries the same
+   information as text, so strength is never conveyed by colour alone. */
+.gov-auth-strength {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.gov-auth-strength__bars {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.gov-auth-strength__bar {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--pa-border);
+  transition: background-color 250ms ease-out;
+}
+
+.gov-auth-strength__label {
+  min-width: 46px;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: right;
+}
+
 .gov-auth-input--icon {
   padding-right: 46px;
 }
@@ -357,6 +410,17 @@
 .gov-auth-submit-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Deeper green for a committing action (ResetPasswordPage). Same button, one
+   step darker — it is not a different control, so it does not get a different
+   shape or a different colour family. */
+.gov-auth-submit-btn--dark {
+  background: var(--pa-primary-hover);
+}
+
+.gov-auth-submit-btn--dark:hover:not(:disabled) {
+  background: var(--pa-primary);
 }
 
 .gov-auth-switch {

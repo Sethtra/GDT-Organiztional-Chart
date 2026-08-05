@@ -91,8 +91,8 @@ export default function EditorHeader({
           <img
             src="/gdt-seal-mark.png"
             srcSet="/gdt-seal-mark.png 1x, /gdt-seal-mark@2x.png 2x, /gdt-seal-mark@3x.png 3x"
-            width="30"
-            height="30"
+            width="32"
+            height="32"
             alt=""
             className="header-brand__seal"
           />

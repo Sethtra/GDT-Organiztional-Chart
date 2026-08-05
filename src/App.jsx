@@ -20,6 +20,7 @@ import AdminOrgStructurePage from './pages/AdminOrgStructurePage';
 import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ChartEditorTestPage from './pages/ChartEditorTestPage';
 
 /**
  * Main layout: renders Routes for all pages, plus a persistent EditorShell
@@ -130,6 +131,7 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
+          <Route path="/test-chart-editor" element={<ChartEditorTestPage />} />
 
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />
