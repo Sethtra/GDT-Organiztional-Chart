@@ -2,8 +2,9 @@
 
 <!-- impeccable:design-doc 1 -->
 
-Recorded from the built Chart Editor surface (`/chart/:id`). Other surfaces
-(landing, dashboard, auth) still run the older system and are untouched.
+Recorded from the built Chart Editor surface (`/chart/:id`), then extended to
+Account Settings (`/profile`). The landing, dashboard, and auth surfaces still
+run the older navy system and are untouched.
 
 ## Palette — green and white
 
@@ -198,6 +199,57 @@ radius (needed so nothing depended on that overflow clipping it) were
 overflow risked reopening whatever, if anything, the anchor dot's own
 7px-outside position was relying on it for. Left as informed inaction, not
 an oversight.
+
+## The account record (`/profile`)
+
+`ProfilePage.jsx` + `src/styles/account-record.css`, namespaced `.acct-*`. The
+same `--nx-*` world as the editor, composed as **one filed record instead of a
+stack of cards**: emerald letterhead, then registers ruled down a single white
+sheet. Cards were what made the old page read as a settings form bolted onto a
+dashboard, and nested cards are never the answer here.
+
+- **Every register ends with its own endorsement strip** — a recessed
+  `--nx-paper-2` band holding that register's status pill on the left and its
+  action on the right. This is load-bearing, not decorative: the first build
+  put the Sessions row *below* the password strip, and the strip read as
+  endorsing the row underneath it. Sessions became its own register. The Danger
+  register's disabled button lives in a strip for the same reason, which also
+  closes the sheet on a recessed edge rather than a bare row.
+- **A read-only value is stated, not disabled.** `.acct-stated` renders the
+  email as text with a lock and a verified/unverified flag. The old page used a
+  disabled `<input>` at `opacity: .5`, which both lies about affordance and
+  fails contrast.
+- **Inputs sit on a 2px keel** (`.acct-input`, `border-bottom`) that turns
+  `--nx-green` on focus — the same construction as the unit card's darkened
+  underside, and the thing that makes a filled field read as a form line rather
+  than a rounded box.
+- **`--acct-edge` exists because `--nx-rule` is calibrated against the
+  *canvas*.** On the sheet's paper it falls to 2.98:1 in dark. Controls defined
+  by their edge (the keel, quiet buttons) use `#6b8478` dark / `#788c7e` light
+  instead of thickening the stroke.
+- **Disabled is a state, not a dimmer.** `opacity: .5` on the primary put white
+  on washed green at 3.4:1 and turned the danger outline salmon. Unavailable
+  controls drop to the neutral inert pair (`--nx-ink-3` on transparent,
+  `--nx-rule-hair` border, 5.2:1); `.is-busy` keeps a mid-save button looking
+  like the live primary it still is.
+- **The letterhead rule is `#d4af37` in both themes.** `--nx-gold` light
+  (`#8a6f1a`) sits at 1.55:1 on the emerald band — the rule would simply not be
+  visible. The band does not repaint between themes, so neither does the rule
+  on it. The seal itself is green line art and disappears on emerald, so it is
+  impressed on a white disc, which is also what a seal does to a document.
+- Khmer leads the letterhead and each register heading (`--nx-font-kh`), with
+  the English name as the tracked-uppercase caption the unit card already uses.
+  Field labels stay English — doubling every label turned an Operate surface
+  into a reading exercise.
+- The route remaps the older navy system's semantic tokens (`--bg-surface`,
+  `--text-primary`, `--surface-rgb`, …) on `.acct-page` so the shared `Navbar`
+  belongs to the same world. Scoped to this page; no other route changes. The
+  green-on-transparent GDT lockup reads *better* on the white bar than it did
+  on navy.
+
+Photo upload reuses `PhotoCropDialog` and `uploadStaffPhoto` — the same
+crop/zoom control and Profile bucket the Staff Directory ships, not a parallel
+implementation.
 
 ## Connectors
 

@@ -1,0 +1,545 @@
+/* ============================================================================
+   ACCOUNT RECORD  (/profile)
+   ----------------------------------------------------------------------------
+   The account settings page composed as one filed GDT record rather than a
+   stack of cards: an emerald register head carrying the impressed seal and the
+   account's reference, then ruled label/value rows down a single sheet, each
+   register closed by its own endorsement strip where its action lives.
+
+   Everything reads --nx-* from chart-editor.css. This file declares no palette
+   of its own beyond three on-tint pairs (below) that the base token set has no
+   equivalent for, each measured rather than eyeballed.
+
+   Deliberate non-goals:
+     · No card-per-section. Sections are registers on one sheet, separated by a
+       full-bleed hairline. Nested cards are what made the old page read as a
+       settings form bolted onto a dashboard.
+     · No disabled-input-at-opacity-.5 for read-only values. A value you cannot
+       edit is stated, not faked as a field you may not touch.
+     · No decorative section numbering. The sequence carries no information.
+   ========================================================================== */
+
+.acct-page {
+  min-height: 100vh;
+  background: var(--nx-ground);
+  color: var(--nx-ink);
+  font-family: var(--nx-font);
+
+  /* On-tint pairs. Text ≥4.5:1 and border ≥3:1 against their own tint —
+     the obvious pale versions of both failed, exactly as DESIGN.md's gold
+     pair did. Verified with check-contrast.mjs, not the colour picker. */
+  --acct-ok-tint:     #18301f;
+  --acct-ok-ink:      var(--nx-green);
+  --acct-ok-border:   #4a8f63;
+  --acct-bad-tint:    #2a1512;
+  --acct-bad-ink:     var(--nx-danger);
+  --acct-bad-border:  #a2554b;
+  --acct-ring:        rgba(52, 168, 102, .30);
+
+  /* Control edges. --nx-rule is calibrated against the editor's *canvas*
+     ground; on the sheet's paper it drops to 2.98:1 in dark, so controls that
+     are defined by their edge (the input keel, quiet buttons) use this
+     slightly lighter value instead of thickening the stroke. */
+  --acct-edge: #6b8478;
+
+  /* The seal's gold, fixed in both themes. --nx-gold light (#8a6f1a) sits at
+     1.55:1 on the emerald band — the letterhead rule would simply not be
+     visible in light mode. The band does not repaint between themes, so
+     neither does the rule drawn on it. */
+  --acct-seal-gold: #d4af37;
+
+  /* Repaint the shared app chrome for this route only. The navbar reads the
+     older navy system's semantic tokens; remapping them here (rather than
+     overriding each .navbar rule) makes the header belong to the same green
+     and white world as the sheet under it, and touches no other page. */
+  --surface-rgb: 238, 242, 239;
+  --bg-app: var(--nx-ground);
+  --bg-surface: var(--nx-paper);
+  --bg-surface-translucent: color-mix(in srgb, var(--nx-paper) 88%, transparent);
+  --text-primary: var(--nx-ink);
+  --text-secondary: var(--nx-ink-3);
+  --border-subtle: var(--nx-rule-hair);
+  --border-strong: var(--nx-rule);
+}
+
+:root[data-theme="light"] .acct-page {
+  --acct-ok-tint:     #e8f0ea;
+  --acct-ok-border:   #5c8a6c;
+  --acct-bad-tint:    #fdecea;
+  --acct-bad-ink:     #9b1f19;  /* --nx-danger itself lands at 4.38:1 on this tint */
+  --acct-bad-border:  #c26b60;
+  --acct-edge:        #788c7e;
+  --acct-ring:        rgba(19, 98, 50, .28);
+  --surface-rgb: 22, 33, 27;
+}
+
+.acct-page .navbar {
+  border-bottom: 1px solid var(--nx-rule-hair);
+  box-shadow: var(--nx-header-shadow);
+}
+.acct-page .navbar__drop-item--danger { color: var(--nx-danger); }
+.acct-page .navbar__drop-item--danger:hover { background: var(--acct-bad-tint); }
+.acct-page .navbar__avatar-initials { color: #ffffff; }
+
+.acct-shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 24px 96px;
+}
+
+/* ── Back link ──────────────────────────────────────────────────────────── */
+.acct-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 20px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--nx-ink-3);
+  text-decoration: none;
+  transition: color 150ms var(--nx-ease), background 150ms var(--nx-ease);
+}
+.acct-back:hover { color: var(--nx-green); background: var(--nx-band); }
+.acct-back:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--acct-ring); }
+
+/* ── The sheet ──────────────────────────────────────────────────────────── */
+.acct-record {
+  position: relative;
+  overflow: hidden;
+  background: var(--nx-paper);
+  border: 1px solid var(--nx-rule-hair);
+  border-radius: var(--nx-radius);
+  box-shadow: var(--nx-shadow);
+  /* The one authored moment: the sheet settles onto the ground and its head
+     rule draws across. Starts fully opaque — content is never gated on it. */
+  animation: acct-settle 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes acct-settle {
+  from { transform: translateY(12px); box-shadow: 0 0 0 rgba(0, 0, 0, 0); }
+  to   { transform: none; box-shadow: var(--nx-shadow); }
+}
+
+/* ── Register head (the letterhead) ─────────────────────────────────────── */
+.acct-record__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px 22px;
+  background: var(--nx-band-default);  /* emerald in both themes; white on it = 7.4:1 */
+}
+
+/* The seal is green line art on gold — it disappears on an emerald band, so
+   it is impressed on its own white disc, which is also how a seal actually
+   lands on a document. */
+.acct-seal {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 0 0 1px rgba(255, 255, 255, .5);
+}
+.acct-seal img { width: 36px; height: 36px; object-fit: contain; }
+
+.acct-head__titles { flex: 1; min-width: 0; }
+.acct-head__kh {
+  margin: 0;
+  font-family: var(--nx-font-kh);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffffff;
+}
+.acct-head__en {
+  margin: 3px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .78);  /* 5.3:1 on the band */
+}
+
+.acct-head__ref {
+  flex-shrink: 0;
+  margin: 0;
+  text-align: right;
+}
+.acct-head__ref dt {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .78);
+}
+.acct-head__ref dd {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
+  color: #ffffff;
+}
+
+/* Gold hairline where the letterhead meets the sheet — the seal's colour, the
+   only place gold appears on this surface. */
+.acct-record__head::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--acct-seal-gold);
+  transform-origin: left center;
+  animation: acct-rule 560ms 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes acct-rule {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ── Registers ──────────────────────────────────────────────────────────── */
+.acct-register + .acct-register { border-top: 1px solid var(--nx-rule-hair); }
+
+.acct-register__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 22px 28px 16px;
+}
+.acct-register__icon { flex-shrink: 0; color: var(--nx-green); }
+.acct-register__kh {
+  margin: 0;
+  font-family: var(--nx-font-kh);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--nx-ink);
+}
+.acct-register__en {
+  margin: 1px 0 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--nx-ink-3);
+}
+.acct-register--danger .acct-register__icon { color: var(--nx-danger); }
+
+/* ── Ruled rows ─────────────────────────────────────────────────────────── */
+.acct-row {
+  display: grid;
+  grid-template-columns: minmax(0, 178px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 18px 28px;
+  border-top: 1px solid var(--nx-rule-hair);
+}
+.acct-row__label {
+  padding-top: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  color: var(--nx-ink-3);
+}
+.acct-row--stated .acct-row__label { padding-top: 9px; }
+.acct-row--plain .acct-row__label { padding-top: 1px; }
+.acct-row__field { min-width: 0; }
+
+.acct-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--nx-ink-2);
+}
+.acct-hint--tight { margin-top: 6px; }
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+/* A filled field on a 2px keel: unmistakably an input, and the keel turning
+   green is what carries focus — the same construction the unit node uses
+   where its band meets the paper. */
+.acct-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--nx-font);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--nx-ink);
+  background: var(--nx-paper-2);
+  border: 1px solid var(--nx-rule-hair);
+  border-bottom: 2px solid var(--acct-edge);
+  border-radius: 6px 6px 3px 3px;
+  transition: border-color 150ms var(--nx-ease),
+              box-shadow 150ms var(--nx-ease),
+              background 150ms var(--nx-ease);
+}
+.acct-input::placeholder { color: var(--nx-ink-3); opacity: 1; }
+.acct-input:hover:not(:disabled) { background: var(--nx-paper); }
+.acct-input:focus {
+  outline: none;
+  background: var(--nx-paper);
+  border-bottom-color: var(--nx-green);
+  box-shadow: 0 0 0 3px var(--acct-ring);
+}
+.acct-input:disabled { cursor: not-allowed; color: var(--nx-ink-3); }
+
+.acct-input-wrap { position: relative; }
+.acct-input-wrap .acct-input { padding-right: 44px; }
+.acct-reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nx-ink-3);
+  cursor: pointer;
+  transition: color 150ms var(--nx-ease), background 150ms var(--nx-ease);
+}
+.acct-reveal:hover { color: var(--nx-ink); background: var(--nx-band); }
+.acct-reveal:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--acct-ring); }
+
+/* A read-only value is stated on the record, not disguised as a dead input. */
+.acct-stated {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--nx-ink);
+}
+.acct-stated svg { flex-shrink: 0; color: var(--nx-ink-3); }
+.acct-stated__value { overflow-wrap: anywhere; }
+
+.acct-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.acct-flag--ok {
+  color: var(--acct-ok-ink);
+  background: var(--acct-ok-tint);
+  border: 1px solid var(--acct-ok-border);
+}
+.acct-flag--ok svg { color: inherit; }
+.acct-flag--wait {
+  color: var(--nx-gold);
+  background: var(--nx-gold-tint);
+  border: 1px solid var(--nx-gold-border);
+}
+.acct-flag--wait svg { color: inherit; }
+
+/* ── Photograph row ─────────────────────────────────────────────────────── */
+.acct-photo {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.acct-photo__mount {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--nx-band-default);
+  box-shadow: 0 0 0 1px var(--nx-rule-hair), 0 0 0 4px var(--nx-paper),
+              0 0 0 5px var(--nx-rule-hair);
+}
+.acct-photo__mount img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.acct-photo__initials {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+}
+.acct-photo__busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(13, 21, 18, .62);
+  color: #ffffff;
+}
+.acct-photo__controls { padding-top: 4px; }
+.acct-photo__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.acct-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 16px;
+  font-family: var(--nx-font);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: var(--nx-radius);
+  cursor: pointer;
+  transition: background 150ms var(--nx-ease), color 150ms var(--nx-ease),
+              border-color 150ms var(--nx-ease), box-shadow 150ms var(--nx-ease);
+}
+.acct-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--acct-ring); }
+
+/* Disabled is a state, not a dimmer. Fading the primary to 50% put its white
+   label at 3.4:1 on the washed green and turned the danger outline salmon;
+   an unavailable control instead drops to the neutral inert pair, which reads
+   at 5.2:1 and never looks like a live action someone should keep clicking. */
+.acct-btn:disabled { cursor: not-allowed; }
+.acct-btn--primary:disabled,
+.acct-btn--danger:disabled,
+.acct-btn--quiet:disabled {
+  color: var(--nx-ink-3);
+  background: transparent;
+  border-color: var(--nx-rule-hair);
+}
+.acct-btn--primary:disabled { border-color: var(--acct-edge); }
+/* Mid-save the button is disabled but still the live primary. */
+.acct-btn--primary.is-busy:disabled {
+  color: var(--nx-green-ink);
+  background: var(--nx-green);
+  border-color: transparent;
+}
+
+.acct-btn--primary {
+  color: var(--nx-green-ink);
+  background: var(--nx-green);
+}
+.acct-btn--primary:hover:not(:disabled) { background: var(--nx-green-deep); }
+
+.acct-btn--quiet {
+  color: var(--nx-ink);
+  background: transparent;
+  border-color: var(--acct-edge);
+}
+.acct-btn--quiet:hover:not(:disabled) { background: var(--nx-band); border-color: var(--nx-green); }
+
+.acct-btn--danger {
+  color: var(--nx-danger);
+  background: transparent;
+  border-color: var(--acct-bad-border);
+}
+.acct-btn--danger:hover:not(:disabled) { background: var(--acct-bad-tint); }
+
+/* ── Endorsement strip ──────────────────────────────────────────────────── */
+.acct-register__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 28px;
+  background: var(--nx-paper-2);
+  border-top: 1px solid var(--nx-rule-hair);
+}
+.acct-register__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* Soft-tinted pill: tint ground, matching border, saturated text — the same
+   construction as the editor's save badge, never bare colour on transparent. */
+.acct-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.acct-note svg { flex-shrink: 0; }
+.acct-note--ok {
+  color: var(--acct-ok-ink);
+  background: var(--acct-ok-tint);
+  border: 1px solid var(--acct-ok-border);
+}
+.acct-note--bad {
+  color: var(--acct-bad-ink);
+  background: var(--acct-bad-tint);
+  border: 1px solid var(--acct-bad-border);
+}
+.acct-note--pending {
+  color: var(--nx-ink-2);
+  background: transparent;
+  border: 1px dashed var(--acct-edge);
+}
+
+/* ── Danger register ────────────────────────────────────────────────────── */
+.acct-register--danger .acct-register__foot,
+.acct-register--danger .acct-row { background: transparent; }
+.acct-copy {
+  margin: 0 0 14px;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--nx-ink-2);
+}
+
+.acct-spin { animation: acct-spin 900ms linear infinite; }
+@keyframes acct-spin { to { transform: rotate(360deg); } }
+
+/* ── Narrow ─────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .acct-shell { padding: 20px 14px 72px; }
+  .acct-record__head { flex-wrap: wrap; gap: 14px; padding: 18px 20px 20px; }
+  .acct-head__ref { flex-basis: 100%; text-align: left; }
+  .acct-register__head { padding: 20px 20px 14px; }
+  .acct-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    padding: 16px 20px;
+  }
+  .acct-row__label,
+  .acct-row--stated .acct-row__label,
+  .acct-row--plain .acct-row__label { padding-top: 0; }
+  .acct-register__foot { padding: 14px 20px; }
+  .acct-register__actions { width: 100%; margin-left: 0; }
+  .acct-register__actions .acct-btn { flex: 1; }
+  .acct-photo { gap: 16px; }
+}
+
+@media (max-width: 460px) {
+  .acct-photo { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acct-record,
+  .acct-record__head::after,
+  .acct-spin { animation-duration: 1ms; animation-iteration-count: 1; }
+  .acct-page * { transition-duration: 1ms !important; }
+}

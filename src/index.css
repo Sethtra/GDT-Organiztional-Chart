@@ -1609,68 +1609,11 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
   align-items: center;
 }
 
-/* ============================================================
-   PROFILE PAGE
-   ============================================================ */
-.profile-page {
-  min-height: 100vh;
-  background: var(--bg-app);
-}
-.profile-content {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 40px 24px 80px;
-}
-.profile-header { margin-bottom: 36px; }
-.profile-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  text-decoration: none;
-  margin-bottom: 20px;
-  transition: color .18s;
-}
-.profile-back:hover { color: var(--text-primary); }
-.profile-title { font-size: 32px; font-weight: 800; margin-bottom: 6px; }
-.profile-sub { font-size: 14px; color: var(--text-secondary); }
-.profile-sections { display: flex; flex-direction: column; gap: 24px; }
-.profile-section {
-  background: var(--bg-surface-translucent);
-  border: 1px solid rgba(var(--surface-rgb),.1);
-  border-radius: 14px;
-  padding: 28px;
-  backdrop-filter: blur(16px);
-}
-.profile-section--danger { border-color: rgba(220,38,38,.25); background: rgba(220,38,38,.04); }
-.profile-section__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(var(--surface-rgb),.07);
-  color: rgba(var(--surface-rgb),.9);
-  font-size: 16px;
-  font-weight: 700;
-}
-.profile-form { display: flex; flex-direction: column; gap: 16px; }
-.profile-avatar-row { display: flex; align-items: center; gap: 16px; }
-.profile-avatar-preview {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--teal), var(--blue));
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 2px solid rgba(var(--surface-rgb),.15);
-}
-.profile-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
-.profile-avatar-initials { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+/* The account settings page (/profile) owns its own stylesheet —
+   src/styles/account-record.css, imported by the page itself. The
+   `.profile-*` rules that used to live here were only ever used by
+   that page; `.profile-hero`/`.profile-row` above belong to the staff
+   ProfileDrawer and StaffProfileDialog and are unrelated. */
 
 /* ============================================================
    404 PAGE

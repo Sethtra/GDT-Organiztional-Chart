@@ -63,8 +63,11 @@ export function AuthProvider({ children }) {
     return { data, error };
   }, []);
 
-  const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
+  /* `scope: 'global'` revokes every refresh token for the user, signing out
+     all their devices; the default 'local' ends only this browser's session.
+     Callers that pass nothing keep the original single-device behaviour. */
+  const signOut = useCallback(async (options) => {
+    const { error } = await supabase.auth.signOut(options);
     return { error };
   }, []);
 
