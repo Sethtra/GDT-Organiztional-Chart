@@ -33,7 +33,11 @@ import {
 
 const COLOR_PRESETS = [
   { label: "Navy",    value: "#0f2044" },
-  { label: "Teal",   value: "#136232" },
+  // Was "#136232" — byte-identical to "Green" below, which made this swatch
+  // a silent duplicate (same colour, same click result) and gave React two
+  // <button key="#136232"> siblings. Never caught because this panel had
+  // never been exercised in a browser before this route existed.
+  { label: "Teal",   value: "#0d9488" },
   { label: "Blue",   value: "var(--default-node-bg)" },
   { label: "Sky",    value: "#0369a1" },
   { label: "Purple", value: "#6d28d9" },

@@ -39,7 +39,13 @@
   --nx-green-tint:  #18301f;
   --nx-green-ink:   #04140a;
   --nx-gold:        #d4af37;
+  --nx-gold-tint:   #2e2712;
+  --nx-gold-border: #8a6f2c;  /* 3.1:1 on the tint — a soft border still needs to clear 3:1 */
   --nx-danger:      #f27168;
+  /* Drag-time alignment guide. Deliberately not green/gold/red — those are
+     already claimed (brand, seal/search-hit, destructive) and a same-hue
+     guide would read as chrome rather than a distinct temporary signal. */
+  --nx-guide:       #ff5fc4;
   /* Connector ink. MUST stay opaque — an alpha stroke composites with every
      stroke beneath it, so edges sharing a trunk paint that run repeatedly and
      it reads darker with every edge added. Opaque ink cannot accumulate. */
@@ -48,12 +54,19 @@
   --nx-font:        'Manrope', system-ui, sans-serif;
   --nx-font-kh:     'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
 
-  --nx-radius:      4px;
-  --nx-header-h:    52px;
+  /* Card-scale radius, shared by chrome and nodes alike — one rounding
+     language everywhere, per the admin dashboard system (pa-* rounded-lg /
+     rounded-[14px] card family) this surface now matches. */
+  --nx-radius:      8px;
+  --nx-header-h:    56px;
   --nx-status-h:    28px;
   --nx-ease:        cubic-bezier(0.2, 0, 0, 1);
-  --nx-shadow:      0 1px 2px rgba(0, 0, 0, .28), 0 6px 16px -8px rgba(0, 0, 0, .40);
-  --nx-shadow-lift: 0 2px 4px rgba(0, 0, 0, .30), 0 12px 26px -10px rgba(0, 0, 0, .50);
+  /* Wider, softer ambient layer (matches the admin dashboard's --pa-shadow
+     formula) — a tight small-blur shadow reads as barely-there on a node
+     that sits close in lightness to the canvas under it. */
+  --nx-shadow:      0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
+  --nx-shadow-lift: 0 3px 6px rgba(0, 0, 0, .36), 0 18px 42px rgba(0, 0, 0, .48);
+  --nx-header-shadow: 0 4px 14px -10px rgba(0, 0, 0, .55);
 }
 
 :root[data-theme="light"] {
@@ -73,11 +86,15 @@
   --nx-green-tint:  #e8f0ea;
   --nx-green-ink:   #ffffff;
   --nx-gold:        #8a6f1a;
+  --nx-gold-tint:   #fefaf0;  /* 4.6:1 for --nx-gold text — the obvious pale tint failed at 4.3:1 */
+  --nx-gold-border: #a8873f;  /* 3.25:1 on the tint */
   --nx-danger:      #b3261e;
   --nx-edge:        #6b7a71;
+  --nx-guide:       #c81f8f;
 
-  --nx-shadow:      0 1px 2px rgba(22, 33, 27, .08), 0 4px 12px -6px rgba(22, 33, 27, .16);
-  --nx-shadow-lift: 0 2px 4px rgba(22, 33, 27, .10), 0 10px 22px -8px rgba(22, 33, 27, .22);
+  --nx-shadow:      0 1px 2px rgba(22, 33, 27, .05), 0 10px 30px rgba(22, 33, 27, .08);
+  --nx-shadow-lift: 0 3px 6px rgba(22, 33, 27, .07), 0 18px 42px rgba(22, 33, 27, .12);
+  --nx-header-shadow: 0 4px 14px -10px rgba(22, 33, 27, .22);
 }
 
 /* Claim the brand face across the editor. Scoped to these roots so it cannot
@@ -107,13 +124,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 14px;
+  padding: 0 14px 0 16px;
   background: var(--nx-paper);
-  border-bottom: 1px solid var(--nx-rule);
-  box-shadow: 0 1px 0 0 var(--nx-green);
+  border-bottom: 1px solid var(--nx-rule-hair);
+  box-shadow: 0 1px 0 0 var(--nx-green), var(--nx-header-shadow);
   z-index: 50;
   flex-shrink: 0;
-  gap: 12px;
+  gap: 14px;
 }
 
 .header-brand {
@@ -130,7 +147,7 @@
 
 .header-brand:hover { background: var(--nx-green-tint); }
 .header-brand:focus-visible {
-  outline: 2px solid var(--nx-green);
+  outline: 3px solid rgba(19, 98, 50, 0.28);
   outline-offset: 1px;
 }
 
@@ -140,7 +157,7 @@
    forced a high-quality re-raster. */
 .header-brand__seal {
   display: block;
-  height: 30px;
+  height: 32px;
   width: auto;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: high-quality;
@@ -200,7 +217,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 30px;
+  height: 32px;
   padding: 0 12px;
   border-radius: var(--nx-radius);
   font-size: 12px;
@@ -223,8 +240,10 @@
   background: var(--nx-green-tint);
 }
 
+/* Soft translucent ring rather than a solid outline — same focus language
+   as the admin dashboard's pa-focus-ring. */
 .tb-btn:focus-visible {
-  outline: 2px solid var(--nx-green);
+  outline: 3px solid rgba(19, 98, 50, 0.28);
   outline-offset: 1px;
 }
 
@@ -235,7 +254,7 @@
 }
 
 .tb-btn--icon {
-  width: 30px;
+  width: 32px;
   padding: 0;
   color: var(--nx-ink-3);
 }
@@ -288,22 +307,37 @@
   flex-shrink: 0;
 }
 
-/* ── Save badge ──────────────────────────────────────────────────────────── */
+/* ── Save badge ──────────────────────────────────────────────────────────
+   A soft-tinted pill, same construction as the admin dashboard's "Saving…"
+   indicator (tint background + matching soft border + saturated text) —
+   not just a colour change on bare text. */
 .save-badge {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: transparent;
-  min-width: 68px;
-  padding: 3px 0 3px 11px;
-  border-left: 1px solid transparent;
-  transition: color 240ms var(--nx-ease), border-color 240ms var(--nx-ease);
+  min-width: 0;
+  height: 26px;
+  padding: 0 10px;
+  margin-left: 2px;
+  border-radius: var(--nx-radius);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: color 200ms var(--nx-ease), background 200ms var(--nx-ease), border-color 200ms var(--nx-ease);
 }
 
-.save-badge--saving { color: var(--nx-ink-3); border-left-color: var(--nx-rule-hair); }
-.save-badge--saved  { color: var(--nx-green); border-left-color: var(--nx-rule-hair); }
+.save-badge--saving {
+  color: var(--nx-gold);
+  background: var(--nx-gold-tint);
+  border-color: var(--nx-gold-border);
+}
+.save-badge--saved {
+  color: var(--nx-green);
+  background: var(--nx-green-tint);
+  border-color: var(--nx-green);
+}
 
 .save-spin { animation: spin 0.8s linear infinite; }
 .status-spin { animation: spin 0.8s linear infinite; }
@@ -356,6 +390,24 @@
   border: 1px solid var(--nx-green);
 }
 
+/* ── Alignment guides ────────────────────────────────────────────────────
+   Rendered only while a node is being dragged near another's edge/centre
+   (AlignmentGuides.jsx via ViewportPortal). Position/length come from
+   inline style; only the line's own look lives here. */
+.nx-alignment-guide {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+}
+.nx-alignment-guide--v {
+  width: 0;
+  border-left: 1.5px dashed var(--nx-guide);
+}
+.nx-alignment-guide--h {
+  height: 0;
+  border-top: 1.5px dashed var(--nx-guide);
+}
+
 .hint-chip {
   font-size: 11px;
   font-weight: 500;
@@ -391,22 +443,38 @@
    One card, every time. No width or height is set here — the author's resize
    is the only thing that decides how big a node is. */
 .org-node {
+  /* The node's own resize handles are drawn by React Flow around the
+     .react-flow__node wrapper, not around this element — without a relative
+     position and a 100%/100% box, this card stays at its min-content size
+     while the wrapper (and the handles pinned to it) resize independently,
+     visibly detaching the handles from the shape. Filling the wrapper is
+     also what keeps floatingEdge.js's connector math (which reads the
+     wrapper's measured size) aimed at this card's actual visible edge. */
+  position: relative;
+  width: 100%;
+  height: 100%;
   background: var(--nx-paper);
   border: 1px solid var(--nx-rule);
   border-radius: var(--nx-radius);
   min-width: 140px;
   min-height: 64px;
-  overflow: hidden;
+  /* Visible, not hidden: the directional add-buttons render just outside
+     this box and would otherwise be clipped. The band above owns its own
+     top-corner radius now instead of relying on this to clip it, and body
+     text already wraps within its width (see .org-node__name's
+     overflow-wrap) rather than depending on this to contain overflow. */
+  overflow: visible;
   display: flex;
   flex-direction: column;
   cursor: pointer;
   box-shadow: var(--nx-shadow);
-  transition: box-shadow 150ms var(--nx-ease), border-color 150ms var(--nx-ease);
+  transition: box-shadow 150ms var(--nx-ease), border-color 150ms var(--nx-ease), transform 150ms var(--nx-ease);
 }
 
 .org-node:hover {
   border-color: var(--nx-green);
   box-shadow: var(--nx-shadow-lift);
+  transform: translateY(-1px);
 }
 
 .org-node--selected {
@@ -425,9 +493,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 10px;
-  min-height: 26px;
+  padding: 7px 12px;
+  min-height: 28px;
   flex-shrink: 0;
+  /* Own top-corner radius rather than leaning on the card's overflow:hidden
+     to clip it — the directional add-buttons need to render outside the
+     card, which requires that overflow stay visible. */
+  border-radius: var(--nx-radius) var(--nx-radius) 0 0;
   background: var(--nx-band-color, var(--nx-band-default));
   color: var(--nx-band-ink, #ffffff);
 }
@@ -437,6 +509,11 @@
   font-size: 11px;
   font-weight: 700;
   line-height: 1.35;
+  /* Small-caps register: reads as a printed title-block label regardless of
+     the case the author actually typed. A no-op on Khmer script (no case),
+     so Khmer badge text is unaffected — this only sharpens Latin labels. */
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -492,20 +569,25 @@
 
 .org-node__name {
   font-family: var(--nx-font-kh);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--nx-ink);
-  line-height: 1.5;
+  line-height: 1.45;
   word-break: normal;
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 
+/* Formal-register subtitle: small, tracked, upper-case caption under the
+   primary (Khmer) name — the printed-register convention for a
+   transliteration/translation line, not just a smaller copy of the title. */
 .org-node__name-en {
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--nx-ink-2);
-  margin-top: 2px;
+  margin-top: 3px;
   line-height: 1.4;
   word-break: normal;
   overflow-wrap: break-word;
@@ -540,17 +622,26 @@
    Avatar geometry (84px at -42px, pill at -13px) is load-bearing: the
    connector endpoints in floatingEdge.js land on exactly those points. */
 .org-node--person {
+  /* Same wrapper-vs-card fix as .org-node above — and load-bearing here too:
+     the avatar/team-pill/badges below are positioned absolute against
+     whichever ancestor is `position: relative`. Without it here, they anchor
+     to React Flow's wrapper instead of this card and drift on resize. */
+  position: relative;
+  width: 100%;
+  height: 100%;
   min-width: 200px;
   overflow: visible !important;
   background: var(--nx-paper) !important;
   border: 1px solid var(--nx-rule) !important;
   border-radius: var(--nx-radius) !important;
   box-shadow: var(--nx-shadow) !important;
+  transition: box-shadow 150ms var(--nx-ease), border-color 150ms var(--nx-ease), transform 150ms var(--nx-ease);
 }
 
 .org-node--person:hover {
   border-color: var(--nx-green) !important;
   box-shadow: var(--nx-shadow-lift) !important;
+  transform: translateY(-1px);
 }
 
 .org-node--person.org-node--selected {
@@ -621,6 +712,7 @@
   font-family: var(--nx-font-kh);
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--nx-green);
   line-height: 1.4;
   word-break: normal;
@@ -707,12 +799,21 @@
    whole edge and stays the drag target — React Flow already locks a side drag
    to one axis — while this pseudo-element draws the visible grip at its centre.
    Drawing the grip this way keeps the whole edge draggable, which a real 20px
-   pill element would not. */
+   pill element would not.
+
+   The grip sits centred exactly ON the border, matching the reference
+   composition (corner dots and edge pills both straddling the selection
+   outline, Figma-style) — not offset to either side of it. The
+   connect-handle dot (.flow-handle, below) is the ANCHOR a new connector
+   drags out from; it sits further out with its own visible gap, so the two
+   controls still land at different points and never draw concentric with
+   each other despite the grip being back on the line itself. */
 .react-flow__resize-control.line::after {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
+  transform: translate(-50%, -50%);
   background: #ffffff;
   border: 1.5px solid var(--nx-green);
   border-radius: 100px;
@@ -724,14 +825,12 @@
 .react-flow__resize-control.line.bottom::after {
   width: 30px;
   height: 7px;
-  transform: translate(-50%, -50%);
 }
 
 .react-flow__resize-control.line.left::after,
 .react-flow__resize-control.line.right::after {
   width: 7px;
   height: 30px;
-  transform: translate(-50%, -50%);
 }
 
 /* The selected ring is the shape's outline, so it hugs the card's own rounded
@@ -755,6 +854,19 @@
   z-index: 6 !important;
   box-shadow: 0 0 0 2px var(--nx-paper) !important;
 }
+
+/* The anchor is what a new connector drags out FROM, not a resize control —
+   it reads as reaching out from the shape, so it sits clear of the border
+   with a small visible gap, on the opposite side of the border from the
+   resize grip above. React Flow's own default centres the dot ON the
+   border line (half in, half out); these override that per side. Person
+   cards' own top/bottom (avatar/team-pill offsets) already win via the
+   more specific .org-node--person selector further up, so this only
+   reaches unit nodes' four sides and a person card's left/right. */
+.react-flow__handle-top.flow-handle { top: -7px; }
+.react-flow__handle-bottom.flow-handle { bottom: -7px; }
+.react-flow__handle-left.flow-handle { left: -7px; }
+.react-flow__handle-right.flow-handle { right: -7px; }
 
 .org-node:hover .flow-handle,
 .org-node--selected .flow-handle,
@@ -804,7 +916,7 @@ button.status-item:hover {
 }
 
 button.status-item:focus-visible {
-  outline: 2px solid var(--nx-green);
+  outline: 3px solid rgba(19, 98, 50, 0.28);
   outline-offset: -2px;
 }
 

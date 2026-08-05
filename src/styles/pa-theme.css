@@ -1,0 +1,6 @@
+/* GDT Design System theme tokens & utility overrides */
+:root {
+  --gdt-emerald: #136232;
+  --gdt-emerald-dark: #0f5129;
+  --gdt-gold: #b48728;
+}
