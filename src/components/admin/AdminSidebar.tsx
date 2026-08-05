@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   Building2,
   LayoutDashboard,
+  ShieldCheck,
   UsersRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
