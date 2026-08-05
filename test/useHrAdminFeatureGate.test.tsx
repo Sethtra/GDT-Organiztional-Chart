@@ -11,6 +11,15 @@ vi.mock("../src/supabaseClient", () => ({
   },
 }));
 
+// Pinned, not inherited from the ambient .env — see chartServiceRollout.test.ts.
+// The test name says "before HR features are explicitly enabled", so the flag
+// is part of the fixture, not part of the environment.
+vi.mock("../src/config/hrFeatures", () => ({
+  HR_FEATURES_ENABLED: false,
+  parseHrFeaturesEnabled: (value?: string) =>
+    value?.trim().toLowerCase() === "true",
+}));
+
 vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({
     user: { id: "user-1" },

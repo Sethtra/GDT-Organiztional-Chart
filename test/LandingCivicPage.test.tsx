@@ -124,7 +124,7 @@ describe("LandingCivicPage", () => {
     expect(profileTrigger).toHaveFocus();
   });
 
-  it("switches the isolated preview theme and pairs it with the correct logo", async () => {
+  it("switches the isolated preview theme and keeps one logo across both", async () => {
     window.localStorage.setItem("gdt_landing_theme", "dark");
     const user = userEvent.setup();
 
@@ -132,12 +132,18 @@ describe("LandingCivicPage", () => {
 
     const page = document.querySelector(".landing-civic-page");
     const brand = screen.getByRole("link", { name: "GDT organizational chart home" });
+    const logo = within(brand).getByRole("img");
+
+    // One mark for both themes. This used to assert a dark-theme variant, but
+    // "GDT-Logo (Dark).png" was removed from public/ when the landing page was
+    // rebuilt — the assertion outlived the file, so it was pinning a src that
+    // would 404 if the component had actually kept rendering it.
     expect(page).toHaveAttribute("data-landing-theme", "dark");
-    expect(within(brand).getByRole("img")).toHaveAttribute("src", "/GDT-Logo (Dark).png");
+    expect(logo).toHaveAttribute("src", "/GDT-Logo (Light).png");
 
     await user.click(screen.getByRole("button", { name: "Switch to light appearance" }));
     expect(page).toHaveAttribute("data-landing-theme", "light");
-    expect(within(brand).getByRole("img")).toHaveAttribute("src", "/GDT-Logo (Light).png");
+    expect(logo).toHaveAttribute("src", "/GDT-Logo (Light).png");
     expect(window.localStorage.getItem("gdt_landing_theme")).toBe("light");
   });
 

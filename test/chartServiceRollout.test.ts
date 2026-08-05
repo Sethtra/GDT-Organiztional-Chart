@@ -13,6 +13,18 @@ vi.mock("../src/supabaseClient", () => ({
   },
 }));
 
+// This suite is about the behaviour BEFORE the HR migrations land, so the flag
+// has to be pinned. It used to read whatever VITE_HR_FEATURES_ENABLED the
+// ambient .env happened to set — which Vite loads into the test run — so the
+// moment that file flipped to true locally, every assertion here inverted and
+// the suite failed against correct code. A rollout-gate test that depends on
+// the developer's own .env is not testing the gate.
+vi.mock("../src/config/hrFeatures", () => ({
+  HR_FEATURES_ENABLED: false,
+  parseHrFeaturesEnabled: (value?: string) =>
+    value?.trim().toLowerCase() === "true",
+}));
+
 import { loadChartForViewer } from "../src/services/chartService";
 
 describe("chart service migration rollout", () => {
