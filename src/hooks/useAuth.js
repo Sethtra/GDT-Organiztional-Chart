@@ -1,7 +1,42 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, clearAuthStorage } from '../supabaseClient';
 
 export const AuthContext = createContext(null);
+
+/**
+ * Remove all sensitive app data from localStorage on sign-out.
+ *
+ * Cleared:
+ *   • chart_backup_{id}   — unsaved chart data (user content)
+ *   • last_version_time_* — persistence timestamps
+ *   • last_thumb_time_*   — thumbnail timestamps
+ *   • gdt_starred_charts  — user's starred list
+ *   • __gdt_s_*           — obfuscated auth tokens (via clearAuthStorage)
+ *
+ * Preserved (not sensitive):
+ *   • gdt_theme           — UI theme preference
+ *   • gdt_landing_theme   — landing page theme
+ *   • gdt_register_view_mode — dashboard view preference
+ */
+function clearSensitiveCache() {
+  // Collect keys first to avoid mutating while iterating
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (
+      key?.startsWith('chart_backup_') ||
+      key?.startsWith('last_version_time_') ||
+      key?.startsWith('last_thumb_time_') ||
+      key === 'gdt_starred_charts'
+    ) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+  // Clear obfuscated auth tokens
+  clearAuthStorage();
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -67,6 +102,10 @@ export function AuthProvider({ children }) {
      all their devices; the default 'local' ends only this browser's session.
      Callers that pass nothing keep the original single-device behaviour. */
   const signOut = useCallback(async (options) => {
+    // Clear all sensitive cached data BEFORE signing out so that
+    // even if signOut() fails, the local data is already gone.
+    clearSensitiveCache();
+
     const { error } = await supabase.auth.signOut(options);
     return { error };
   }, []);
