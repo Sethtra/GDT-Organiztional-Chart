@@ -32,9 +32,11 @@ import {
   Lock,
   LogOut,
   MonitorSmartphone,
+  Pencil,
   ShieldCheck,
   Trash2,
   UserRound,
+  X,
 } from 'lucide-react';
 
 import Navbar from '../components/Navbar';
@@ -239,10 +241,7 @@ export default function ProfilePage() {
             <div className="acct-register__head">
               <UserRound size={17} className="acct-register__icon" aria-hidden="true" />
               <div>
-                <h2 className="acct-register__kh" id="acct-identity">
-                  ព័ត៌មានអត្តសញ្ញាណ
-                </h2>
-                <p className="acct-register__en">Identity</p>
+                <h2 className="acct-register__en" id="acct-identity">Identity</h2>
               </div>
             </div>
 
@@ -263,35 +262,33 @@ export default function ProfilePage() {
                         <Loader2 size={22} className="acct-spin" aria-hidden="true" />
                       </span>
                     )}
-                  </span>
-
-                  <div className="acct-photo__controls">
-                    <div className="acct-photo__buttons">
+                    {!photoUploading && (
                       <button
                         type="button"
-                        className="acct-btn acct-btn--quiet"
+                        className="acct-photo__edit"
                         onClick={() => photoInputRef.current?.click()}
-                        disabled={photoUploading}
-                        aria-describedby="acct-photo-label"
+                        aria-label={photo ? 'Replace photo' : 'Upload photo'}
                       >
-                        {photo ? 'Replace photo' : 'Upload photo'}
+                        <Pencil size={18} />
                       </button>
-                      {photo && (
-                        <button
-                          type="button"
-                          className="acct-btn acct-btn--quiet"
-                          onClick={() => setPhoto('')}
-                          disabled={photoUploading}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="acct-hint">
-                      JPG, PNG, or WebP up to 10MB. You crop it to a square before
-                      it is saved.
-                    </p>
-                  </div>
+                    )}
+                    {photo && !photoUploading && (
+                      <button
+                        type="button"
+                        className="acct-photo__remove"
+                        onClick={() => setPhoto('')}
+                        aria-label="Remove photo"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </span>
+
+                  <p className="acct-hint">
+                    JPG, PNG, or WebP up to 10MB. Hover over the photo and click
+                    the pencil to upload or replace. You crop it to a square
+                    before it is saved.
+                  </p>
 
                   <input
                     ref={photoInputRef}
@@ -394,10 +391,7 @@ export default function ProfilePage() {
             <div className="acct-register__head">
               <ShieldCheck size={17} className="acct-register__icon" aria-hidden="true" />
               <div>
-                <h2 className="acct-register__kh" id="acct-security">
-                  សុវត្ថិភាព
-                </h2>
-                <p className="acct-register__en">Security</p>
+                <h2 className="acct-register__en" id="acct-security">Security</h2>
               </div>
             </div>
 
@@ -513,10 +507,7 @@ export default function ProfilePage() {
             <div className="acct-register__head">
               <MonitorSmartphone size={17} className="acct-register__icon" aria-hidden="true" />
               <div>
-                <h2 className="acct-register__kh" id="acct-sessions">
-                  វេនសកម្ម
-                </h2>
-                <p className="acct-register__en">Active sessions</p>
+                <h2 className="acct-register__en" id="acct-sessions">Active sessions</h2>
               </div>
             </div>
 
@@ -598,10 +589,7 @@ export default function ProfilePage() {
             <div className="acct-register__head">
               <Trash2 size={17} className="acct-register__icon" aria-hidden="true" />
               <div>
-                <h2 className="acct-register__kh" id="acct-danger">
-                  តំបន់ប្រុងប្រយ័ត្ន
-                </h2>
-                <p className="acct-register__en">Danger zone</p>
+                <h2 className="acct-register__en" id="acct-danger">Danger zone</h2>
               </div>
             </div>
 

@@ -12,11 +12,9 @@ import {
   LockKeyhole,
   LogOut,
   Menu,
-  Moon,
   Network,
   Settings2,
   ShieldCheck,
-  Sun,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -123,7 +121,7 @@ export default function LandingCivicPage() {
   const { isHrAdmin, loading: hrLoading, error: hrAccessError } = useHrAdmin();
   const navigate = useNavigate();
 
-  const [landingTheme, setLandingTheme] = useState<LandingTheme>(getInitialLandingTheme);
+  const [landingTheme] = useState<LandingTheme>(getInitialLandingTheme);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -185,13 +183,7 @@ export default function LandingCivicPage() {
       : isHrAdmin
         ? "/admin/org-structure"
         : null;
-  const themeActionLabel =
-    landingTheme === "dark" ? "Switch to light appearance" : "Switch to dark appearance";
   const logoPath = "/GDT-Logo (Light).png";
-
-  const toggleTheme = () => {
-    setLandingTheme((current) => (current === "dark" ? "light" : "dark"));
-  };
 
   const adminDestination = (path: string) => {
     if (authLoading) return null;
@@ -274,20 +266,6 @@ export default function LandingCivicPage() {
           </nav>
 
           <div className="lc-header-actions">
-            <button
-              type="button"
-              className="lc-icon-button lc-desktop-theme-toggle"
-              onClick={toggleTheme}
-              aria-label={themeActionLabel}
-              title={themeActionLabel}
-            >
-              {landingTheme === "dark" ? (
-                <Sun size={17} aria-hidden="true" />
-              ) : (
-                <Moon size={17} aria-hidden="true" />
-              )}
-            </button>
-
             {!authLoading && user && (
               <div
                 className="lc-profile"
@@ -339,14 +317,6 @@ export default function LandingCivicPage() {
                           Admin portal
                         </Link>
                       )}
-                      <button type="button" onClick={toggleTheme}>
-                        {landingTheme === "dark" ? (
-                          <Sun size={16} aria-hidden="true" />
-                        ) : (
-                          <Moon size={16} aria-hidden="true" />
-                        )}
-                        {themeActionLabel}
-                      </button>
                     </div>
 
                     <div className="lc-profile-footer">
@@ -426,14 +396,6 @@ export default function LandingCivicPage() {
                 </nav>
 
                 <div className="lc-mobile-account">
-                  <button type="button" className="lc-mobile-theme" onClick={toggleTheme}>
-                    {landingTheme === "dark" ? (
-                      <Sun size={17} aria-hidden="true" />
-                    ) : (
-                      <Moon size={17} aria-hidden="true" />
-                    )}
-                    {themeActionLabel}
-                  </button>
 
                   {!authLoading && user ? (
                     <>

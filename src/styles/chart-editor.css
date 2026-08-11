@@ -21,59 +21,9 @@
 /* ── Tokens ────────────────────────────────────────────────────────────────
    Light is the reference theme: GDT staff work in lit offices and project
    these charts. Dark is derived from it.                                    */
-:root {
-  /* dark (app default until data-theme lands) */
-  --nx-ground:      #0d1512;
-  --nx-paper:       #16201b;
-  --nx-paper-2:     #1c2822;
-  --nx-ink:         #eef2ef;
-  --nx-ink-2:       #b6c2ba;
-  --nx-ink-3:       #93a199;
-  --nx-rule:        #556d5f;  /* 3.3:1 on the canvas ground */
-  --nx-rule-hair:   #26332c;
-  --nx-band:        rgba(238, 242, 239, 0.06);
-  --nx-grid:        rgba(238, 242, 239, 0.055);
-  --nx-green:       #34a866;
-  --nx-green-deep:  #2b8f56;
-  --nx-band-default: #136232;  /* GDT emerald; white on it = 7.4:1 */
-  --nx-green-tint:  #18301f;
-  --nx-green-ink:   #04140a;
-  --nx-gold:        #d4af37;
-  --nx-gold-tint:   #2e2712;
-  --nx-gold-border: #8a6f2c;  /* 3.1:1 on the tint — a soft border still needs to clear 3:1 */
-  --nx-danger:      #f27168;
-  /* Drag-time alignment guide. Deliberately not green/gold/red — those are
-     already claimed (brand, seal/search-hit, destructive) and a same-hue
-     guide would read as chrome rather than a distinct temporary signal. */
-  --nx-guide:       #ff5fc4;
-  /* Connector ink. MUST stay opaque — an alpha stroke composites with every
-     stroke beneath it, so edges sharing a trunk paint that run repeatedly and
-     it reads darker with every edge added. Opaque ink cannot accumulate. */
-  --nx-edge:        #7e8f85;
-  /* Selection ring for connectors and their waypoint handles. Drawn AROUND
-     the line, never over it: repainting the stroke hid the one property you
-     select an edge to change. Opaque, for the same reason --nx-edge is. */
-  --nx-select:      #34a866;
-
-  --nx-font:        'Manrope', system-ui, sans-serif;
-  --nx-font-kh:     'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
-
-  /* Card-scale radius, shared by chrome and nodes alike — one rounding
-     language everywhere, per the admin dashboard system (pa-* rounded-lg /
-     rounded-[14px] card family) this surface now matches. */
-  --nx-radius:      8px;
-  --nx-header-h:    56px;
-  --nx-status-h:    28px;
-  --nx-ease:        cubic-bezier(0.2, 0, 0, 1);
-  /* Wider, softer ambient layer (matches the admin dashboard's --pa-shadow
-     formula) — a tight small-blur shadow reads as barely-there on a node
-     that sits close in lightness to the canvas under it. */
-  --nx-shadow:      0 1px 2px rgba(0, 0, 0, .32), 0 10px 30px rgba(0, 0, 0, .38);
-  --nx-shadow-lift: 0 3px 6px rgba(0, 0, 0, .36), 0 18px 42px rgba(0, 0, 0, .48);
-  --nx-header-shadow: 0 4px 14px -10px rgba(0, 0, 0, .55);
-}
-
-:root[data-theme="light"] {
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
   --nx-ground:      #eef1ee;  /* quiet off-white; white cards read against it */
   --nx-paper:       #ffffff;
   --nx-paper-2:     #f6f8f6;
@@ -96,6 +46,14 @@
   --nx-edge:        #6b7a71;
   --nx-select:      #136232;
   --nx-guide:       #c81f8f;
+
+  --nx-font:        'Manrope', system-ui, sans-serif;
+  --nx-font-kh:     'Kantumruy Pro', 'Noto Sans Khmer', sans-serif;
+
+  --nx-radius:      8px;
+  --nx-header-h:    56px;
+  --nx-status-h:    28px;
+  --nx-ease:        cubic-bezier(0.2, 0, 0, 1);
 
   --nx-shadow:      0 1px 2px rgba(22, 33, 27, .05), 0 10px 30px rgba(22, 33, 27, .08);
   --nx-shadow-lift: 0 3px 6px rgba(22, 33, 27, .07), 0 18px 42px rgba(22, 33, 27, .12);

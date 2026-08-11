@@ -435,7 +435,7 @@ export default function DashboardTestPage() {
     <div className="gdt-register-dashboard pa-theme">
       {/* ── Masthead ─────────────────────────────────── */}
       <header className="rd-masthead">
-        <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center gap-3 px-4 sm:px-7 lg:px-10">
+        <div className="gdt-shell-header__inner flex items-center gap-3">
           <Link
             to="/"
             className="pa-focus-ring group flex shrink-0 items-center rounded-lg no-underline transition-opacity hover:opacity-90 cursor-pointer"
@@ -444,7 +444,7 @@ export default function DashboardTestPage() {
             <img
               src="/GDT-Logo (Light).png"
               alt="GDT - General Department of Taxation"
-              className="h-10 w-auto object-contain transition-transform group-hover:scale-102"
+              className="gdt-shell-header__logo transition-transform group-hover:scale-102"
             />
           </Link>
 

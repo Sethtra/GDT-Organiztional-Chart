@@ -79,59 +79,22 @@
   --header-h:     58px;
 
   /* ============================================================
-     THEME (semantic) TOKENS — dark is the default/original look.
-     Brand accents above (navy/blue/teal/gold/red/green) stay constant
-     across themes; only surfaces, text, borders, and shadows repaint.
-     --surface-rgb is the R,G,B triplet used by every
-     `rgba(var(--surface-rgb), alpha)` overlay in this file — swapping
-     just this one value re-tints every translucent highlight/border at
-     once instead of needing a token per opacity level.
+     THEME (semantic) TOKENS — Light theme is the only active theme.
      ============================================================ */
-  --surface-rgb:    255,255,255;
+  --surface-rgb:    0,0,0;
   --shadow-rgb:     0,0,0;
-  --bg-app:         var(--navy);
-  --bg-surface:     var(--navy-mid);
-  --bg-surface-rgb: 15,32,68;
-  --bg-surface-translucent: rgba(var(--bg-surface-rgb), .85);
-  --bg-surface-2:   #16294f;
-  --bg-elevated:    #0f1f3d;
-  --text-primary:   var(--white);
-  --text-secondary: var(--gray-400);
-  --text-muted:     var(--gray-500);
-  --link-color:     #1a7d43; /* GDT Emerald green for dark mode visibility */
-  --border-subtle:  rgba(var(--surface-rgb), .08);
-  --border-strong:  rgba(var(--surface-rgb), .18);
-
-  --shadow-sm:    0 1px 3px rgba(var(--shadow-rgb),.15);
-  --shadow:       0 4px 16px rgba(var(--shadow-rgb),.2);
-  --shadow-lg:    0 8px 32px rgba(var(--shadow-rgb),.3);
-  --shadow-xl:    0 16px 48px rgba(var(--shadow-rgb),.4);
-
-  --person-position-color: var(--gold);
-  --person-team-bg: #e9dca6;
-  --person-team-text: #1a1206;
-  --person-avatar-border: rgba(233, 220, 166, .35);
-  --badge-office: #6ee7b7;
-  /* GDT emerald, lifted for the dark surface. Was a blue that had nothing to
-     do with the brand. */
-  --default-node-bg: #136232;
-}
-
-:root[data-theme="light"] {
-  --surface-rgb:    0,0,0; /* Must be dark so translucent borders/overlays are visible on light bg */
-  --shadow-rgb:     0,0,0;
-  --bg-app:         #e2e8f0; /* Darker off-white canvas for maximum node contrast */
+  --bg-app:         #f3f5f2;
   --bg-surface:     #ffffff;
   --bg-surface-rgb: 255,255,255;
-  --bg-surface-translucent: rgba(255,255,255, 0.9);
+  --bg-surface-translucent: rgba(255,255,255, 0.92);
   --bg-surface-2:   #f8fafc;
   --bg-elevated:    #ffffff;
   --text-primary:   #0f172a;
   --text-secondary: #334155;
   --text-muted:     #64748b;
-  --link-color:     #136232; /* GDT Emerald green for light mode */
+  --link-color:     #136232;
   --border-subtle:  rgba(0,0,0, .12);
-  --border-strong:  rgba(0,0,0, .25);
+  --border-strong:  rgba(0,0,0, .22);
 
   --shadow-sm:    0 2px 8px rgba(var(--shadow-rgb),.08), 0 1px 2px rgba(var(--shadow-rgb),.04);
   --shadow:       0 8px 24px rgba(var(--shadow-rgb),.12);
@@ -147,21 +110,35 @@
   --default-node-bg: var(--blue);
 }
 
-/* Fallback for any element rendered before JS applies data-theme (SSR-less
-   app, but this covers the very first paint of index.html). */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    --surface-rgb: 15,23,42;
-    --shadow-rgb: 15,23,42;
-    --bg-app: var(--gray-50);
-    --bg-surface: #ffffff;
-    --bg-surface-2: var(--gray-100);
-    --bg-elevated: #ffffff;
-    --text-primary: #0f172a;
-    --text-secondary: var(--gray-600);
-    --border-subtle: rgba(15,23,42,.1);
-    --border-strong: rgba(15,23,42,.22);
-  }
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  --surface-rgb:    0,0,0;
+  --shadow-rgb:     0,0,0;
+  --bg-app:         #f3f5f2;
+  --bg-surface:     #ffffff;
+  --bg-surface-rgb: 255,255,255;
+  --bg-surface-translucent: rgba(255,255,255, 0.92);
+  --bg-surface-2:   #f8fafc;
+  --bg-elevated:    #ffffff;
+  --text-primary:   #0f172a;
+  --text-secondary: #334155;
+  --text-muted:     #64748b;
+  --link-color:     #136232;
+  --border-subtle:  rgba(0,0,0, .12);
+  --border-strong:  rgba(0,0,0, .22);
+
+  --shadow-sm:    0 2px 8px rgba(var(--shadow-rgb),.08), 0 1px 2px rgba(var(--shadow-rgb),.04);
+  --shadow:       0 8px 24px rgba(var(--shadow-rgb),.12);
+  --shadow-lg:    0 16px 40px rgba(var(--shadow-rgb),.16);
+  --shadow-xl:    0 24px 64px rgba(var(--shadow-rgb),.2);
+
+  --person-position-color: var(--blue);
+  --person-team-bg: var(--blue);
+  --person-team-text: #ffffff;
+  --person-avatar-border: rgba(19, 98, 50, .35);
+  --badge-office: var(--blue);
+  --person-avatar-bg: var(--blue);
+  --default-node-bg: var(--blue);
 }
 
 /* ============================================================
@@ -884,11 +861,11 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
 }
 
 .modal-box {
-  background: #0d1b35;
-  border: 1px solid rgba(var(--surface-rgb),.12);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   padding: 28px 32px;
-  width: 380px;
+  width: 400px;
   max-width: 90vw;
   display: flex;
   flex-direction: column;
@@ -914,8 +891,12 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
   justify-content: center;
 }
 
-.modal-icon--danger { background: rgba(220,38,38,.2); color: #fca5a5; }
-.modal-icon--info   { background: rgba(30,87,153,.2); color: #93c5fd; }
+.modal-icon--danger { background: rgba(220,38,38,.15); color: #fca5a5; }
+.modal-icon--info   { background: rgba(30,87,153,.15); color: #93c5fd; }
+
+/* Light theme overrides for modal icons */
+:root[data-theme="light"] .modal-icon--danger { background: #fef2f2; color: #dc2626; }
+:root[data-theme="light"] .modal-icon--info   { background: #eff6ff; color: #2563eb; }
 
 .modal-title {
   font-size: 15px;
@@ -931,12 +912,77 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
   line-height: 1.6;
 }
 
+/* CONFIRM verification input for danger modals */
+.modal-confirm-wrap {
+  width: 100%;
+}
+.modal-confirm-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-align: left;
+}
+.modal-confirm-label code {
+  font-family: 'Manrope', monospace;
+  font-weight: 800;
+  color: var(--text-primary);
+  background: rgba(var(--surface-rgb), .08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  letter-spacing: .04em;
+}
+:root[data-theme="light"] .modal-confirm-label code {
+  background: #f1f5f9;
+}
+.modal-confirm-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font-family: 'Manrope', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--text-primary);
+  background: rgba(var(--surface-rgb), .05);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.modal-confirm-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: normal;
+}
+.modal-confirm-input:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .15);
+}
+:root[data-theme="light"] .modal-confirm-input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .modal-confirm-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .12);
+}
+
 .modal-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   width: 100%;
   margin-top: 4px;
+}
+
+/* Disabled state for confirm/delete button when CONFIRM not typed */
+.modal-actions .pp-btn--delete:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  filter: grayscale(.3);
 }
 
 /* ============================================================
@@ -1154,6 +1200,44 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
 }
 
 /* ============================================================
+   SHARED APP HEADER GEOMETRY
+   Keeps the public register, chart register, and account surfaces aligned.
+   ============================================================ */
+.gdt-shell-header__inner {
+  width: 100%;
+  max-width: 1400px;
+  height: 74px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/* The landing register uses a wider editorial canvas than the operational
+   screens. Its masthead follows that page shell so the wordmark and body share
+   one left edge, while height and logo scale remain part of the shared system. */
+.gdt-shell-header__inner--landing { max-width: 1540px; }
+
+.gdt-shell-header__logo {
+  display: block;
+  width: auto;
+  height: 40px;
+  object-fit: contain;
+}
+
+@media (min-width: 640px) {
+  .gdt-shell-header__inner { padding-inline: 28px; }
+}
+
+@media (min-width: 1024px) {
+  .gdt-shell-header__inner { padding-inline: 46px; }
+  .gdt-shell-header__inner--landing { padding-inline: 40px; }
+}
+
+@media (max-width: 768px) {
+  .gdt-shell-header__inner { height: 64px; }
+  .gdt-shell-header__logo { height: 36px; }
+}
+
+/* ============================================================
    NAVBAR
    ============================================================ */
 .navbar {
@@ -1162,16 +1246,13 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
   z-index: 200;
   background: var(--bg-surface-translucent);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(212, 175, 55, 0.25);
-  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .navbar__inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  height: 62px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
 }
 .navbar__brand {
@@ -1274,68 +1355,218 @@ select.pp-input option { background: var(--bg-surface); color: var(--text-primar
 }
 .navbar__cta:hover { background: #12a090; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(14,125,110,.4); }
 
-/* Avatar dropdown */
+/* Avatar dropdown trigger (matching Image 1 design) */
 .navbar__avatar-wrap { position: relative; }
 .navbar__avatar-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  border-radius: 30px;
-  background: rgba(var(--surface-rgb),.07);
-  border: 1px solid rgba(var(--surface-rgb),.12);
+  padding: 4px 10px 4px 5px;
+  min-height: 40px;
+  border-radius: 10px;
+  background: rgba(var(--surface-rgb), .05);
+  border: 1px solid var(--border-strong);
   color: var(--text-primary);
   cursor: pointer;
   font-family: inherit;
-  transition: all .18s;
+  transition: all .18s ease;
 }
-.navbar__avatar-btn:hover { background: rgba(var(--surface-rgb),.12); }
-.navbar__avatar-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.navbar__avatar-btn:hover {
+  background: rgba(var(--surface-rgb), .12);
+  border-color: rgba(var(--surface-rgb), .3);
+}
+.navbar__avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  object-fit: cover;
+}
 .navbar__avatar-initials {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--teal), var(--blue));
+  border-radius: 7px;
+  background: #0b2b20;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
 }
-.navbar__user-name { font-size: 13px; font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme="light"] .navbar__avatar-btn {
+  background: #ffffff;
+  border-color: #d9e1dc;
+}
+:root[data-theme="light"] .navbar__avatar-btn:hover {
+  background: #f3f5f2;
+}
+:root[data-theme="light"] .navbar__avatar-initials {
+  background: #0b2b20;
+  color: #ffffff;
+}
+.navbar__user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .navbar__dropdown {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  min-width: 190px;
-  background: var(--bg-surface);
-  border: 1px solid rgba(var(--surface-rgb),.1);
-  border-radius: var(--radius);
-  box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  width: min(84vw, 258px);
+  background: #ffffff;
+  border: 1px solid #d9e1dc;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(11, 43, 32, .04), 0 10px 30px rgba(11, 43, 32, .1);
   overflow: hidden;
   animation: fadeIn .15s ease;
+  z-index: 200;
 }
+
+/* ── Dropdown header: avatar + name + email ── */
+.navbar__drop-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid #d9e1dc;
+  background: #f3f5f2;
+}
+.navbar__drop-header-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.navbar__drop-header-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #0b2b20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.navbar__drop-header-info { min-width: 0; }
+.navbar__drop-header-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #16211b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.navbar__drop-header-email {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #66716b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/* ── Dropdown sections ── */
+.navbar__drop-section { padding: 6px; }
+.navbar__drop-section--border { border-top: 1px solid #d9e1dc; }
+
+/* ── Dropdown items ── */
 .navbar__drop-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  font-size: 13.5px;
-  color: rgba(var(--surface-rgb),.8);
+  padding: 10px 10px;
+  min-height: 42px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #16211b;
   text-decoration: none;
   cursor: pointer;
-  transition: all .15s;
+  transition: background .15s;
   background: none;
   border: none;
   width: 100%;
   font-family: inherit;
   text-align: left;
+  border-radius: 8px;
 }
-.navbar__drop-item:hover { background: rgba(var(--surface-rgb),.07); color: var(--text-primary); }
-.navbar__drop-item--danger { color: #fca5a5; }
-.navbar__drop-item--danger:hover { background: rgba(220,38,38,.15); }
-.navbar__drop-divider { height: 1px; background: rgba(var(--surface-rgb),.07); margin: 4px 0; }
+.navbar__drop-item svg { flex-shrink: 0; color: #66716b; }
+.navbar__drop-item:hover { background: #f3f5f2; }
+
+/* Admin portal — green highlight */
+.navbar__drop-item--admin {
+  margin-top: 4px;
+  color: #136232;
+  background: #e7f3ec;
+  border: 1px solid #c6e1d1;
+}
+.navbar__drop-item--admin svg { color: #136232; }
+.navbar__drop-item--admin:hover { background: #dcebe2; }
+.navbar__drop-item-chevron { margin-left: auto; }
+
+/* Sign out — danger */
+.navbar__drop-item--danger { color: #9c332d; }
+.navbar__drop-item--danger svg { color: #9c332d; }
+.navbar__drop-item--danger:hover { background: #fdecea; }
+
+/* ── Dark theme overrides for dropdown ── */
+:root[data-theme="dark"] .navbar__dropdown {
+  background: var(--bg-surface);
+  border-color: rgba(var(--surface-rgb), .12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+}
+:root[data-theme="dark"] .navbar__drop-header {
+  background: rgba(var(--surface-rgb), .04);
+  border-bottom-color: rgba(var(--surface-rgb), .08);
+}
+:root[data-theme="dark"] .navbar__drop-header-name { color: var(--text-primary); }
+:root[data-theme="dark"] .navbar__drop-header-email { color: var(--text-muted); }
+:root[data-theme="dark"] .navbar__drop-header-initials {
+  background: linear-gradient(135deg, var(--teal), var(--blue));
+}
+:root[data-theme="dark"] .navbar__drop-section--border {
+  border-top-color: rgba(var(--surface-rgb), .08);
+}
+:root[data-theme="dark"] .navbar__drop-item { color: var(--text-secondary); }
+:root[data-theme="dark"] .navbar__drop-item svg { color: var(--text-muted); }
+:root[data-theme="dark"] .navbar__drop-item:hover {
+  background: rgba(var(--surface-rgb), .07);
+  color: var(--text-primary);
+}
+:root[data-theme="dark"] .navbar__drop-item--admin {
+  color: #34a866;
+  background: rgba(52, 168, 102, .1);
+  border-color: rgba(52, 168, 102, .2);
+}
+:root[data-theme="dark"] .navbar__drop-item--admin svg { color: #34a866; }
+:root[data-theme="dark"] .navbar__drop-item--admin:hover {
+  background: rgba(52, 168, 102, .16);
+}
+:root[data-theme="dark"] .navbar__drop-item--danger { color: #fca5a5; }
+:root[data-theme="dark"] .navbar__drop-item--danger svg { color: #fca5a5; }
+:root[data-theme="dark"] .navbar__drop-item--danger:hover { background: rgba(220,38,38,.12); }
+
+@media (max-width: 768px) {
+  .navbar__inner { gap: 12px; }
+  .navbar__actions { gap: 8px; }
+  .navbar__link {
+    gap: 0;
+    padding: 8px;
+    font-size: 0;
+  }
+  .navbar__user-name { display: none; }
+}
 
 /* ============================================================
    AUTH PAGES (shared layout)

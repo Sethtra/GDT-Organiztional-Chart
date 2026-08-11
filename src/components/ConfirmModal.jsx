@@ -1,10 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 
-export default function ConfirmModal({ title, message, confirmLabel = "Confirm", onConfirm, onCancel, danger = false }) {
+export default function ConfirmModal({
+  title,
+  message,
+  confirmLabel = "Confirm",
+  onConfirm,
+  onCancel,
+  danger = false,
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const isConfirmed = !danger || confirmText === "CONFIRM";
+
   // Close on Escape
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onCancel(); };
+    const handler = (event) => {
+      if (event.key === "Escape") onCancel();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onCancel]);
@@ -17,14 +29,36 @@ export default function ConfirmModal({ title, message, confirmLabel = "Confirm",
         </div>
         <h3 className="modal-title">{title}</h3>
         <p className="modal-message">{message}</p>
+
+        {danger && (
+          <div className="modal-confirm-wrap">
+            <label className="modal-confirm-label">
+              Type <code>CONFIRM</code> to proceed
+            </label>
+            <input
+              type="text"
+              className="modal-confirm-input"
+              placeholder="Type CONFIRM here"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoFocus
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        )}
+
         <div className="modal-actions">
-          <button className="pp-btn pp-btn--ghost" onClick={onCancel}>Cancel</button>
+          <button className="pp-btn pp-btn--ghost" onClick={onCancel}>
+            Cancel
+          </button>
           <button
             className={`pp-btn ${danger ? "pp-btn--delete" : "pp-btn--confirm-add"}`}
             onClick={onConfirm}
-            autoFocus
+            disabled={!isConfirmed}
+            autoFocus={!danger}
           >
-            {confirmLabel}
+            {confirmLabel || (danger ? "Delete" : "Confirm")}
           </button>
         </div>
       </div>

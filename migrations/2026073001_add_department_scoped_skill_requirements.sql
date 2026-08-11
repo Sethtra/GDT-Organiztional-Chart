@@ -19,6 +19,9 @@ ALTER TABLE public.job_title_skill_requirements
 
 -- A (job_title, skill) pair may now have one organization-wide default
 -- (org_unit_id IS NULL) plus at most one row per department.
+ALTER TABLE public.job_title_skill_requirements
+  DROP CONSTRAINT IF EXISTS
+    job_title_skill_requirements_job_title_id_skill_id_key;
 DROP INDEX IF EXISTS public.job_title_skill_requirements_job_title_id_skill_id_key;
 CREATE UNIQUE INDEX IF NOT EXISTS
   job_title_skill_requirements_scope_uidx

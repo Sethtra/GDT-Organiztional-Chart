@@ -28,8 +28,8 @@ export default function AdminHeader({
   const searchId = useId();
 
   return (
-    <header className="shrink-0 z-30 flex h-[72px] items-center border-b border-[var(--pa-border)] bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[1540px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-10 min-w-0">
+    <header className="shrink-0 z-30 flex h-[74px] items-center border-b border-[var(--pa-border)] bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-[46px] min-w-0">
         <button
           type="button"
           onClick={onOpenMobileNav}

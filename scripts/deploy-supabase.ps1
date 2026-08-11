@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [switch]$Apply,
+  [switch]$PromotionReadinessOnly,
   [string]$DatabaseUrl = $env:GDT_DATABASE_URL,
   [string]$HrAdminEmail = $env:GDT_HR_ADMIN_EMAIL,
   [string]$StaffImportFile
@@ -60,13 +61,24 @@ if (-not (Test-Path -LiteralPath $supabaseCli)) {
   throw 'The local Supabase CLI is missing. Run npm install before database rollout.'
 }
 
-if ($Apply -and [string]::IsNullOrWhiteSpace($HrAdminEmail)) {
+if (
+  $Apply -and
+  -not $PromotionReadinessOnly -and
+  [string]::IsNullOrWhiteSpace($HrAdminEmail)
+) {
   throw @'
 GDT_HR_ADMIN_EMAIL is not configured.
 
 The real rollout requires the verified email address for the first HR
 administrator. Pass it with -HrAdminEmail or set it for the current terminal.
 '@
+}
+
+if (
+  $PromotionReadinessOnly -and
+  -not [string]::IsNullOrWhiteSpace($StaffImportFile)
+) {
+  throw 'A staff import cannot be combined with a promotion-only rollout.'
 }
 
 if (-not [string]::IsNullOrWhiteSpace($HrAdminEmail)) {
@@ -145,6 +157,9 @@ if (
     if ($Apply) {
       $directArguments += '--apply'
     }
+    if ($PromotionReadinessOnly) {
+      $directArguments += '--promotion-readiness-only'
+    }
     if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
       $directArguments += @('--staff-import-file', $StaffImportFile)
     }
@@ -172,9 +187,15 @@ if (
 
   Write-Host ''
   if ($Apply) {
-    Write-Host 'Database migrations applied successfully.'
-    Write-Host 'The verified first HR administrator was assigned.'
-    Write-Host 'The role is stored in Table Editor > public > user_roles.'
+    if ($PromotionReadinessOnly) {
+      Write-Host 'Promotion-readiness migrations applied successfully.'
+      Write-Host 'No chart, node, edge, position, or assignment data was changed.'
+    }
+    else {
+      Write-Host 'Database migrations applied successfully.'
+      Write-Host 'The verified first HR administrator was assigned.'
+      Write-Host 'The role is stored in Table Editor > public > user_roles.'
+    }
     if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
       Write-Host 'The validated staff workbook was imported successfully.'
     }
@@ -295,7 +316,30 @@ $migrationSources = @(
     Source = Join-Path $projectRoot 'migrations\2026080401_add_staff_photo.sql'
     Target = '20260727000020_add_staff_photo.sql'
   }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026073001_add_department_scoped_skill_requirements.sql'
+    Target = '20260727000021_add_department_scoped_skill_requirements.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026081101_add_promotion_readiness.sql'
+    Target = '20260727000022_add_promotion_readiness.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026081102_remove_legacy_skill_rpc_overloads.sql'
+    Target = '20260727000023_remove_legacy_skill_rpc_overloads.sql'
+  }
 )
+
+if ($PromotionReadinessOnly) {
+  $promotionTargets = @(
+    '20260727000021_add_department_scoped_skill_requirements.sql',
+    '20260727000022_add_promotion_readiness.sql',
+    '20260727000023_remove_legacy_skill_rpc_overloads.sql'
+  )
+  $migrationSources = @(
+    $migrationSources | Where-Object { $_.Target -in $promotionTargets }
+  )
+}
 
 foreach ($migration in $migrationSources) {
   if (-not (Test-Path -LiteralPath $migration.Source)) {
@@ -307,7 +351,10 @@ foreach ($migration in $migrationSources) {
     -Destination (Join-Path $stagedMigrationsDirectory $migration.Target)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($HrAdminEmail)) {
+if (
+  -not $PromotionReadinessOnly -and
+  -not [string]::IsNullOrWhiteSpace($HrAdminEmail)
+) {
   $escapedHrAdminEmail = $HrAdminEmail.Replace("'", "''")
   $provisioningSql = @'
 BEGIN;
@@ -394,7 +441,12 @@ Invoke-Supabase -Operation 'migration dry run' -Arguments @(
 if (-not $Apply) {
   Write-Host ''
   Write-Host 'Backup and migration dry run completed. No database changes were made.'
-  Write-Host 'Run npm run db:rollout to apply the verified migration set.'
+  if ($PromotionReadinessOnly) {
+    Write-Host 'Run npm run db:promotion:rollout to apply only the verified promotion migrations.'
+  }
+  else {
+    Write-Host 'Run npm run db:rollout to apply the verified migration set.'
+  }
   exit 0
 }
 
@@ -409,7 +461,15 @@ Invoke-Supabase -Operation 'migration push' -Arguments @(
 )
 
 Write-Host ''
-Write-Host 'Database migrations applied successfully.'
+if ($PromotionReadinessOnly) {
+  Write-Host 'Promotion-readiness migrations applied successfully.'
+  Write-Host 'No chart, node, edge, position, or assignment data was changed.'
+}
+else {
+  Write-Host 'Database migrations applied successfully.'
+}
 Write-Host "Keep the recovery backup at: $backupDirectory"
-Write-Host 'The verified first HR administrator was assigned during this rollout.'
-Write-Host 'The role is stored in Table Editor > public > user_roles.'
+if (-not $PromotionReadinessOnly) {
+  Write-Host 'The verified first HR administrator was assigned during this rollout.'
+  Write-Host 'The role is stored in Table Editor > public > user_roles.'
+}

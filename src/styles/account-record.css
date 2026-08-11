@@ -47,39 +47,14 @@
      visible in light mode. The band does not repaint between themes, so
      neither does the rule drawn on it. */
   --acct-seal-gold: #d4af37;
-
-  /* Repaint the shared app chrome for this route only. The navbar reads the
-     older navy system's semantic tokens; remapping them here (rather than
-     overriding each .navbar rule) makes the header belong to the same green
-     and white world as the sheet under it, and touches no other page. */
-  --surface-rgb: 238, 242, 239;
-  --bg-app: var(--nx-ground);
-  --bg-surface: var(--nx-paper);
-  --bg-surface-translucent: color-mix(in srgb, var(--nx-paper) 88%, transparent);
-  --text-primary: var(--nx-ink);
-  --text-secondary: var(--nx-ink-3);
-  --border-subtle: var(--nx-rule-hair);
-  --border-strong: var(--nx-rule);
-}
-
-:root[data-theme="light"] .acct-page {
   --acct-ok-tint:     #e8f0ea;
   --acct-ok-border:   #5c8a6c;
   --acct-bad-tint:    #fdecea;
-  --acct-bad-ink:     #9b1f19;  /* --nx-danger itself lands at 4.38:1 on this tint */
+  --acct-bad-ink:     #9b1f19;
   --acct-bad-border:  #c26b60;
   --acct-edge:        #788c7e;
   --acct-ring:        rgba(19, 98, 50, .28);
-  --surface-rgb: 22, 33, 27;
 }
-
-.acct-page .navbar {
-  border-bottom: 1px solid var(--nx-rule-hair);
-  box-shadow: var(--nx-header-shadow);
-}
-.acct-page .navbar__drop-item--danger { color: var(--nx-danger); }
-.acct-page .navbar__drop-item--danger:hover { background: var(--acct-bad-tint); }
-.acct-page .navbar__avatar-initials { color: #ffffff; }
 
 .acct-shell {
   max-width: 880px;
@@ -221,12 +196,13 @@
   color: var(--nx-ink);
 }
 .acct-register__en {
-  margin: 1px 0 0;
-  font-size: 9.5px;
+  margin: 0;
+  font-family: var(--nx-font);
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: .09em;
+  letter-spacing: .04em;
   text-transform: uppercase;
-  color: var(--nx-ink-3);
+  color: var(--nx-ink);
 }
 .acct-register--danger .acct-register__icon { color: var(--nx-danger); }
 
@@ -368,6 +344,7 @@
   background: var(--nx-band-default);
   box-shadow: 0 0 0 1px var(--nx-rule-hair), 0 0 0 4px var(--nx-paper),
               0 0 0 5px var(--nx-rule-hair);
+  cursor: pointer;
 }
 .acct-photo__mount img {
   width: 100%;
@@ -388,8 +365,62 @@
   background: rgba(13, 21, 18, .62);
   color: #ffffff;
 }
-.acct-photo__controls { padding-top: 4px; }
-.acct-photo__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Pencil edit overlay — covers the full photo, hidden until hover */
+.acct-photo__edit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(13, 21, 18, .55);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 200ms var(--nx-ease);
+}
+.acct-photo__mount:hover .acct-photo__edit {
+  opacity: 1;
+}
+.acct-photo__edit:hover {
+  background: rgba(13, 21, 18, .7);
+}
+.acct-photo__edit:focus-visible {
+  opacity: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--acct-ring);
+}
+
+/* Small remove ✕ button — top-right of the mount, also hover-only */
+.acct-photo__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: rgba(220, 38, 38, .85);
+  color: #ffffff;
+  border: 2px solid var(--nx-paper);
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 200ms var(--nx-ease), background 150ms var(--nx-ease);
+  z-index: 1;
+}
+.acct-photo__mount:hover .acct-photo__remove {
+  opacity: 1;
+}
+.acct-photo__remove:hover {
+  background: rgba(220, 38, 38, 1);
+}
+.acct-photo__remove:focus-visible {
+  opacity: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .3);
+}
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .acct-btn {

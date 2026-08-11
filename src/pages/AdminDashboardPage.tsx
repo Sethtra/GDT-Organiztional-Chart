@@ -1,14 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowUpRight,
+  Award,
   BriefcaseBusiness,
   CalendarDays,
   ChevronRight,
-  CircleAlert,
   Clock3,
-  FileText,
   Plus,
   Search,
   UserRoundCheck,
@@ -18,9 +17,11 @@ import {
 import { Link } from "react-router-dom";
 
 import { cn } from "../lib/utils";
+import type { PromotionReadiness } from "../contracts/hr";
 import AdminFooter from "../components/admin/AdminFooter";
 import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
+import { listPromotionReadiness } from "../services/promotionReadinessService";
 import "./AdminDashboardTestPage.css";
 
 type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
@@ -93,36 +94,6 @@ const TREND_SERIES: Record<
     change: "+230 officers",
   },
 };
-
-const APPROVALS: Array<{
-  title: string;
-  description: string;
-  count: number;
-  tone: BadgeTone;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "Position assignments",
-    description: "New placements awaiting validation",
-    count: 8,
-    tone: "warning",
-    icon: UserRoundCheck,
-  },
-  {
-    title: "Transfer requests",
-    description: "Inter-department movement",
-    count: 6,
-    tone: "info",
-    icon: ArrowUpRight,
-  },
-  {
-    title: "Profile updates",
-    description: "Officer records ready to publish",
-    count: 4,
-    tone: "neutral",
-    icon: FileText,
-  },
-];
 
 const DEPARTMENTS: Array<{
   name: string;
@@ -287,10 +258,53 @@ function PanelHeader({
   );
 }
 
+function getPromotionStatusLabel(
+  loading: boolean,
+  hasError: boolean,
+  candidateCount: number,
+): string {
+  if (loading) return "Checking promotions";
+  if (hasError) return "Promotion data unavailable";
+  return `${candidateCount} ready`;
+}
+
 export default function AdminDashboardPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("30d");
   const [query, setQuery] = useState("");
+  const [promotionCandidates, setPromotionCandidates] = useState<
+    PromotionReadiness[]
+  >([]);
+  const [promotionLoading, setPromotionLoading] = useState(true);
+  const [promotionError, setPromotionError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listPromotionReadiness()
+      .then((readiness) => {
+        if (!cancelled) {
+          setPromotionCandidates(
+            readiness.filter((candidate) => candidate.status === "ready"),
+          );
+          setPromotionError(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPromotionError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setPromotionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const promotionStatusLabel = getPromotionStatusLabel(
+    promotionLoading,
+    promotionError,
+    promotionCandidates.length,
+  );
 
   const trend = TREND_SERIES[trendPeriod];
   const chart = useMemo(() => {
@@ -434,7 +448,10 @@ export default function AdminDashboardPage() {
           </section>
 
           <div className="mb-4 grid gap-4 xl:grid-cols-12">
-            <section className="overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)] xl:col-span-8">
+            <section
+              id="workforce-trend"
+              className="overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)] xl:col-span-8"
+            >
               <PanelHeader
                 eyebrow="Workforce movement"
                 title="Headcount trend"
@@ -577,56 +594,141 @@ export default function AdminDashboardPage() {
 
             <section
               id="approvals"
-              className="scroll-mt-20 overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)] xl:col-span-4"
+              className={cn(
+                "scroll-mt-20 flex flex-col overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)] xl:col-span-4",
+                promotionCandidates.length > 3
+                  ? "xl:self-stretch"
+                  : "xl:self-start",
+              )}
             >
               <PanelHeader
                 eyebrow="Decision queue"
-                title="Approvals requiring action"
-                description="Prioritized by service impact"
-                action={<StatusBadge tone="warning">18 pending</StatusBadge>}
+                title="Promotion candidates"
+                description="Verified for the officer's next position level"
+                action={
+                  <StatusBadge tone={promotionError ? "danger" : "success"}>
+                    {promotionStatusLabel}
+                  </StatusBadge>
+                }
               />
-              <div className="divide-y divide-[var(--pa-border)] px-5 sm:px-6">
-                {APPROVALS.map((approval) => {
-                  const Icon = approval.icon;
-                  return (
-                    <Link
-                      key={approval.title}
-                      to="/admin/staff"
-                      className="pa-focus-ring group flex items-center gap-3 py-4 text-inherit no-underline"
+              <div
+                aria-live="polite"
+                className="flex flex-1 flex-col bg-white"
+              >
+                {promotionLoading ? (
+                  <p
+                    role="status"
+                    className="px-5 py-5 text-[10.5px] font-semibold text-[var(--pa-muted)] sm:px-6"
+                  >
+                    Checking officer skills and title requirements…
+                  </p>
+                ) : promotionError ? (
+                  <p
+                    role="alert"
+                    className="px-5 py-5 text-[10.5px] font-semibold text-[var(--pa-danger)] sm:px-6"
+                  >
+                    Promotion readiness could not be loaded.
+                  </p>
+                ) : promotionCandidates.length === 0 ? (
+                  <div className="flex items-start gap-3 px-5 py-5 sm:px-6">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--pa-surface-muted)] text-[var(--pa-muted)]">
+                      <Award size={17} strokeWidth={1.9} aria-hidden="true" />
+                    </div>
+                    <div>
+                      <div className="text-[11.5px] font-extrabold text-[var(--pa-text)]">
+                        No candidates are ready
+                      </div>
+                      <p className="mt-1 text-[10px] font-medium leading-4 text-[var(--pa-muted)]">
+                        No officer currently meets every skill required for the next title.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-1 flex-col">
+                    <div className="flex items-center gap-2 border-b border-[var(--pa-border)] bg-[var(--pa-primary-soft)] px-5 py-2.5 text-[10px] font-bold text-[var(--pa-primary)] sm:px-6">
+                      <Award size={14} strokeWidth={2} aria-hidden="true" />
+                      All required skills verified
+                    </div>
+                    <ul
+                      className={cn(
+                        "divide-y divide-[var(--pa-border)]",
+                        promotionCandidates.length > 3 &&
+                          "xl:grid xl:flex-1 xl:grid-rows-3",
+                      )}
                     >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--pa-surface-muted)] text-[var(--pa-muted)] transition-colors group-hover:bg-[var(--pa-primary-soft)] group-hover:text-[var(--pa-primary)]">
-                        <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
+                      {promotionCandidates.slice(0, 3).map((candidate) => (
+                        <li key={candidate.staffId}>
+                          <Link
+                            to={`/admin/staff?profile=${encodeURIComponent(candidate.staffId)}`}
+                            className="pa-focus-ring group flex h-full min-w-0 items-center gap-3 px-5 py-4 text-inherit no-underline transition-colors hover:bg-[var(--pa-canvas)] sm:px-6"
+                            aria-label={`Open profile for ${candidate.name}, ready to promote to ${candidate.targetJobTitle?.name ?? "the next title"}`}
+                          >
+                            {candidate.photoUrl ? (
+                              <img
+                                src={candidate.photoUrl}
+                                alt=""
+                                className="size-10 shrink-0 rounded-[10px] object-cover"
+                              />
+                            ) : (
+                              <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-[var(--pa-primary)] text-[12px] font-extrabold text-white">
+                                {(candidate.nameEn || candidate.name)
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </span>
+                            )}
+                            <span className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(108px,1fr))] items-start gap-x-3 gap-y-2">
+                              <span className="min-w-0">
+                                <span className="block truncate text-[11.5px] font-extrabold text-[var(--pa-text)]">
+                                  {candidate.name}
+                                </span>
+                                {candidate.departmentName && (
+                                  <span className="mt-0.5 block truncate text-[9.5px] font-medium text-[var(--pa-faint)]">
+                                    {candidate.departmentName}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="flex min-w-0 items-center gap-1.5 text-[9.5px] font-bold">
+                                  <span className="truncate text-[var(--pa-muted)]">
+                                    {candidate.currentJobTitle?.name}
+                                  </span>
+                                  <ChevronRight
+                                    size={12}
+                                    className="shrink-0 text-[var(--pa-faint)]"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="truncate text-[var(--pa-primary)]">
+                                    {candidate.targetJobTitle?.name}
+                                  </span>
+                                </span>
+                                <span className="mt-1 block text-[9px] font-semibold text-[var(--pa-muted)]">
+                                  {candidate.metSkillCount}/
+                                  {candidate.requiredSkillCount} required skills
+                                  met
+                                </span>
+                              </span>
+                            </span>
+                            <ChevronRight
+                              size={15}
+                              className="shrink-0 text-[var(--pa-faint)] transition-transform group-hover:translate-x-0.5"
+                              aria-hidden="true"
+                            />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    {promotionCandidates.length > 3 && (
+                      <div className="border-t border-[var(--pa-border)] px-5 py-3 sm:px-6">
+                        <Link
+                          to="/admin/staff?promotion=ready"
+                          className="pa-focus-ring inline-flex rounded-md text-[10px] font-extrabold text-[var(--pa-primary)] no-underline"
+                        >
+                          View all {promotionCandidates.length} officers
+                        </Link>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[12px] font-extrabold text-[var(--pa-text)]">
-                          {approval.title}
-                        </div>
-                        <div className="mt-1 truncate text-[10px] font-medium text-[var(--pa-muted)]">
-                          {approval.description}
-                        </div>
-                      </div>
-                      <StatusBadge tone={approval.tone} dot={false}>
-                        {approval.count}
-                      </StatusBadge>
-                      <ChevronRight
-                        size={15}
-                        className="shrink-0 text-[var(--pa-faint)] transition-transform group-hover:translate-x-0.5"
-                        aria-hidden="true"
-                      />
-                    </Link>
-                  );
-                })}
-              </div>
-              <div className="mx-5 mb-5 mt-1 flex gap-3 rounded-[10px] border border-[var(--pa-gold-border)] bg-[var(--pa-gold-soft)] p-3.5 sm:mx-6">
-                <CircleAlert
-                  size={16}
-                  className="mt-0.5 shrink-0 text-[#735413]"
-                  aria-hidden="true"
-                />
-                <p className="text-[10.5px] font-semibold leading-[1.55] text-[#624a19]">
-                  Five assignments affect priority service teams and are due
-                  before 16:00 today.
-                </p>
+                    )}
+                  </div>
+                )}
               </div>
             </section>
           </div>

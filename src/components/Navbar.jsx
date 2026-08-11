@@ -1,27 +1,21 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { useTheme } from "../contexts/ThemeContext";
 import { useHrAdmin } from "../hooks/useHrAdmin";
 import {
-  Building2,
-  BriefcaseBusiness,
-  LayoutDashboard,
+  ChevronDown,
+  ChevronRight,
+  LayoutGrid,
   LogIn,
   UserPlus,
   LogOut,
-  User,
-  ChevronDown,
-  Sun,
-  Moon,
   Search,
-  UsersRound,
-  BarChart3,
+  Settings2,
+  ShieldCheck,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export default function Navbar({ search, setSearch }) {
   const { user, displayName, avatarUrl, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { isHrAdmin } = useHrAdmin();
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,13 +40,13 @@ export default function Navbar({ search, setSearch }) {
 
   return (
     <nav className="navbar">
-      <div className="navbar__inner">
+      <div className="navbar__inner gdt-shell-header__inner">
         {/* Brand */}
         <Link to="/" className="navbar__brand">
           <img
             src="/GDT-Logo (Light).png"
             alt="GDT - General Department of Taxation"
-            style={{ height: 36, objectFit: "contain" }}
+            className="gdt-shell-header__logo"
           />
         </Link>
 
@@ -72,20 +66,13 @@ export default function Navbar({ search, setSearch }) {
 
         {/* Right side */}
         <div className="navbar__actions">
-          <button
-            className="navbar__theme-toggle"
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
           {user ? (
             <>
               <Link
                 to="/dashboard"
                 className={`navbar__link ${isActive("/dashboard") ? "navbar__link--active" : ""}`}
               >
-                <LayoutDashboard size={15} /> Dashboard
+                <LayoutGrid size={15} /> Dashboard
               </Link>
 
               {/* User dropdown */}
@@ -118,53 +105,67 @@ export default function Navbar({ search, setSearch }) {
 
                 {dropdownOpen && (
                   <div className="navbar__dropdown">
-                    <Link
-                      to="/profile"
-                      className="navbar__drop-item"
-                      onClick={() => setDropdownOpen(false)}
-                    >
-                      <User size={14} /> Profile Settings
-                    </Link>
-                    {isHrAdmin && (
-                      <>
-                        <div className="navbar__drop-divider" />
+                    {/* User info header */}
+                    <div className="navbar__drop-header">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt=""
+                          className="navbar__drop-header-avatar"
+                        />
+                      ) : (
+                        <div className="navbar__drop-header-initials">
+                          {displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="navbar__drop-header-info">
+                        <strong className="navbar__drop-header-name">
+                          {displayName}
+                        </strong>
+                        <span className="navbar__drop-header-email">
+                          {user?.email || "Signed-in account"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Menu items */}
+                    <div className="navbar__drop-section">
+                      <Link
+                        to="/dashboard"
+                        className="navbar__drop-item"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <LayoutGrid size={16} /> My charts
+                      </Link>
+                      <Link
+                        to="/profile"
+                        className="navbar__drop-item"
+                        onClick={() => setDropdownOpen(false)}
+                      >
+                        <Settings2 size={16} /> Profile settings
+                      </Link>
+                      {isHrAdmin && (
                         <Link
                           to="/admin"
-                          className="navbar__drop-item"
+                          className="navbar__drop-item navbar__drop-item--admin"
                           onClick={() => setDropdownOpen(false)}
                         >
-                          <BarChart3 size={14} /> Admin Portal
+                          <ShieldCheck size={16} />
+                          Admin portal
+                          <ChevronRight size={14} className="navbar__drop-item-chevron" />
                         </Link>
-                        <Link
-                          to="/admin/staff"
-                          className="navbar__drop-item"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          <UsersRound size={14} /> Staff Directory
-                        </Link>
-                        <Link
-                          to="/admin/org-structure"
-                          className="navbar__drop-item"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          <Building2 size={14} /> Organization Setup
-                        </Link>
-                        <Link
-                          to="/admin/job-architecture"
-                          className="navbar__drop-item"
-                          onClick={() => setDropdownOpen(false)}
-                        >
-                          <BriefcaseBusiness size={14} /> Job Architecture
-                        </Link>
-                      </>
-                    )}
-                    <div className="navbar__drop-divider" />
-                    <button
-                      className="navbar__drop-item navbar__drop-item--danger"
-                      onClick={handleSignOut}
-                    >
-                      <LogOut size={14} /> Sign Out
-                    </button>
+                      )}
+                    </div>
+
+                    {/* Sign out */}
+                    <div className="navbar__drop-section navbar__drop-section--border">
+                      <button
+                        className="navbar__drop-item navbar__drop-item--danger"
+                        onClick={handleSignOut}
+                      >
+                        <LogOut size={16} /> Sign out
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

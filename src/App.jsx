@@ -131,6 +131,8 @@ function AppLayout() {
             }
           />
           <Route path="/test-chart-editor" element={<ChartEditorTestPage />} />
+          <Route path="/test-admin" element={<AdminDashboardPage />} />
+          <Route path="/test-staff" element={<StaffDirectoryPage />} />
 
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />

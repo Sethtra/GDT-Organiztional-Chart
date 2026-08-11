@@ -7,7 +7,39 @@ vi.mock("../src/hooks/useAuth", () => ({
   useAuth: () => ({ user: null, session: null, loading: false }),
 }));
 
+vi.mock("../src/services/promotionReadinessService", () => ({
+  listPromotionReadiness: vi.fn(async () => [
+    {
+      staffId: "00000000-0000-4000-8000-000000000001",
+      employeeId: "GDT-001",
+      name: "Sok Dara",
+      nameEn: "Dara Sok",
+      photoUrl: null,
+      departmentName: "Finance and Personnel",
+      officeName: "Personnel Office",
+      currentJobTitle: {
+        id: "00000000-0000-4000-8000-000000000014",
+        name: "មន្ត្រី",
+        nameEn: "Officer",
+        rankOrder: 50,
+        positionScope: "individual",
+      },
+      targetJobTitle: {
+        id: "00000000-0000-4000-8000-000000000013",
+        name: "អនុប្រធានការិយាល័យ",
+        nameEn: "Deputy Office Chief",
+        rankOrder: 40,
+        positionScope: "office",
+      },
+      requiredSkillCount: 3,
+      metSkillCount: 3,
+      status: "ready",
+    },
+  ]),
+}));
+
 import AdminDashboardPage from "../src/pages/AdminDashboardPage";
+import { listPromotionReadiness } from "../src/services/promotionReadinessService";
 
 describe("AdminDashboardPage", () => {
   it("renders the admin dashboard with semantic navigation and metrics", () => {
@@ -32,6 +64,48 @@ describe("AdminDashboardPage", () => {
     expect(
       screen.getByText("Illustrative — not yet wired to live data"),
     ).toBeInTheDocument();
+  });
+
+  it("shows one-level promotion candidates in the decision queue", async () => {
+    render(
+      <MemoryRouter>
+        <AdminDashboardPage />
+      </MemoryRouter>,
+    );
+
+    const candidateLink = await screen.findByRole("link", {
+      name: /Open profile for Sok Dara/,
+    });
+    expect(candidateLink).toHaveAttribute(
+      "href",
+      "/admin/staff?profile=00000000-0000-4000-8000-000000000001",
+    );
+    expect(candidateLink).toHaveTextContent("មន្ត្រី");
+    expect(candidateLink).toHaveTextContent("អនុប្រធានការិយាល័យ");
+    expect(candidateLink).toHaveTextContent("3/3 required skills met");
+    expect(screen.getByText("1 ready")).toBeInTheDocument();
+    expect(screen.queryByText("Position assignments")).not.toBeInTheDocument();
+    expect(screen.queryByText("Transfer requests")).not.toBeInTheDocument();
+    expect(screen.queryByText("Profile updates")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Five assignments affect priority service teams/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not present a failed readiness request as zero candidates", async () => {
+    vi.mocked(listPromotionReadiness).mockRejectedValueOnce(
+      new Error("RPC unavailable"),
+    );
+    render(
+      <MemoryRouter>
+        <AdminDashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("Promotion data unavailable"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("0 promotion ready")).not.toBeInTheDocument();
   });
 
   it("switches trend periods and filters recent activity", async () => {

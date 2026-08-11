@@ -74,6 +74,16 @@ Test at least one backup with **Restore JSON** in staging.
 10. `migrations/2026072708_add_profile_and_skill_api.sql`
 11. `migrations/2026072709_add_job_architecture_api.sql`
 12. `migrations/2026072710_add_position_configuration_api.sql`
+13. `migrations/2026072911_cleanup_legacy_dummy_staff.sql`
+14. `migrations/2026072912_refine_staff_profile_and_positions.sql`
+15. `migrations/2026072913_add_staff_placements.sql`
+16. `migrations/2026072914_normalize_assignment_dates.sql`
+17. `migrations/2026072915_add_staff_placement_save_api.sql`
+18. `migrations/2026072916_refine_assignment_candidates.sql`
+19. `migrations/2026080401_add_staff_photo.sql`
+20. `migrations/2026073001_add_department_scoped_skill_requirements.sql`
+21. `migrations/2026081101_add_promotion_readiness.sql`
+22. `migrations/2026081102_remove_legacy_skill_rpc_overloads.sql`
 
 Stop on the first error. Do not continue with later migrations until the staging
 database has been restored to the known backup or the failure has been
@@ -175,6 +185,19 @@ npm.cmd run db:rollout
 Remove-Item Env:GDT_DATABASE_URL
 Remove-Item Env:GDT_HR_ADMIN_EMAIL
 ```
+
+For the isolated Ready to Promote release, use the targeted commands instead:
+
+```powershell
+npm.cmd run db:promotion:check
+npm.cmd run db:promotion:rollout
+```
+
+The targeted rollout still creates and verifies a full pre-rollout backup, but
+executes only the department-scoped skill requirement migration, the
+promotion-readiness RPC migration, and the stale-overload cleanup. It does not
+execute legacy data cleanup or write to charts, nodes, edges, positions,
+assignments, or staff records.
 
 `db:rollout` takes a new pre-rollout backup before it applies anything. Keep the
 reported backup directory outside the application project as an additional

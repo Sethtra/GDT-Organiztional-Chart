@@ -7,13 +7,11 @@ import {
   Keyboard,
   LayoutGrid,
   Loader2,
-  Moon,
   Plus,
   Redo2,
   Save,
   Search as SearchIcon,
   Share2,
-  Sun,
   Undo2,
   Upload,
 } from 'lucide-react';
@@ -48,8 +46,6 @@ export default function EditorHeader({
   onDownloadBackup,
   onRestoreBackup,
   onPreviewMode,
-  toggleTheme,
-  theme,
   onSave,
   saveStatus,
   navigate,
@@ -206,24 +202,6 @@ export default function EditorHeader({
           title="Enter Preview Mode"
         >
           <Eye size={14} aria-hidden="true" /> Preview
-        </button>
-
-        {/* Theme toggle */}
-        <button
-          className="tb-btn tb-btn--icon"
-          onClick={toggleTheme}
-          title={
-            theme === 'dark'
-              ? 'Switch to light theme'
-              : 'Switch to dark theme'
-          }
-          aria-label={
-            theme === 'dark'
-              ? 'Switch to light theme'
-              : 'Switch to dark theme'
-          }
-        >
-          {theme === 'dark' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
         </button>
 
         {/* Save button */}

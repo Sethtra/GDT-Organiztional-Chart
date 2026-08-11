@@ -22,20 +22,18 @@ const TRANSLUCENT = /\b(?:rgba|hsla)\s*\(|\/\s*0?\.\d+\s*\)|#[0-9a-f]{4}(?![0-9a
 test('the connector ink token is opaque in every theme', async () => {
   const css = await readEditorCss();
 
-  const declarations = [...css.matchAll(/--nx-edge:\s*([^;]+);/g)].map((m) =>
-    m[1].trim(),
-  );
-
-  assert.ok(
-    declarations.length >= 2,
-    'expected --nx-edge to be defined for both the light and dark themes',
-  );
-
-  for (const value of declarations) {
+  for (const theme of ['light', 'dark']) {
+    const themeBlock = css.match(
+      new RegExp(
+        `([^{}]*:root\\[data-theme=["']${theme}["']\\][^{}]*)\\{([^{}]*--nx-edge:\\s*([^;]+);[^{}]*)\\}`,
+      ),
+    );
+    assert.ok(themeBlock, `expected --nx-edge to cover the ${theme} theme`);
+    const value = themeBlock[3].trim();
     assert.doesNotMatch(
       value,
       TRANSLUCENT,
-      `--nx-edge must be fully opaque or stacked connectors accumulate; got "${value}"`,
+      `--nx-edge must be fully opaque in the ${theme} theme; got "${value}"`,
     );
   }
 });

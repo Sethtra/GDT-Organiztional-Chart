@@ -47,8 +47,12 @@ export async function setJobTitleRequirement(input: {
   skillId: string;
   minimumProficiency: ProficiencyLevel;
   isRequired?: boolean;
+  orgUnitId?: string | null;
 }): Promise<void> {
   const minimum = ProficiencyLevelSchema.parse(input.minimumProficiency);
+  const orgUnitId = input.orgUnitId
+    ? UuidSchema.parse(input.orgUnitId)
+    : null;
   const { error } = await supabase.rpc(
     "set_job_title_skill_requirement",
     {
@@ -56,6 +60,7 @@ export async function setJobTitleRequirement(input: {
       target_skill_id: input.skillId,
       minimum_proficiency_value: minimum,
       is_required_value: input.isRequired ?? true,
+      target_org_unit_id: orgUnitId,
     },
   );
   if (error) throw error;
@@ -64,10 +69,13 @@ export async function setJobTitleRequirement(input: {
 export async function evaluateStaffJobFit(
   staffId: string,
   jobTitleId: string,
+  orgUnitId: string | null = null,
 ): Promise<StaffJobFit> {
+  const validatedOrgUnitId = orgUnitId ? UuidSchema.parse(orgUnitId) : null;
   const { data, error } = await supabase.rpc("evaluate_staff_job_fit", {
     target_staff_id: staffId,
     target_job_title_id: jobTitleId,
+    target_org_unit_id: validatedOrgUnitId,
   });
   if (error) throw error;
   return StaffJobFitSchema.parse(data);

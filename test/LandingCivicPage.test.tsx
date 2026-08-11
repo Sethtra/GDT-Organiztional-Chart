@@ -124,11 +124,9 @@ describe("LandingCivicPage", () => {
     expect(profileTrigger).toHaveFocus();
   });
 
-  it("switches the isolated preview theme and keeps one logo across both", async () => {
+  it("honors the stored preview theme without exposing a theme control", () => {
     window.localStorage.setItem("gdt_landing_theme", "dark");
-    const user = userEvent.setup();
-
-    renderLanding();
+    const view = renderLanding();
 
     const page = document.querySelector(".landing-civic-page");
     const brand = screen.getByRole("link", { name: "GDT organizational chart home" });
@@ -140,11 +138,22 @@ describe("LandingCivicPage", () => {
     // would 404 if the component had actually kept rendering it.
     expect(page).toHaveAttribute("data-landing-theme", "dark");
     expect(logo).toHaveAttribute("src", "/GDT-Logo (Light).png");
+    expect(
+      screen.queryByRole("button", { name: /Switch to .* appearance/ }),
+    ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Switch to light appearance" }));
-    expect(page).toHaveAttribute("data-landing-theme", "light");
-    expect(logo).toHaveAttribute("src", "/GDT-Logo (Light).png");
-    expect(window.localStorage.getItem("gdt_landing_theme")).toBe("light");
+    view.unmount();
+    window.localStorage.setItem("gdt_landing_theme", "light");
+    renderLanding();
+    expect(document.querySelector(".landing-civic-page")).toHaveAttribute(
+      "data-landing-theme",
+      "light",
+    );
+    expect(
+      within(
+        screen.getByRole("link", { name: "GDT organizational chart home" }),
+      ).getByRole("img"),
+    ).toHaveAttribute("src", "/GDT-Logo (Light).png");
   });
 
   it("shows a recoverable error when logout fails", async () => {

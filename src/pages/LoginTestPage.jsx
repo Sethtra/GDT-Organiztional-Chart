@@ -10,19 +10,15 @@ import {
   KeyRound,
   LockKeyhole,
   Mail,
-  Moon,
   ShieldCheck,
   Sparkles,
-  Sun,
   UserRoundCheck,
 } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 
 const DEMO_EMAIL = 'demo@gdt.gov.kh';
 const DEMO_PASSWORD = 'GDT-demo-2026';
 
 export default function LoginTestPage() {
-  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -87,15 +83,6 @@ export default function LoginTestPage() {
             <Sparkles size={13} aria-hidden="true" />
             UI prototype
           </span>
-          <button
-            type="button"
-            className="login-test-icon-btn"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-          >
-            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
           <Link to="/" className="login-test-home-link">
             <ArrowLeft size={15} aria-hidden="true" />
             Home

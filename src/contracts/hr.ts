@@ -266,6 +266,29 @@ export const StaffJobFitSchema = z.object({
   })),
 });
 
+export const PromotionReadinessStatusSchema = z.enum([
+  'ready',
+  'not_ready',
+  'not_configured',
+  'no_current_title',
+  'no_next_title',
+]);
+
+export const PromotionReadinessSchema = z.object({
+  staffId: UuidSchema,
+  employeeId: LegacyEmployeeIdSchema,
+  name: z.string().trim().min(1).max(200),
+  nameEn: z.string().trim().max(200).nullable(),
+  photoUrl: z.string().trim().max(2_048).nullable(),
+  departmentName: z.string().trim().min(1).max(300).nullable(),
+  officeName: z.string().trim().min(1).max(300).nullable(),
+  currentJobTitle: StaffJobTitleSchema.nullable(),
+  targetJobTitle: StaffJobTitleSchema.nullable(),
+  requiredSkillCount: z.number().int().nonnegative(),
+  metSkillCount: z.number().int().nonnegative(),
+  status: PromotionReadinessStatusSchema,
+});
+
 const SharedProfileFieldsSchema = StaffDirectorySummarySchema.extend({
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
@@ -317,6 +340,10 @@ export type JobTitleRequirement = z.infer<typeof JobTitleRequirementSchema>;
 export type PositionScope = z.infer<typeof PositionScopeSchema>;
 export type JobTitle = z.infer<typeof JobTitleSchema>;
 export type StaffJobFit = z.infer<typeof StaffJobFitSchema>;
+export type PromotionReadinessStatus = z.infer<
+  typeof PromotionReadinessStatusSchema
+>;
+export type PromotionReadiness = z.infer<typeof PromotionReadinessSchema>;
 export type InvitedStaffProfile = z.infer<typeof InvitedStaffProfileSchema>;
 export type HrStaffProfile = z.infer<typeof HrStaffProfileSchema>;
 export type StaffProfile = z.infer<typeof StaffProfileSchema>;

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ConfirmModal from '../src/components/ConfirmModal';
 
 describe('ConfirmModal', () => {
-  it('shows the requested content and confirms the action', async () => {
+  it('requires the confirmation phrase before a dangerous action', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();
 
@@ -22,10 +22,16 @@ describe('ConfirmModal', () => {
     expect(screen.getByText('Delete position?')).toBeInTheDocument();
     expect(screen.getByText('The position will be removed.')).toBeInTheDocument();
 
+    const confirmInput = screen.getByRole('textbox');
     const confirmButton = screen.getByRole('button', { name: 'Delete' });
-    expect(confirmButton).toHaveFocus();
+    expect(confirmInput).toHaveFocus();
+    expect(confirmButton).toBeDisabled();
     await user.click(confirmButton);
+    expect(onConfirm).not.toHaveBeenCalled();
 
+    await user.type(confirmInput, 'CONFIRM');
+    expect(confirmButton).toBeEnabled();
+    await user.click(confirmButton);
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 

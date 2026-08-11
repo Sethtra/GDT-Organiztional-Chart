@@ -42,28 +42,29 @@ test.beforeEach(async ({ page }) => {
 
   await page.addInitScript(
     ({ storageKey, token, expiration, id }) => {
+      const session = JSON.stringify({
+        access_token: token,
+        refresh_token: 'test-refresh-token',
+        expires_in: 3600,
+        expires_at: expiration,
+        token_type: 'bearer',
+        user: {
+          id,
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: 'hr@example.com',
+          user_metadata: {},
+          app_metadata: {},
+          created_at: '2026-01-01T00:00:00.000Z',
+        },
+      });
       localStorage.setItem(
         storageKey,
-        JSON.stringify({
-          access_token: token,
-          refresh_token: 'test-refresh-token',
-          expires_in: 3600,
-          expires_at: expiration,
-          token_type: 'bearer',
-          user: {
-            id,
-            aud: 'authenticated',
-            role: 'authenticated',
-            email: 'hr@example.com',
-            user_metadata: {},
-            app_metadata: {},
-            created_at: '2026-01-01T00:00:00.000Z',
-          },
-        }),
+        btoa(encodeURIComponent(session)),
       );
     },
     {
-      storageKey: `sb-${projectId}-auth-token`,
+      storageKey: `__gdt_s_sb-${projectId}-auth-token`,
       token: accessToken,
       expiration: expiresAt,
       id: userId,
@@ -72,6 +73,12 @@ test.beforeEach(async ({ page }) => {
 
   await page.route('**/rest/v1/rpc/is_hr_admin', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: 'true' }),
+  );
+  await page.route('**/rest/v1/rpc/get_promotion_readiness', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+  );
+  await page.route('**/rest/v1/org_units**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
   await page.route('**/rest/v1/rpc/get_hr_staff_directory', (route) =>
     route.fulfill({
@@ -161,7 +168,7 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test('staff directory and ordered position dropdown render cleanly in dark mode', async ({
+test('staff directory and ordered position dropdown render cleanly', async ({
   page,
 }, testInfo) => {
   const consoleErrors = [];
@@ -169,10 +176,8 @@ test('staff directory and ordered position dropdown render cleanly in dark mode'
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  await page.goto('/admin/staff');
-  await expect(
-    page.getByRole('heading', { name: 'GDT Staff Directory' }),
-  ).toBeVisible();
+  await page.goto('/test-staff');
+  await expect(page.getByText('Officer Data Table')).toBeVisible();
   await expect(page.getByText('Test Officer')).toBeVisible();
   await expect(page.getByText('Finance and Personnel')).toBeVisible();
 
@@ -192,7 +197,8 @@ test('staff directory and ordered position dropdown render cleanly in dark mode'
   await expect(page.getByText('Finance and Personnel').last()).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
-  await page.getByRole('button', { name: 'Add officer' }).click();
+  await page.getByRole('button', { name: 'New Officer' }).click();
+  await page.getByRole('button', { name: 'Employment' }).click();
   const positionSelect = page.getByRole('combobox', { name: 'Position *' });
   await expect(positionSelect).toBeVisible();
   await expect(positionSelect.locator('option')).toHaveText([

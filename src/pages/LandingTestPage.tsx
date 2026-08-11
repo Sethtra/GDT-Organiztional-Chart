@@ -344,7 +344,7 @@ export default function LandingTestPage() {
     <div className="gdt-register-landing pa-theme">
       {/* ── Masthead ─────────────────────────────────────── */}
       <header className="rg-double-rule sticky top-0 z-30 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex h-[72px] w-full max-w-[1540px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-10">
+        <div className="gdt-shell-header__inner gdt-shell-header__inner--landing flex items-center justify-between gap-3">
           <Link
             to="/"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -354,7 +354,7 @@ export default function LandingTestPage() {
             <img
               src="/GDT-Logo (Light).png"
               alt="GDT - General Department of Taxation"
-              className="h-10 w-auto object-contain transition-transform group-hover:scale-102"
+              className="gdt-shell-header__logo transition-transform group-hover:scale-102"
             />
           </Link>
 

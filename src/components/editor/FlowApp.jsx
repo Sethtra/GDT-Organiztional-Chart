@@ -90,7 +90,7 @@ export default function FlowApp({
   onChartName,
 }) {
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { activeTabId } = useContext(TabContext);
   const navigate = useNavigate();
   const { getNodes, setCenter, getZoom } = useReactFlow();
@@ -612,8 +612,6 @@ export default function FlowApp({
             setSelectedEdge(null);
             setShowNodePanel(false);
           }}
-          toggleTheme={toggleTheme}
-          theme={theme}
           onSave={performSave}
           saveStatus={saveStatus}
           navigate={navigate}
@@ -738,7 +736,6 @@ export default function FlowApp({
             edgeCount={edges.length}
             zoom={viewport.zoom}
             saveStatus={saveStatus}
-            onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
           />
         )}
 

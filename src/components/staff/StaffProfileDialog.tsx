@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  Award,
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
@@ -20,7 +21,8 @@ import {
   X,
 } from "lucide-react";
 
-import type { StaffProfile } from "../../contracts/hr";
+import type { PromotionReadiness, StaffProfile } from "../../contracts/hr";
+import { loadPromotionReadiness } from "../../services/promotionReadinessService";
 import { loadStaffProfile } from "../../services/staffProfileService";
 import { buildChartNodePath } from "../../utils/chartNodeNavigation";
 import { getDisplayedStaffPlacement } from "../../utils/staffDisplay";
@@ -85,6 +87,8 @@ export default function StaffProfileDialog({
   onClose,
 }: StaffProfileDialogProps) {
   const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const [promotionReadiness, setPromotionReadiness] =
+    useState<PromotionReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
@@ -105,10 +109,21 @@ export default function StaffProfileDialog({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setPromotionReadiness(null);
     setActiveTab("overview");
     void loadStaffProfile(staffId)
       .then((nextProfile) => {
-        if (!cancelled) setProfile(nextProfile);
+        if (cancelled) return;
+        setProfile(nextProfile);
+        if (nextProfile.access === "hr") {
+          void loadPromotionReadiness(staffId)
+            .then((readiness) => {
+              if (!cancelled) setPromotionReadiness(readiness);
+            })
+            .catch(() => {
+              if (!cancelled) setPromotionReadiness(null);
+            });
+        }
       })
       .catch((loadError) => {
         if (!cancelled) {
@@ -238,13 +253,34 @@ export default function StaffProfileDialog({
                     )}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 rounded-full border border-[#d9e1dc] bg-white px-3 py-1.5 text-[11px] font-bold text-[#16211b]">
-                  {profile.access === "hr" ? (
-                    <ShieldCheck className="size-3.5 text-[#136232]" />
-                  ) : (
-                    <BadgeCheck className="size-3.5 text-[#315c6b]" />
-                  )}
-                  {profile.access === "hr" ? "HR view" : "Invited view"}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {profile.access === "hr" &&
+                    promotionReadiness?.status === "ready" &&
+                    promotionReadiness.targetJobTitle && (
+                      <div
+                        role="status"
+                        aria-label={`Ready to Promote to ${promotionReadiness.targetJobTitle.name}`}
+                        className="flex items-center gap-2 rounded-[9px] border border-[#dfc06b] bg-[#fff7df] px-3 py-1.5 text-[#624a19]"
+                      >
+                        <Award className="size-4 shrink-0 text-[#9a7017]" />
+                        <span className="leading-tight">
+                          <span className="block text-[10.5px] font-extrabold">
+                            Ready to Promote
+                          </span>
+                          <span className="mt-0.5 block max-w-44 truncate text-[9.5px] font-semibold text-[#735413]">
+                            Next: {promotionReadiness.targetJobTitle.name}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  <div className="flex items-center gap-2 rounded-full border border-[#d9e1dc] bg-white px-3 py-1.5 text-[11px] font-bold text-[#16211b]">
+                    {profile.access === "hr" ? (
+                      <ShieldCheck className="size-3.5 text-[#136232]" />
+                    ) : (
+                      <BadgeCheck className="size-3.5 text-[#315c6b]" />
+                    )}
+                    {profile.access === "hr" ? "HR view" : "Invited view"}
+                  </div>
                 </div>
               </div>
             </div>

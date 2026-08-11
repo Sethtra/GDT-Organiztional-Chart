@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Archive,
   Award,
@@ -26,8 +27,9 @@ import StaffFormDialog from "../components/staff/StaffFormDialog";
 import StaffProfileDialog from "../components/staff/StaffProfileDialog";
 import StaffSkillsDialog from "../components/staff/StaffSkillsDialog";
 import { cn } from "../lib/utils";
-import type { HrStaffDirectoryRecord } from "../contracts/hr";
+import { UuidSchema, type HrStaffDirectoryRecord } from "../contracts/hr";
 import { useOrgStructure } from "../hooks/useOrgStructure";
+import { listPromotionReadiness } from "../services/promotionReadinessService";
 import { archiveStaff, listHrStaff } from "../services/staffService";
 import {
   getStaffLocationLabel,
@@ -38,6 +40,7 @@ import "./AdminDashboardTestPage.css";
 type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+const READY_PROMOTION_FILTER = "ready";
 
 const GENDER_LABELS: Record<HrStaffDirectoryRecord["gender"], string> = {
   male: "ប្រុស",
@@ -79,7 +82,7 @@ function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[10.5px] font-bold leading-none tracking-[0.015em]",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-[10.5px] font-bold leading-none tracking-[0.015em]",
         BADGE_STYLES[tone],
       )}
     >
@@ -107,6 +110,7 @@ function formatDate(value: string | null): string {
 
 export default function StaffDirectoryPage() {
   const { units, getOfficesForUnit } = useOrgStructure();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [staff, setStaff] = useState<HrStaffDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +130,22 @@ export default function StaffDirectoryPage() {
   const [profileTarget, setProfileTarget] =
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [readyPromotionStaffIds, setReadyPromotionStaffIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [promotionLoading, setPromotionLoading] = useState(true);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
+
+  const requestedProfileId = searchParams.get("profile");
+  const promotionFilter =
+    searchParams.get("promotion") === READY_PROMOTION_FILTER
+      ? READY_PROMOTION_FILTER
+      : "all";
+  const directProfileStaffId = useMemo(() => {
+    const parsed = UuidSchema.safeParse(requestedProfileId);
+    return parsed.success ? parsed.data : null;
+  }, [requestedProfileId]);
+  const profileStaffId = profileTarget?.id ?? directProfileStaffId;
 
   const availableOffices = useMemo(
     () => (selectedDepartment ? getOfficesForUnit(selectedDepartment) : []),
@@ -151,9 +171,34 @@ export default function StaffDirectoryPage() {
     }
   }, []);
 
+  const loadPromotionFilter = useCallback(async (): Promise<void> => {
+    setPromotionLoading(true);
+    setPromotionError(null);
+    try {
+      const readiness = await listPromotionReadiness();
+      setReadyPromotionStaffIds(
+        new Set(
+          readiness
+            .filter((candidate) => candidate.status === "ready")
+            .map((candidate) => candidate.staffId),
+        ),
+      );
+    } catch (loadError) {
+      setReadyPromotionStaffIds(new Set());
+      setPromotionError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load promotion readiness.",
+      );
+    } finally {
+      setPromotionLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadPromotionFilter();
+  }, [load, loadPromotionFilter]);
 
   const confirmArchive = async () => {
     if (!archiveTarget) return;
@@ -161,7 +206,7 @@ export default function StaffDirectoryPage() {
     try {
       await archiveStaff(archiveTarget.id);
       setArchiveTarget(null);
-      await load();
+      await Promise.all([load(), loadPromotionFilter()]);
     } catch (archiveError) {
       setError(
         archiveError instanceof Error
@@ -178,16 +223,41 @@ export default function StaffDirectoryPage() {
     savedStaffId: string,
     manageSkills: boolean,
   ) => {
-    const nextStaff = await load();
+    const [nextStaff] = await Promise.all([load(), loadPromotionFilter()]);
     if (!manageSkills) return;
     const savedStaff = nextStaff.find((person) => person.id === savedStaffId);
     if (savedStaff) setSkillsTarget(savedStaff);
+  };
+
+  const closeProfile = () => {
+    setProfileTarget(null);
+    if (!directProfileStaffId) return;
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("profile");
+    setSearchParams(nextSearchParams, { replace: true });
+  };
+
+  const changePromotionFilter = (value: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (value === READY_PROMOTION_FILTER) {
+      nextSearchParams.set("promotion", READY_PROMOTION_FILTER);
+    } else {
+      nextSearchParams.delete("promotion");
+    }
+    setSearchParams(nextSearchParams, { replace: true });
   };
 
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return staff.filter((person) => {
       if (!includeArchived && person.status === "archived") {
+        return false;
+      }
+      if (
+        promotionFilter === READY_PROMOTION_FILTER &&
+        !readyPromotionStaffIds.has(person.id)
+      ) {
         return false;
       }
       if (selectedDepartment) {
@@ -212,11 +282,30 @@ export default function StaffDirectoryPage() {
         getStaffLocationLabel(person),
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [includeArchived, search, selectedDepartment, selectedOffice, staff]);
+  }, [
+    includeArchived,
+    promotionFilter,
+    readyPromotionStaffIds,
+    search,
+    selectedDepartment,
+    selectedOffice,
+    staff,
+  ]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedDepartment, selectedOffice, includeArchived, pageSize]);
+  }, [
+    search,
+    selectedDepartment,
+    selectedOffice,
+    promotionFilter,
+    includeArchived,
+    pageSize,
+  ]);
+
+  const tableLoading =
+    loading ||
+    (promotionFilter === READY_PROMOTION_FILTER && promotionLoading);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -379,6 +468,27 @@ export default function StaffDirectoryPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
+                    value={promotionFilter}
+                    onChange={(event) =>
+                      changePromotionFilter(event.target.value)
+                    }
+                    className={cn(
+                      "pa-focus-ring h-8 rounded-lg border px-2 text-[10.5px] font-bold",
+                      promotionFilter === READY_PROMOTION_FILTER
+                        ? "border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]"
+                        : "border-[var(--pa-border)] bg-white text-[var(--pa-muted)]",
+                    )}
+                    aria-label="Filter by promotion readiness"
+                  >
+                    <option value="all">All promotion statuses</option>
+                    <option value={READY_PROMOTION_FILTER}>
+                      Ready to Promote
+                      {!promotionLoading && !promotionError
+                        ? ` (${readyPromotionStaffIds.size})`
+                        : ""}
+                    </option>
+                  </select>
+                  <select
                     value={selectedDepartment}
                     onChange={(event) => {
                       setSelectedDepartment(event.target.value);
@@ -433,14 +543,18 @@ export default function StaffDirectoryPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={() => void load()}
-                    disabled={loading}
+                    onClick={() =>
+                      void Promise.all([load(), loadPromotionFilter()])
+                    }
+                    disabled={loading || promotionLoading}
                     aria-label="Refresh staff directory"
                     className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
                   >
                     <RefreshCw
                       size={14}
-                      className={loading ? "animate-spin" : ""}
+                      className={
+                        loading || promotionLoading ? "animate-spin" : ""
+                      }
                       aria-hidden="true"
                     />
                   </button>
@@ -458,10 +572,37 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {loading ? (
+              {promotionFilter === READY_PROMOTION_FILTER &&
+              promotionError ? (
+                <div
+                  role="alert"
+                  className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center"
+                >
+                  <CircleAlert
+                    size={22}
+                    className="text-[var(--pa-danger)]"
+                    aria-hidden="true"
+                  />
+                  <div className="mt-3 text-[12px] font-extrabold text-[var(--pa-text)]">
+                    Promotion readiness is unavailable
+                  </div>
+                  <p className="mt-1 max-w-[340px] text-[10.5px] leading-5 text-[var(--pa-muted)]">
+                    The officer records loaded, but the promotion filter could not be applied.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadPromotionFilter()}
+                    className="pa-focus-ring mt-3 inline-flex h-8 items-center rounded-lg border border-[var(--pa-border)] px-3 text-[10.5px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)]"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : tableLoading ? (
                 <div className="flex min-h-[260px] items-center justify-center gap-2 text-[12px] font-semibold text-[var(--pa-muted)]">
                   <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                  Loading officer records…
+                  {loading
+                    ? "Loading officer records…"
+                    : "Checking promotion readiness…"}
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
@@ -471,10 +612,14 @@ export default function StaffDirectoryPage() {
                     aria-hidden="true"
                   />
                   <div className="mt-3 text-[12px] font-extrabold text-[var(--pa-text)]">
-                    No officers found
+                    {promotionFilter === READY_PROMOTION_FILTER
+                      ? "No officers are ready to promote"
+                      : "No officers found"}
                   </div>
                   <p className="mt-1 max-w-[280px] text-[10.5px] leading-5 text-[var(--pa-muted)]">
-                    Try a different name, employee ID, or department filter.
+                    {promotionFilter === READY_PROMOTION_FILTER
+                      ? "No active officer currently meets every skill required for the next position level."
+                      : "Try a different name, employee ID, or department filter."}
                   </p>
                 </div>
               ) : (
@@ -548,6 +693,13 @@ export default function StaffDirectoryPage() {
                                   {person.nameEn && (
                                     <div className="truncate text-[12.5px] font-medium text-[var(--pa-faint)]">
                                       {person.nameEn}
+                                    </div>
+                                  )}
+                                  {readyPromotionStaffIds.has(person.id) && (
+                                    <div className="mt-1">
+                                      <StatusBadge tone="success">
+                                        Ready to Promote
+                                      </StatusBadge>
                                     </div>
                                   )}
                                 </div>
@@ -717,13 +869,16 @@ export default function StaffDirectoryPage() {
         open={Boolean(skillsTarget)}
         staff={skillsTarget}
         onOpenChange={(open) => {
-          if (!open) setSkillsTarget(null);
+          if (!open) {
+            setSkillsTarget(null);
+            void loadPromotionFilter();
+          }
         }}
       />
-      {profileTarget && (
+      {profileStaffId && (
         <StaffProfileDialog
-          staffId={profileTarget.id}
-          onClose={() => setProfileTarget(null)}
+          staffId={profileStaffId}
+          onClose={closeProfile}
         />
       )}
       {archiveTarget && (

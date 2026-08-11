@@ -17,6 +17,9 @@ const migrationFiles = [
   '2026072914_normalize_assignment_dates.sql',
   '2026072915_add_staff_placement_save_api.sql',
   '2026072916_refine_assignment_candidates.sql',
+  '2026073001_add_department_scoped_skill_requirements.sql',
+  '2026081101_add_promotion_readiness.sql',
+  '2026081102_remove_legacy_skill_rpc_overloads.sql',
 ];
 
 async function readMigration(filename) {
@@ -284,6 +287,129 @@ test('position configuration stores reporting by position ID behind editor autho
     /reports_to_position_id = target_reports_to_position_id/i,
   );
   assert.match(sql, /'occupantName'/i);
+});
+
+test('promotion readiness is HR-only and evaluates exactly the next title level', async () => {
+  const sql = await readMigration('2026081101_add_promotion_readiness.sql');
+
+  assert.match(sql, /IF NOT public\.is_hr_admin\(\)/i);
+  assert.match(sql, /title\.rank_order < current_title\.rank_order/i);
+  assert.match(sql, /ORDER BY title\.rank_order DESC[\s\S]*LIMIT 1/i);
+  assert.match(sql, /WHEN evaluated\.required_skill_count = 0 THEN 'not_configured'/i);
+  assert.match(
+    sql,
+    /evaluated\.met_skill_count = evaluated\.required_skill_count[\s\S]*THEN 'ready'/i,
+  );
+  assert.match(
+    sql,
+    /REVOKE ALL ON FUNCTION public\.get_promotion_readiness\(UUID\) FROM PUBLIC/i,
+  );
+  assert.match(sql, /NOTIFY pgrst, 'reload schema'/i);
+});
+
+test('database rollout includes scoped skills before promotion readiness', async () => {
+  const powershellRollout = await readFile(
+    new URL('../scripts/deploy-supabase.ps1', import.meta.url),
+    'utf8',
+  );
+  const directRollout = await readFile(
+    new URL('../scripts/direct-database-rollout.mjs', import.meta.url),
+    'utf8',
+  );
+
+  for (const rollout of [powershellRollout, directRollout]) {
+    const scopedSkillsIndex = rollout.indexOf(
+      '2026073001_add_department_scoped_skill_requirements.sql',
+    );
+    const promotionIndex = rollout.indexOf(
+      '2026081101_add_promotion_readiness.sql',
+    );
+    const overloadCleanupIndex = rollout.indexOf(
+      '2026081102_remove_legacy_skill_rpc_overloads.sql',
+    );
+    assert.ok(scopedSkillsIndex >= 0, 'scoped skill migration must be staged');
+    assert.ok(
+      promotionIndex > scopedSkillsIndex,
+      'promotion readiness must run after scoped skill requirements',
+    );
+    assert.ok(
+      overloadCleanupIndex > promotionIndex,
+      'legacy overload cleanup must run after the scoped RPCs exist',
+    );
+  }
+});
+
+test('promotion rollout is isolated from charts, cleanup, imports, and role provisioning', async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  const powershellRollout = await readFile(
+    new URL('../scripts/deploy-supabase.ps1', import.meta.url),
+    'utf8',
+  );
+  const directRollout = await readFile(
+    new URL('../scripts/direct-database-rollout.mjs', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    packageJson.scripts['db:promotion:check'],
+    /-PromotionReadinessOnly$/,
+  );
+  assert.match(
+    packageJson.scripts['db:promotion:rollout'],
+    /-PromotionReadinessOnly -Apply$/,
+  );
+  assert.match(
+    powershellRollout,
+    /\$migrationSources \| Where-Object \{ \$_\.Target -in \$promotionTargets \}/,
+  );
+  assert.match(
+    directRollout,
+    /const selectedMigrations = promotionReadinessOnly[\s\S]*20260727000021[\s\S]*20260727000022[\s\S]*20260727000023/,
+  );
+  assert.match(
+    directRollout,
+    /if \(hrAdminEmail && !promotionReadinessOnly\)/,
+  );
+  assert.match(
+    directRollout,
+    /if \(promotionReadinessOnly && staffImportFile\)/,
+  );
+});
+
+test('scoped skill migration removes the legacy uniqueness constraint safely', async () => {
+  const sql = await readMigration(
+    '2026073001_add_department_scoped_skill_requirements.sql',
+  );
+
+  const constraintDrop = sql.indexOf(
+    'DROP CONSTRAINT IF EXISTS\n    job_title_skill_requirements_job_title_id_skill_id_key',
+  );
+  const indexDrop = sql.indexOf(
+    'DROP INDEX IF EXISTS public.job_title_skill_requirements_job_title_id_skill_id_key',
+  );
+  assert.ok(constraintDrop >= 0, 'legacy unique constraint must be removed');
+  assert.ok(
+    indexDrop > constraintDrop,
+    'the backing index may only be dropped after its constraint',
+  );
+});
+
+test('legacy unscoped skill RPC overloads are removed after scoped replacements exist', async () => {
+  const sql = await readMigration(
+    '2026081102_remove_legacy_skill_rpc_overloads.sql',
+  );
+
+  assert.match(
+    sql,
+    /DROP FUNCTION IF EXISTS public\.set_job_title_skill_requirement\(\s*UUID, UUID, SMALLINT, BOOLEAN\s*\)/i,
+  );
+  assert.match(
+    sql,
+    /DROP FUNCTION IF EXISTS public\.evaluate_staff_job_fit\(UUID, UUID\)/i,
+  );
+  assert.match(sql, /NOTIFY pgrst, 'reload schema'/i);
 });
 
 test('dummy staff cleanup is privately recoverable and preserves org structure', async () => {

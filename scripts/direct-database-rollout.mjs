@@ -15,6 +15,9 @@ const { Client } = pg
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(scriptDirectory, '..')
 const applyChanges = process.argv.includes('--apply')
+const promotionReadinessOnly = process.argv.includes(
+  '--promotion-readiness-only',
+)
 
 const backupArgumentIndex = process.argv.indexOf('--backup-directory')
 const backupDirectory =
@@ -38,8 +41,17 @@ if (!databaseUrl) {
   throw new Error('GDT_DATABASE_URL is required.')
 }
 
-if ((applyChanges || staffImportFile) && !hrAdminEmail) {
+if (
+  ((applyChanges && !promotionReadinessOnly) || staffImportFile) &&
+  !hrAdminEmail
+) {
   throw new Error('GDT_HR_ADMIN_EMAIL is required for a full rollout.')
+}
+
+if (promotionReadinessOnly && staffImportFile) {
+  throw new Error(
+    'A staff import cannot be combined with a promotion-only rollout.',
+  )
 }
 
 let staffImportPayload = null
@@ -145,7 +157,39 @@ const migrations = [
     name: 'add_staff_photo',
     file: 'migrations/2026080401_add_staff_photo.sql',
   },
+  {
+    version: '20260727000021',
+    name: 'add_department_scoped_skill_requirements',
+    file: 'migrations/2026073001_add_department_scoped_skill_requirements.sql',
+  },
+  {
+    version: '20260727000022',
+    name: 'add_promotion_readiness',
+    file: 'migrations/2026081101_add_promotion_readiness.sql',
+  },
+  {
+    version: '20260727000023',
+    name: 'remove_legacy_skill_rpc_overloads',
+    file: 'migrations/2026081102_remove_legacy_skill_rpc_overloads.sql',
+  },
 ]
+
+const selectedMigrations = promotionReadinessOnly
+  ? migrations.filter((migration) =>
+      ['20260727000021', '20260727000022', '20260727000023'].includes(
+        migration.version,
+      ),
+    )
+  : migrations
+
+function getRolloutStartMessage() {
+  const migrationScope = promotionReadinessOnly
+    ? 'promotion-readiness migrations'
+    : 'all migrations'
+  return applyChanges
+    ? `Applying ${migrationScope} in one database transaction...`
+    : `Validating ${migrationScope} in a rollback-only transaction...`
+}
 
 function jsonReplacer(_key, value) {
   return typeof value === 'bigint' ? value.toString() : value
@@ -517,7 +561,7 @@ async function captureDatabaseBackup(client) {
 
 async function loadMigrations() {
   return Promise.all(
-    migrations.map(async (migration) => {
+    selectedMigrations.map(async (migration) => {
       const absolutePath = path.join(projectRoot, migration.file)
       const sql = await readFile(absolutePath, 'utf8')
       return {
@@ -555,7 +599,9 @@ async function executeRollout(client, loadedMigrations) {
 
   try {
     for (const migration of loadedMigrations) {
-      process.stdout.write(`Validating ${migration.version}_${migration.name}...\n`)
+      process.stdout.write(
+        `${applyChanges ? 'Applying' : 'Validating'} ${migration.version}_${migration.name}...\n`,
+      )
       const statements = splitSqlStatements(migration.executableSql)
       for (const [statementIndex, statement] of statements.entries()) {
         try {
@@ -572,7 +618,7 @@ async function executeRollout(client, loadedMigrations) {
     }
 
     let provisionedUserId = null
-    if (hrAdminEmail) {
+    if (hrAdminEmail && !promotionReadinessOnly) {
       const userResult = await client.query(
         `
           SELECT id
@@ -681,11 +727,7 @@ try {
     sourceManifest,
   )
 
-  process.stdout.write(
-    applyChanges
-      ? 'Applying all migrations in one database transaction...\n'
-      : 'Validating all migrations in a rollback-only transaction...\n',
-  )
+  process.stdout.write(`${getRolloutStartMessage()}\n`)
   const rollout = await executeRollout(client, loadedMigrations)
 
   await writeJson(path.join(backupDirectory, 'rollout-result.json'), {
@@ -694,7 +736,8 @@ try {
     backup_table_count: backup.tableCount,
     backup_row_count: backup.rowCount,
     migration_count: loadedMigrations.length,
-    hr_admin_provisioned: applyChanges && Boolean(hrAdminEmail),
+    hr_admin_provisioned:
+      applyChanges && !promotionReadinessOnly && Boolean(hrAdminEmail),
     staff_import: rollout.staffImport,
   })
 

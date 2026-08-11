@@ -16,6 +16,8 @@
     "db:types": "node scripts/generate-supabase-types.mjs",
     "db:rollout:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1",
     "db:rollout": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1 -Apply",
+    "db:promotion:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1 -PromotionReadinessOnly",
+    "db:promotion:rollout": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1 -PromotionReadinessOnly -Apply",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -200,7 +200,7 @@ const initialEdges = [
 
 function ChartEditorTestHarness() {
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { fitView, getZoom, setCenter, getNodes } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -542,8 +542,6 @@ function ChartEditorTestHarness() {
         onDownloadBackup={downloadChartBackup}
         onRestoreBackup={() => backupFileInputRef.current?.click()}
         onPreviewMode={() => {}}
-        toggleTheme={toggleTheme}
-        theme={theme}
         onSave={simulateSave}
         saveStatus={saveStatus}
         navigate={navigate}

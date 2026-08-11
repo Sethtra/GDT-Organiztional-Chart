@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -118,6 +118,63 @@ vi.mock("../src/services/staffProfileService", () => ({
   })),
 }));
 
+vi.mock("../src/services/promotionReadinessService", () => ({
+  listPromotionReadiness: vi.fn(async () => [
+    {
+      staffId: "00000000-0000-4000-8000-000000000001",
+      employeeId: "GDT-001",
+      name: "Test Officer",
+      nameEn: null,
+      photoUrl: null,
+      departmentName: "Finance and Personnel",
+      officeName: null,
+      currentJobTitle: {
+        id: "00000000-0000-4000-8000-000000000014",
+        name: "Officer",
+        nameEn: "Officer",
+        rankOrder: 50,
+        positionScope: "individual",
+      },
+      targetJobTitle: {
+        id: "00000000-0000-4000-8000-000000000013",
+        name: "អនុប្រធានការិយាល័យ",
+        nameEn: "Deputy Office Chief",
+        rankOrder: 40,
+        positionScope: "office",
+      },
+      requiredSkillCount: 2,
+      metSkillCount: 2,
+      status: "ready",
+    },
+  ]),
+  loadPromotionReadiness: vi.fn(async () => ({
+    staffId: "00000000-0000-4000-8000-000000000001",
+    employeeId: "GDT-001",
+    name: "Test Officer",
+    nameEn: null,
+    photoUrl: null,
+    departmentName: "Finance and Personnel",
+    officeName: null,
+    currentJobTitle: {
+      id: "00000000-0000-4000-8000-000000000014",
+      name: "Officer",
+      nameEn: "Officer",
+      rankOrder: 50,
+      positionScope: "individual",
+    },
+    targetJobTitle: {
+      id: "00000000-0000-4000-8000-000000000013",
+      name: "អនុប្រធានការិយាល័យ",
+      nameEn: "Deputy Office Chief",
+      rankOrder: 40,
+      positionScope: "office",
+    },
+    requiredSkillCount: 2,
+    metSkillCount: 2,
+    status: "ready",
+  })),
+}));
+
 vi.mock("../src/hooks/useOrgStructure", () => ({
   useOrgStructure: () => ({
     units: [
@@ -208,8 +265,79 @@ vi.mock("../src/services/jobArchitectureService", () => ({
 }));
 
 import StaffDirectoryPage from "../src/pages/StaffDirectoryPage";
+import { listPromotionReadiness } from "../src/services/promotionReadinessService";
+import { listHrStaff } from "../src/services/staffService";
 
-describe("Staff Directory profile action", () => {
+describe("Staff Directory", () => {
+  it("applies the Ready to Promote URL filter and can clear it", async () => {
+    const user = userEvent.setup();
+    const readyOfficer = (await vi.mocked(listHrStaff)(true))[0]!;
+    vi.mocked(listHrStaff).mockResolvedValueOnce([
+      readyOfficer,
+      {
+        ...readyOfficer,
+        id: "00000000-0000-4000-8000-000000000002",
+        employeeId: "GDT-002",
+        name: "Not Ready Officer",
+      },
+    ]);
+
+    render(
+      <MemoryRouter initialEntries={["/admin/staff?promotion=ready"]}>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    const filter = await screen.findByRole("combobox", {
+      name: "Filter by promotion readiness",
+    });
+    expect(filter).toHaveValue("ready");
+
+    const readyName = await screen.findByText("Test Officer");
+    expect(screen.queryByText("Not Ready Officer")).not.toBeInTheDocument();
+    const readyRow = readyName.closest("tr");
+    expect(readyRow).not.toBeNull();
+    expect(within(readyRow!).getByText("Ready to Promote")).toBeInTheDocument();
+
+    await user.selectOptions(filter, "all");
+    expect(await screen.findByText("Not Ready Officer")).toBeInTheDocument();
+  });
+
+  it("shows a recoverable error when the promotion filter cannot load", async () => {
+    vi.mocked(listPromotionReadiness).mockRejectedValueOnce(
+      new Error("RPC unavailable"),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin/staff?promotion=ready"]}>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Promotion readiness is unavailable");
+    expect(
+      within(alert).getByRole("button", { name: "Try again" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the officer profile named in the dashboard link", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          "/admin/staff?profile=00000000-0000-4000-8000-000000000001",
+        ]}
+      >
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: "Officer profile" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Test Officer").length).toBeGreaterThan(0);
+  });
+
   it("opens the selected HR staff profile", async () => {
     const user = userEvent.setup();
     render(
@@ -231,6 +359,11 @@ describe("Staff Directory profile action", () => {
     expect(
       screen.getAllByText("Finance and Personnel").length,
     ).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole("status", {
+        name: /Ready to Promote to អនុប្រធានការិយាល័យ/,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("locates assigned nodes without showing chart filters as staff history", async () => {

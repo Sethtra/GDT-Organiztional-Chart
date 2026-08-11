@@ -1,6 +1,6 @@
 import { Layers, GitBranch, ZoomIn, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
-export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus, onOpenVersionHistory }) {
+export default function StatusBar({ nodeCount, edgeCount, zoom, saveStatus }) {
   const zoomPct = Math.round((zoom ?? 1) * 100);
 
   return (

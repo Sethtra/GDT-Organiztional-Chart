@@ -4,6 +4,7 @@ import {
   HrStaffDirectoryRecordSchema,
   HrStaffProfileSchema,
   InvitedStaffProfileSchema,
+  PromotionReadinessSchema,
   PublicChartOccupantSchema,
   StaffInputSchema,
 } from '../src/contracts/hr';
@@ -170,5 +171,30 @@ describe('HR contracts', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('accepts a promotion readiness result with an immediate target title', () => {
+    const result = PromotionReadinessSchema.safeParse({
+      staffId,
+      employeeId: 'GDT-001',
+      name: 'Officer',
+      nameEn: null,
+      photoUrl: null,
+      departmentName: 'Department',
+      officeName: null,
+      currentJobTitle: jobTitle,
+      targetJobTitle: {
+        ...jobTitle,
+        id: '00000000-0000-4000-8000-000000000007',
+        name: 'Deputy Office Chief',
+        rankOrder: 40,
+        positionScope: 'office',
+      },
+      requiredSkillCount: 2,
+      metSkillCount: 2,
+      status: 'ready',
+    });
+
+    expect(result.success).toBe(true);
   });
 });
