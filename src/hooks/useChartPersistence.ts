@@ -1,5 +1,5 @@
 import {
-  getNodesBounds,
+  getNodesBounds as getNodesBoundsStatic,
   getViewportForBounds,
   type Node,
 } from "@xyflow/react";
@@ -16,6 +16,11 @@ import { CHART_VERSION_WRITES_ENABLED } from "../config/chartFeatures";
 import { supabase } from "../supabaseClient";
 
 export type ChartSaveStatus = "idle" | "saving" | "saved" | "error";
+
+interface SaveOptions {
+  /** Canvas rasterization is expensive and must never run during autosave. */
+  refreshThumbnail?: boolean;
+}
 
 interface SerializedChartState {
   nodes: string;
@@ -34,6 +39,20 @@ interface ChartPersistenceOptions<NodeType, EdgeType> {
   setSaveStatus: Dispatch<SetStateAction<ChartSaveStatus>>;
   loading: boolean;
   canEdit: boolean;
+  /** Pass `getNodesBounds` from `useReactFlow()` to avoid the sub-flow warning */
+  getNodesBounds?: (nodes: Node[]) => ReturnType<typeof getNodesBoundsStatic>;
+}
+
+/** Convert a base64 data URL to a Blob without using fetch (avoids CSP issues) */
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(",");
+  const mime = header!.match(/:(.*?);/)?.[1] ?? "image/png";
+  const binary = atob(base64!);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mime });
 }
 
 export function useChartPersistence<NodeType, EdgeType>({
@@ -48,16 +67,20 @@ export function useChartPersistence<NodeType, EdgeType>({
   setSaveStatus,
   loading,
   canEdit,
+  getNodesBounds,
 }: ChartPersistenceOptions<NodeType, EdgeType>) {
+  // Fall back to static version if hook-based one is not provided
+  const resolvedGetNodesBounds = getNodesBounds ?? getNodesBoundsStatic;
   const saveInFlight = useRef(false);
   const saveRequested = useRef(false);
 
-  const performSave = useCallback(async () => {
+  const performSave = useCallback(async (options: SaveOptions = {}) => {
     if (saveInFlight.current) {
       saveRequested.current = true;
       return;
     }
     saveInFlight.current = true;
+    let refreshThumbnail = options.refreshThumbnail === true;
 
     try {
       while (true) {
@@ -149,17 +172,21 @@ export function useChartPersistence<NodeType, EdgeType>({
           }
         }
 
-        const lastThumbnailTime = Number(
-          localStorage.getItem(`last_thumb_time_${chartId}`) || 0,
-        );
-        if (Date.now() - lastThumbnailTime > 5 * 60 * 1_000) {
+        // html-to-image clones and rasterizes the entire React Flow viewport on
+        // the main thread. Doing that in the debounced autosave makes dragging
+        // and selecting nodes freeze, and a failed upload caused every later
+        // autosave to retry it. Refresh previews only after an explicit Save.
+        if (refreshThumbnail) {
+          // A save may loop when edits arrive while its request is in flight.
+          // Capture at most once; never rasterize again for the queued edit.
+          refreshThumbnail = false;
           try {
             const viewportElement = document.querySelector<HTMLElement>(
               ".react-flow__viewport",
             );
             if (viewportElement && nodesToSave.length > 0) {
               const { toPng } = await import("html-to-image");
-              const bounds = getNodesBounds(nodesToSave as Node[]);
+              const bounds = resolvedGetNodesBounds(nodesToSave as Node[]);
               const width = 640;
               const height = 360;
               const viewport = getViewportForBounds(
@@ -174,13 +201,15 @@ export function useChartPersistence<NodeType, EdgeType>({
                 backgroundColor: "#0f2044",
                 width,
                 height,
+                skipFonts: true, // Avoid fetching external fonts (CSP)
                 style: {
                   width: `${width}px`,
                   height: `${height}px`,
                   transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
                 },
               });
-              const blob = await (await fetch(dataUrl)).blob();
+              // Convert data URL to Blob without fetch() to avoid CSP violations
+              const blob = dataUrlToBlob(dataUrl);
               const filePath = `${chartId}.png`;
               const { error: uploadError } = await supabase.storage
                 .from("thumbnails")
@@ -243,6 +272,7 @@ export function useChartPersistence<NodeType, EdgeType>({
     edgesRef,
     lastSyncData,
     nodesRef,
+    resolvedGetNodesBounds,
     setEdges,
     setNodes,
     setSaveStatus,
@@ -269,7 +299,7 @@ export function useChartPersistence<NodeType, EdgeType>({
     }
 
     const timeout = window.setTimeout(() => {
-      void performSave();
+      void performSave({ refreshThumbnail: false });
     }, 350);
     return () => window.clearTimeout(timeout);
   }, [
@@ -285,7 +315,7 @@ export function useChartPersistence<NodeType, EdgeType>({
   useEffect(() => {
     if (loading || !canEdit) return;
     const interval = window.setInterval(() => {
-      void performSave();
+      void performSave({ refreshThumbnail: false });
     }, 5 * 60 * 1_000);
     return () => window.clearInterval(interval);
   }, [canEdit, loading, performSave]);

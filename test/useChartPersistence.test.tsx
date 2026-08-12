@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/supabaseClient", () => ({
@@ -9,10 +9,12 @@ vi.mock("../src/supabaseClient", () => ({
 }));
 
 import { useChartPersistence } from "../src/hooks/useChartPersistence";
+import { supabase } from "../src/supabaseClient";
 
 describe("useChartPersistence", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
   it("writes an immediate recovery copy before the debounced remote save", async () => {
@@ -79,5 +81,45 @@ describe("useChartPersistence", () => {
     );
 
     expect(localStorage.length).toBe(0);
+  });
+
+  it("saves the latest node ref immediately when explicitly flushed", async () => {
+    const savedNodes = [{ id: "node-1", data: { name: "Persisted name" } }];
+    const update = vi.fn();
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "00000000-0000-4000-8000-000000000003" },
+      error: null,
+    });
+    update.mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ maybeSingle }),
+      }),
+    });
+    vi.mocked(supabase.from).mockReturnValue({ update } as never);
+
+    const { result } = renderHook(() =>
+      useChartPersistence({
+        chartId: "00000000-0000-4000-8000-000000000003",
+        nodes: savedNodes,
+        edges: [],
+        nodesRef: { current: savedNodes },
+        edgesRef: { current: [] },
+        lastSyncData: { current: { nodes: "[]", edges: "[]" } },
+        setNodes: vi.fn(),
+        setEdges: vi.fn(),
+        setSaveStatus: vi.fn(),
+        loading: true,
+        canEdit: true,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.performSave({ refreshThumbnail: false });
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ nodes: savedNodes, edges: [] }),
+    );
+    expect(maybeSingle).toHaveBeenCalledOnce();
   });
 });

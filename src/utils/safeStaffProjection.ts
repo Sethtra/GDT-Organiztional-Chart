@@ -65,7 +65,10 @@ export function mergeSafeStaffProjection(
 
   return originalNodes.map((node) => {
     const position = positionByNodeId.get(node.id);
-    if (!position) return node;
+    // A legacy migration accidentally created position rows for every named
+    // organizational unit. Those rows must never replace chart-authored org
+    // labels; relational occupant data belongs only to person nodes.
+    if (!position || node.data?.orgType !== "individualNode") return node;
 
     const data = { ...(node.data ?? {}) };
     fillMissing(data, "badgeText", position.title);

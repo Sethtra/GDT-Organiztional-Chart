@@ -25,10 +25,8 @@ import '@xyflow/react/dist/style.css';
 import ConfirmModal from '../ConfirmModal';
 import ContextMenu from '../ContextMenu';
 import CustomEdge from '../CustomEdge';
-// OrgNodePro renders the unit card and delegates person cards to OrgNode, so
-// this one import covers both kinds. /test-chart-editor mounts the same
-// component — test/orgNodeIsolation.test.js fails if the two routes drift.
-import OrgNodePro from '../OrgNodePro';
+// Keep production on the shipped card. /test-chart-editor owns experiments.
+import OrgNode from '../OrgNode';
 import ProfileDrawer from '../ProfileDrawer';
 import PropertiesPanel from '../PropertiesPanel';
 import SearchBar from '../SearchBar';
@@ -52,6 +50,7 @@ import { useChartBackupOps } from '../../hooks/useChartBackupOps';
 import { useChartLoad } from '../../hooks/useChartLoad';
 import { useChartNodeFocus } from '../../hooks/useChartNodeFocus';
 import { useNodeOperations } from '../../hooks/useNodeOperations';
+import { useNodeResizeSnap } from '../../hooks/useNodeResizeSnap';
 
 import { TabContext } from '../../contexts/TabContext';
 import { ChartContext } from '../../contexts/ChartContext';
@@ -64,7 +63,7 @@ import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../../utils/chartDat
 import { computeChartHierarchy } from '../../utils/chartHierarchy';
 import { getNodeAlignmentGuides } from '../../utils/nodeAlignment';
 
-const nodeTypes = { orgNode: OrgNodePro };
+const nodeTypes = { orgNode: OrgNode };
 const edgeTypes = { custom: CustomEdge };
 
 // Screen-px feel regardless of zoom: 6px reads the same whether the canvas
@@ -93,7 +92,7 @@ export default function FlowApp({
   const { theme } = useTheme();
   const { activeTabId } = useContext(TabContext);
   const navigate = useNavigate();
-  const { getNodes, setCenter, getZoom } = useReactFlow();
+  const { getNodes, setCenter, getZoom, getNodesBounds } = useReactFlow();
   const viewport = useViewport();
 
   // ── Core state ─────────────────────────────────────────────────
@@ -215,6 +214,7 @@ export default function FlowApp({
     setSaveStatus,
     loading,
     canEdit,
+    getNodesBounds,
   });
 
   // ── Chart load ────────────────────────────────────────────────
@@ -310,6 +310,16 @@ export default function FlowApp({
   // during the drag was cosmetically correct and the one position the user
   // actually looks at afterward was not.
   const [alignmentGuides, setAlignmentGuides] = useState({ guideX: null, guideY: null });
+  const clearResizeGuides = useCallback(
+    () => setAlignmentGuides({ guideX: null, guideY: null }),
+    [],
+  );
+  const onNodeResize = useNodeResizeSnap({
+    getNodes,
+    getZoom,
+    setNodes,
+    setGuides: setAlignmentGuides,
+  });
 
   const applyAlignmentSnap = useCallback(
     (node) => {
@@ -516,7 +526,7 @@ export default function FlowApp({
   useChartShortcuts(activeTabId === chartId, {
     undo,
     redo,
-    save: () => void performSave(),
+    save: () => void performSave({ refreshThumbnail: true }),
     toggleSearch: () => setShowSearch((v) => !v),
     toggleHelp: () => setShowShortcuts((v) => !v),
     closeOverlays: () => {
@@ -572,17 +582,24 @@ export default function FlowApp({
     !!contextNode && !!TYPE_META[contextNode.data?.orgType]?.isPerson;
   const relationalProfileStaffId = HR_FEATURES_ENABLED
     ? profileStaffId ||
-      (typeof profileNode?.data?.dbStaffId === 'string'
-        ? profileNode.data.dbStaffId
-        : null)
+    (typeof profileNode?.data?.dbStaffId === 'string'
+      ? profileNode.data.dbStaffId
+      : null)
     : null;
 
   // Memoized so OrgNode (wrapped in memo()) doesn't re-render on every
   // unrelated render of FlowApp — without this, a new object here every
   // render defeats memo() for every node on the canvas.
   const chartContextValue = useMemo(
-    () => ({ childCounts, collapsedNodes, searchHighlights, teamSizes }),
-    [childCounts, collapsedNodes, searchHighlights, teamSizes],
+    () => ({
+      childCounts,
+      collapsedNodes,
+      searchHighlights,
+      teamSizes,
+      onNodeResize,
+      onNodeResizeCancel: clearResizeGuides,
+    }),
+    [childCounts, clearResizeGuides, collapsedNodes, searchHighlights, teamSizes, onNodeResize],
   );
 
   // ── Render ────────────────────────────────────────────────────
@@ -612,7 +629,7 @@ export default function FlowApp({
             setSelectedEdge(null);
             setShowNodePanel(false);
           }}
-          onSave={performSave}
+          onSave={() => performSave({ refreshThumbnail: true })}
           saveStatus={saveStatus}
           navigate={navigate}
         />
@@ -783,51 +800,52 @@ export default function FlowApp({
         {/* Properties Panel (Outside canvas-wrapper) */}
         {((selectedNodes.length > 0 && showNodePanel) || selectedEdge) &&
           !previewMode && (
-          <PropertiesPanel
-            chartId={chartId}
-            nodes={selectedNodes}
-            edge={selectedEdge}
-            onUpdateNodes={updateSelectedNodes}
-            onUpdateEdge={updateEdgeProperties}
-            onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
-            onDelete={() => {
-              if (selectedNodes.length > 0) {
-                showConfirm(
-                  'Delete Nodes',
-                  `Delete ${selectedNodes.length} node(s) and all connections?`,
-                  () => {
-                    deleteNodes();
-                    setConfirmModal(null);
-                  },
-                  true,
-                );
-              } else if (selectedEdge) {
-                takeSnapshot();
-                setEdges((eds) =>
-                  eds.filter((e) => e.id !== selectedEdge.id),
-                );
+            <PropertiesPanel
+              chartId={chartId}
+              nodes={selectedNodes}
+              edge={selectedEdge}
+              onUpdateNodes={updateSelectedNodes}
+              onUpdateEdge={updateEdgeProperties}
+              onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
+              onDelete={() => {
+                if (selectedNodes.length > 0) {
+                  showConfirm(
+                    'Delete Nodes',
+                    `Delete ${selectedNodes.length} node(s) and all connections?`,
+                    () => {
+                      deleteNodes();
+                      setConfirmModal(null);
+                    },
+                    true,
+                  );
+                } else if (selectedEdge) {
+                  takeSnapshot();
+                  setEdges((eds) =>
+                    eds.filter((e) => e.id !== selectedEdge.id),
+                  );
+                  setSelectedEdge(null);
+                }
+              }}
+              onClose={() => {
+                setSelectedNodes([]);
                 setSelectedEdge(null);
-              }
-            }}
-            onClose={() => {
-              setSelectedNodes([]);
-              setSelectedEdge(null);
-              setShowNodePanel(false);
-            }}
-            onSave={() => {
-              // Person node → back to its read-only profile; anything else →
-              // just deselect. Edits are already committed to node state.
-              setSelectedNodes([]);
-              setSelectedEdge(null);
-              setShowNodePanel(false);
-              setNodes((nds) =>
-                nds.map((n) => (n.selected ? { ...n, selected: false } : n)),
-              );
-            }}
-            onViewStaffProfile={setProfileStaffId}
-            charts={[]}
-          />
-        )}
+                setShowNodePanel(false);
+              }}
+              onSave={() => {
+                // The panel updates nodesRef before invoking this callback, so
+                // flush that exact edit instead of waiting for autosave.
+                void performSave({ refreshThumbnail: false });
+                setSelectedNodes([]);
+                setSelectedEdge(null);
+                setShowNodePanel(false);
+                setNodes((nds) =>
+                  nds.map((n) => (n.selected ? { ...n, selected: false } : n)),
+                );
+              }}
+              onViewStaffProfile={setProfileStaffId}
+              charts={[]}
+            />
+          )}
       </div>
 
       {/* ── Context Menu ─────────────────────────────────── */}
@@ -845,22 +863,22 @@ export default function FlowApp({
           onEdit={
             canEdit
               ? () => {
-                  const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
-                  if (n) {
-                    setSelectedNodes([n]);
-                    setSelectedEdge(null);
-                    // Field edits save to whichever node(s) have
-                    // `selected: true` in the live nodes array — align it
-                    // with the node we're actually opening the panel for.
-                    setNodes((nds) =>
-                      nds.map((node) => ({
-                        ...node,
-                        selected: node.id === n.id,
-                      })),
-                    );
-                    setShowNodePanel(true);
-                  }
+                const n = nodes.find((nd) => nd.id === contextMenu.nodeId);
+                if (n) {
+                  setSelectedNodes([n]);
+                  setSelectedEdge(null);
+                  // Field edits save to whichever node(s) have
+                  // `selected: true` in the live nodes array — align it
+                  // with the node we're actually opening the panel for.
+                  setNodes((nds) =>
+                    nds.map((node) => ({
+                      ...node,
+                      selected: node.id === n.id,
+                    })),
+                  );
+                  setShowNodePanel(true);
                 }
+              }
               : undefined
           }
           onAddChild={() => addChildNode(contextMenu.nodeId, 'orgNode')}

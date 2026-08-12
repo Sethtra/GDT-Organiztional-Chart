@@ -51,6 +51,7 @@ describe("mergeSafeStaffProjection", () => {
         {
           id: "node-1",
           data: {
+            orgType: "individualNode",
             name: "Recovery copy",
             phone: "legacy-backup-value",
             history: [{ name: "Previous occupant" }],
@@ -78,5 +79,32 @@ describe("mergeSafeStaffProjection", () => {
       dbStaffId: null,
       dbAssignmentId: null,
     });
+  });
+
+  it("never overwrites an organizational node with a legacy position row", () => {
+    const originalNode = {
+      id: "org-node-1",
+      data: {
+        orgType: "orgNode",
+        name: "កំ.រដ្ឋបាល",
+        badgeText: "Edited label",
+      },
+    };
+
+    const [node] = mergeSafeStaffProjection(
+      [originalNode],
+      [
+        {
+          id: "legacy-position-1",
+          node_id: "org-node-1",
+          title: "លេខ:",
+          department: null,
+          office: null,
+          position_assignments: [],
+        },
+      ],
+    );
+
+    expect(node).toEqual(originalNode);
   });
 });

@@ -33,6 +33,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useChartHistory } from '../hooks/useChartHistory';
 import { useChartShortcuts } from '../hooks/useChartShortcuts';
 import { useNodeOperations } from '../hooks/useNodeOperations';
+import { useNodeResizeSnap } from '../hooks/useNodeResizeSnap';
 import { useChartBackupOps } from '../hooks/useChartBackupOps';
 import { computeChartHierarchy } from '../utils/chartHierarchy';
 import { getNodeAlignmentGuides } from '../utils/nodeAlignment';
@@ -206,6 +207,11 @@ function ChartEditorTestHarness() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [saveStatus, setSaveStatus] = useState('');
   const [guides, setGuides] = useState({ guideX: null, guideY: null });
+  const clearResizeGuides = useCallback(
+    () => setGuides({ guideX: null, guideY: null }),
+    [],
+  );
+  const onNodeResize = useNodeResizeSnap({ getNodes, getZoom, setNodes, setGuides });
 
   // ── Selection / UI chrome state (mirrors FlowApp.jsx) ──────────────────
   const [selectedNodes, setSelectedNodes] = useState([]);
@@ -517,8 +523,15 @@ function ChartEditorTestHarness() {
   );
 
   const chartContextValue = useMemo(
-    () => ({ childCounts, collapsedNodes, searchHighlights, teamSizes }),
-    [childCounts, collapsedNodes, searchHighlights, teamSizes],
+    () => ({
+      childCounts,
+      collapsedNodes,
+      searchHighlights,
+      teamSizes,
+      onNodeResize,
+      onNodeResizeCancel: clearResizeGuides,
+    }),
+    [childCounts, clearResizeGuides, collapsedNodes, searchHighlights, teamSizes, onNodeResize],
   );
 
   const panelOpen = (selectedNodes.length > 0 && showNodePanel) || !!selectedEdge;
@@ -537,11 +550,11 @@ function ChartEditorTestHarness() {
         onSearchOpen={() => setShowSearch(true)}
         onShortcutsOpen={() => setShowShortcuts(true)}
         isOwner={false}
-        onShareOpen={() => {}}
+        onShareOpen={() => { }}
         canEdit
         onDownloadBackup={downloadChartBackup}
         onRestoreBackup={() => backupFileInputRef.current?.click()}
-        onPreviewMode={() => {}}
+        onPreviewMode={() => { }}
         onSave={simulateSave}
         saveStatus={saveStatus}
         navigate={navigate}
@@ -636,7 +649,7 @@ function ChartEditorTestHarness() {
               setShowNodePanel(false);
               setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)));
             }}
-            onViewStaffProfile={() => {}}
+            onViewStaffProfile={() => { }}
             charts={[]}
           />
         )}

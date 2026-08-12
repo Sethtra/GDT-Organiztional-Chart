@@ -2,13 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-// OrgNodePro was reviewed on /test-chart-editor and is now the live unit card.
-//
-// These tests started life enforcing the opposite — that the revision could not
-// reach production while it was under review. Now that it has shipped, the
-// thing worth guarding is the reverse: that the two routes never drift apart
-// again. A test route rendering a different node than production is worse than
-// no test route, because every review it produces is about the wrong card.
+// OrgNodePro is a design experiment mounted only by /test-chart-editor. The
+// production editor must keep using OrgNode until the revision is deliberately
+// promoted after review.
 //
 // The stylesheet checks stay as they were. CSS has no module scope, so
 // org-node-pro.css still shares a bundle with everything else, and it still
@@ -17,7 +13,7 @@ import test from 'node:test';
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), 'utf8');
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('the live editor and the test route mount the same node component', async () => {
+test('the premium node stays isolated to the test editor route', async () => {
   const [flowApp, testPage] = await Promise.all([
     read('src/components/editor/FlowApp.jsx'),
     read('src/pages/ChartEditorTestPage.jsx'),
@@ -29,11 +25,9 @@ test('the live editor and the test route mount the same node component', async (
 
   assert.ok(live, 'expected FlowApp to declare a nodeTypes map');
   assert.ok(test_, 'expected ChartEditorTestPage to declare a nodeTypes map');
-  assert.equal(
-    live[1],
-    test_[1],
-    'the test route must render the same node component production does',
-  );
+  assert.equal(live[1], 'OrgNode', 'production must keep the shipped OrgNode');
+  assert.equal(test_[1], 'OrgNodePro', 'the test route must mount OrgNodePro');
+  assert.notEqual(live[1], test_[1], 'the experiment must not leak into production');
 });
 
 test('person cards still route through OrgNode', async () => {

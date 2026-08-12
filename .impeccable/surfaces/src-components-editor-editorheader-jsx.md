@@ -2,7 +2,7 @@
 version: 1
 slug: "src-components-editor-editorheader-jsx"
 primary_target: "src/components/editor/EditorHeader.jsx"
-related_targets: ["src/styles/chart-editor.css","src/components/OrgNode.jsx","src/components/CustomEdge.jsx","src/utils/floatingEdge.js","src/pages/ChartEditorTestPage.jsx","src/utils/nodeAlignment.js","src/components/editor/AlignmentGuides.jsx","src/hooks/useNodeOperations.js","src/components/properties/NodePropertiesPanel.jsx"]
+related_targets: ["src/styles/chart-editor.css","src/components/OrgNode.jsx","src/components/OrgNodePro.jsx","src/styles/org-node-pro.css","src/components/CustomEdge.jsx","src/utils/floatingEdge.js","src/pages/ChartEditorTestPage.jsx","src/utils/nodeAlignment.js","src/components/editor/AlignmentGuides.jsx","src/hooks/useNodeOperations.js","src/components/properties/NodePropertiesPanel.jsx"]
 ---
 
 # Chart Editor surface brief
@@ -314,6 +314,28 @@ No colour tokens changed, so none of the already-verified contrast ratios
 needed re-checking — every change here is size/weight/transform/
 letter-spacing on already-passing text colours.
 
+## Test-only premium unit-card candidate — not promoted
+
+`OrgNodePro.jsx` + `src/styles/org-node-pro.css` are isolated to
+`/test-chart-editor`. `ChartEditorTestPage.jsx` maps `orgNode` to `OrgNodePro`;
+production `FlowApp.jsx` continues to map the same type to `OrgNode`. This
+divergence is deliberate review staging, not accidental drift, and
+`test/orgNodeIsolation.test.js` guards it directly.
+
+The candidate is a compact GDT civic record: an authored-colour identity
+header, Khmer-first name with a quiet tracked English caption, and an optional
+recessed filed-note footer for `data.description` or collapsed-child state.
+Simple nodes reduce the header to a 7px rule. The root fills the React Flow
+wrapper, enforces only a 176×92px floor, uses flex growth and line clamps, and
+adapts its internal spacing through a narrow-card container query so resize
+handles, visible bounds, and measured connector geometry stay together.
+
+Person cards are intentionally outside the experiment. `OrgNodePro` delegates
+them to `OrgNode`, preserving the existing 84px avatar and connector-anchor
+geometry. The preview stylesheet is confined to `.gdt-node*` and consumes
+shared `--nx-*` tokens without redefining them; loading the preview cannot
+restyle `.org-node*` or `.person-node*`.
+
 ## Fixed after the fifth user review (`/test-chart-editor` functional parity)
 
 User's report: Add Node did nothing on the test route, there was no
@@ -391,9 +413,10 @@ browser — neither visible from reading the code in isolation:
 ## New: `/test-chart-editor` (isolated preview route)
 
 `src/pages/ChartEditorTestPage.jsx`, added to `App.jsx` as a public route.
-No Supabase, no auth — mounts real `OrgNode`/`CustomEdge`/`EditorHeader`
-with fixture nodes (including two pre-resized larger than default) inside
-the app's real `ThemeProvider`, so the header's light/dark toggle works
+No Supabase, no auth — mounts test-only `OrgNodePro` for unit fixtures,
+delegates person fixtures to the production `OrgNode`, and shares the real
+`CustomEdge`/`EditorHeader` inside the app's `ThemeProvider`. Two fixtures are
+pre-resized larger than default, so the header's light/dark toggle works
 normally. Its "Auto Layout" button calls the real `getLayoutedElements`,
 and dragging any node exercises the real alignment-guide code path — not
 stand-ins. As of the fifth review it's a fully-functional local editor,
@@ -418,9 +441,10 @@ prior review cycle. Not linked from any nav.
   and now also lag the freshly-bumped `--nx-radius`/`--nx-shadow` chrome.
 - The real, Supabase-backed `/chart/:id` route (auth, autosave, share,
   backup/restore) is still unexercised in a browser — only the fixture
-  route has been. The fix, restyle, and alignment guides all apply to
-  shared CSS/components (`OrgNode.jsx`, `chart-editor.css`), so there's no
-  reason to expect divergence, but it hasn't been *seen* there.
+  route has been. Shared connector, alignment, and editor behavior can be
+  reviewed there, but the premium `.gdt-node*` unit-card treatment cannot:
+  production deliberately remains on `OrgNode` until a separate promotion
+  decision. Person nodes are shared and unchanged.
 - Alignment guides currently compare edge/centre lines only (left, centreX,
   right / top, centreY, bottom) — no equal-spacing ("three objects evenly
   spaced") detection, which Figma has and Visio's own reference screenshot

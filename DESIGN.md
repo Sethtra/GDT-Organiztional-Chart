@@ -62,7 +62,8 @@ drew each tier at a fixed width. It guessed wrong, and the per-tier `min-width`
 made nodes un-resizable. Both are gone; do not reintroduce them.
 
 Label ink on an authored band colour is chosen by luminance (`readableInk` in
-`OrgNode.jsx`) so a pale custom colour never leaves white text unreadable.
+`OrgNode.jsx`, mirrored by the test-only `OrgNodePro.jsx`) so a pale custom
+colour never leaves white text unreadable.
 
 **The two official node templates read as different kinds of object on
 purpose.** A unit node is a label the author fully owns (any band colour,
@@ -101,34 +102,37 @@ text":
 
 ### The unit card
 
-`OrgNodePro.jsx` + `src/styles/org-node-pro.css` render the unit card on both
-the live editor and `/test-chart-editor`. `OrgNode.jsx` still renders the
-**person** card, and `OrgNodePro` delegates to it — the redesign was scoped to
-the unit card, and a person card's avatar geometry is load-bearing for
-`floatingEdge.js`.
+`FlowApp.jsx` maps production `orgNode` entries to `OrgNode`. The alternative
+`OrgNodePro.jsx` + `src/styles/org-node-pro.css` card is mounted only by
+`/test-chart-editor`, whose `nodeTypes` map deliberately points to
+`OrgNodePro`. It is a review candidate, **not a promoted production template**.
+`OrgNodePro` delegates every person node straight back to `OrgNode`, so person
+cards and their load-bearing avatar geometry remain unchanged in both routes.
 
-Because CSS has no module scope, holding those two cards apart is not a matter
-of which component renders which: both stylesheets ship in the same bundle. The
-unit card is namespaced `.gdt-node*`, a class the person card never emits, and
-it reads `--nx-*` tokens without declaring any. `test/orgNodeIsolation.test.js`
-fails if either stops being true — or if the live editor and the test route
-ever mount different node components, which would make every review the test
-route produces a review of the wrong card.
+Because CSS has no module scope, the preview card emits only `.gdt-node*`
+classes and reads shared `--nx-*` tokens without declaring them. The person
+card never emits that namespace. `test/orgNodeIsolation.test.js` guards all
+three boundaries: production stays on `OrgNode`, the test route stays on
+`OrgNodePro`, and the preview stylesheet cannot reach `.org-node*` or
+`.person-node*`.
 
-Three changes carry the redesign:
+The premium preview reads as a compact GDT civic record:
 
-- **Three registers instead of two** — identity band, name field, and a
-  recessed footer on `--nx-paper-2` for the description. The live card runs the
-  description under the name behind a hairline, leaving one undifferentiated
-  column of text below the band.
-- **The band collapses to a 7px rule when it has nothing to carry.** An
-  unlabelled node used to draw a full-height empty colour slab; that, more than
-  anything else about the card, is what made a badge-less node look unfinished
-  rather than plain.
-- **A stroke stack and a keel instead of a 1px border.** Outer rule, inner
-  hairline, top catch-light, plus a 2px darkened underside where the band meets
-  the paper (`color-mix` off the author's own colour, so it holds for any band).
-  Edge detail is what separates a printed object from a div.
+- **Three quiet registers** — a confident identity header, Khmer-first name
+  field with a restrained English caption, and an optional recessed filed-note
+  footer on `--nx-paper-2`. The footer appears only for a real description or
+  a collapsed node with hidden children.
+- **A simple-node exception** — `data.orgType === 'simple'` reduces the
+  identity header to a 7px authored-colour rule; it does not fabricate a badge
+  or hierarchy for a deliberately plain node.
+- **Compact, resizable construction** — a 176×92px floor, full-width/full-
+  height flex layout, clamped bilingual copy, and a narrow-card container query
+  preserve hierarchy as the author changes width and height. Four connection
+  anchors and the selection resizer remain independent of the internal
+  registers.
+- **Civic-record depth** — a 14px paper silhouette, a restrained inner rule,
+  and soft ambient shadows give the preview physical definition without
+  turning the chart into a stack of decorative cards.
 
 Delete `ChartEditorTestPage.jsx`'s lone `description` fixture and the footer
 register stops being reviewable — that is the only node carrying one, on purpose.
@@ -138,8 +142,9 @@ Person nodes keep their avatar geometry (84px at `-42px`) because
 avatar placeholder is GDT green; an empty seat reads as a quiet neutral outline,
 not a red alert — a vacancy is a normal state.
 
-**The card must fill its own resizable box.** `.org-node` and
-`.org-node--person` render *inside* the `.react-flow__node` wrapper that
+**The card must fill its own resizable box.** `.org-node`,
+`.org-node--person`, and the preview-only `.gdt-node` render *inside* the
+`.react-flow__node` wrapper that
 `NodeResizer` actually resizes and that `floatingEdge.js` measures
 (`node.measured.width/height`). Without `position: relative; width: 100%;
 height: 100%;` on the card itself, dragging a handle grew the invisible
@@ -147,8 +152,8 @@ wrapper while the visible card stayed at its min-content size — the resize
 handles visibly detached from the shape, and a connector aimed at the
 wrapper's new edge landed off in empty space next to the actual (unchanged)
 card. This was never caught in a browser (see the surface brief's prior
-"Open" item); both symptoms disappeared once the card was made to fill the
-box React Flow is already sizing for it. `.org-node--person` needs the same
+"Open" item); both symptoms disappeared once each card root was made to fill
+the box React Flow is already sizing for it. `.org-node--person` needs the same
 fix for a second reason: its avatar/pill/badges are `position: absolute`
 with no positioned ancestor otherwise, so without this they anchor to the
 wrapper too and drift on resize.
@@ -369,9 +374,10 @@ The real editor sits behind Supabase auth and a live chart (`EditorShell` →
 `FlowApp`), which is why the resizer/connector fix above went unexercised in
 a browser for a full review cycle. `/test-chart-editor`
 (`src/pages/ChartEditorTestPage.jsx`) is a standalone, unauthenticated route
-mounting the same `OrgNode`/`CustomEdge`/`EditorHeader` with fixture data —
-including two nodes pre-resized larger than default specifically to catch
-the wrapper-vs-card class of bug. Its "Auto Layout" button calls the real
+mounting test-only `OrgNodePro` for unit fixtures while delegating person
+fixtures to production `OrgNode`; `CustomEdge` and `EditorHeader` remain shared.
+Two nodes are pre-resized larger than default specifically to catch the
+wrapper-vs-card class of bug. Its "Auto Layout" button calls the real
 `getLayoutedElements` (not a stub), so parent/child centring can be checked
 against production logic, not just eyeballed fixture coordinates. It
 renders inside the app's real `ThemeProvider`, so the header's own

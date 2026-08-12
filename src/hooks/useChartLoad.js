@@ -140,5 +140,5 @@ export function useChartLoad({
     }
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartId, navigate, setNodes, setEdges, user]);
+  }, [chartId, navigate, setNodes, setEdges, user?.id]);
 }

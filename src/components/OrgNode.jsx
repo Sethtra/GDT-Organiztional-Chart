@@ -1,5 +1,5 @@
 import { memo, useState, useContext } from "react";
-import { Handle, Position, NodeResizer } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import {
   Pencil,
   ChevronDown,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ChartContext } from "../contexts/ChartContext";
 import { TYPE_META } from "../data/nodeTypes";
+import SmartNodeResizer from "./editor/SmartNodeResizer";
 
 /**
  * Relative luminance (WCAG), used to pick white or near-black for the label
@@ -91,7 +92,8 @@ const OrgNode = memo(({ id, data, selected }) => {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <NodeResizer
+        <SmartNodeResizer
+          nodeId={id}
           minWidth={200}
           minHeight={160}
           isVisible={selected}
@@ -217,7 +219,8 @@ const OrgNode = memo(({ id, data, selected }) => {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <NodeResizer
+      <SmartNodeResizer
+        nodeId={id}
         minWidth={140}
         minHeight={64}
         isVisible={selected}

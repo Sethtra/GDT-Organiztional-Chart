@@ -150,6 +150,13 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
     setShowAddChild(false);
     setShowVacateForm(false);
     skipNextSave.current = true;
+
+    // If the state values above exactly matched what was already in state,
+    // React bails out of re-rendering, and the auto-save effect never runs
+    // to consume `skipNextSave`. We clear it asynchronously so it doesn't
+    // swallow the user's first real edit.
+    const t = setTimeout(() => { skipNextSave.current = false; }, 50);
+    return () => clearTimeout(t);
   }, [selectedNodeIds]);
 
   // Multi-select writes ONLY the bulk-editable fields — per-node data
@@ -257,6 +264,14 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
     onSave?.();
   };
 
+  const handleClose = () => {
+    // Closing used to cancel the pending field update, so a quick close and
+    // refresh could restore the node's previous database values.
+    onUpdateNodesRef.current(buildPayload());
+    if (onSave) onSave();
+    else onClose?.();
+  };
+
   const linkedChart = charts.find(c => c.id === linkedChartId);
 
   return (
@@ -267,7 +282,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
           <div className="pp-dot" style={{ background: color }} />
           <span className="pp-title">{isMultiSelect ? `Multiple Nodes (${nodes.length})` : "Properties"}</span>
         </div>
-        <button className="pp-close" onClick={onClose} title="Close"><X size={15} /></button>
+        <button className="pp-close" onClick={handleClose} title="Save and close"><X size={15} /></button>
       </div>
 
 

@@ -40,10 +40,10 @@ async function migrate() {
       const d = node.data;
       if (!d) continue;
 
-      // Only migrate individual nodes or nodes that have a person assigned/history
-      if (d.orgType !== 'individualNode' && !d.name && (!d.history || d.history.length === 0)) {
-        continue;
-      }
+      // Organizational-unit names are chart labels, not staff occupants.
+      // Creating position rows for them lets the HR projection overwrite
+      // their authored names whenever the chart reloads.
+      if (d.orgType !== 'individualNode') continue;
 
       // Step 1: Create Position
       const { data: position, error: posError } = await supabase
