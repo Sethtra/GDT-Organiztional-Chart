@@ -23,7 +23,8 @@ const migrationFiles = [
 ];
 
 async function readMigration(filename) {
-  return readFile(new URL(`../migrations/${filename}`, import.meta.url), 'utf8');
+  const content = await readFile(new URL(`../migrations/${filename}`, import.meta.url), 'utf8');
+  return content.replace(/\r\n/g, '\n');
 }
 
 test('HR migrations are transactional and contain no destructive data cleanup', async () => {
