@@ -89,6 +89,7 @@ const approvedPositionNames = [
   "អនុប្រធានការិយាល័យ",
   "មន្ត្រី",
   "មន្ត្រីកិច្ចសន្យា",
+  "មន្ត្រីកម្មសិក្សា",
 ] as const;
 
 const positionOrder = new Map<string, number>(

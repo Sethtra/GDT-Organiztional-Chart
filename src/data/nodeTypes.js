@@ -14,6 +14,8 @@ export const POSITION_OPTIONS = [
   "ប្រធានការិយាល័យ",
   "អនុប្រធានការិយាល័យ",
   "មន្ត្រី",
+  "មន្ត្រីកិច្ចសន្យា",
+  "មន្ត្រីកម្មសិក្សា",
 ];
 
 // Deliberately NO automatic rank/tier system here.

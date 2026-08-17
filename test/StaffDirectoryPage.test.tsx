@@ -261,6 +261,16 @@ vi.mock("../src/services/jobArchitectureService", () => ({
       isActive: true,
       requirements: [],
     },
+    {
+      id: "00000000-0000-4000-8000-000000000016",
+      code: "TRAINEE_OFFICER",
+      name: "មន្ត្រីកម្មសិក្សា",
+      nameEn: "Trainee Officer",
+      rankOrder: 70,
+      positionScope: "individual",
+      isActive: true,
+      requirements: [],
+    },
   ]),
 }));
 
@@ -433,6 +443,7 @@ describe("Staff Directory", () => {
       "អនុប្រធានការិយាល័យ — Deputy Office Chief",
       "មន្ត្រី — Officer",
       "មន្ត្រីកិច្ចសន្យា — Contract Officer",
+      "មន្ត្រីកម្មសិក្សា — Trainee Officer",
     ]);
   });
 

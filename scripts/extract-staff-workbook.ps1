@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param(
   [Parameter(Mandatory)]
   [string]$WorkbookPath,
@@ -168,6 +168,12 @@ function Normalize-Position {
   }
   if ($normalized -match '^មន្ត្រីកិច្ចសន្យា$') {
     return 'មន្ត្រីកិច្ចសន្យា'
+  }
+  if (
+    $normalized -in @('មន្រ្តីកម្មសិក្សា', 'មន្ត្រីកម្មសិក្សា') -or
+    $normalized -match '^មន្ត្រី\s*កម្មសិក្សា$'
+  ) {
+    return 'មន្ត្រីកម្មសិក្សា'
   }
 
   throw "Unsupported position '$Position' at workbook row $Row."

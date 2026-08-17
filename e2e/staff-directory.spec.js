@@ -21,6 +21,7 @@ const jobTitles = [
   ['13', 'OFFICE_DEPUTY', 'អនុប្រធានការិយាល័យ', 'Deputy Office Chief', 40, 'office'],
   ['14', 'OFFICER', 'មន្ត្រី', 'Officer', 50, 'individual'],
   ['15', 'CONTRACT_OFFICER', 'មន្ត្រីកិច្ចសន្យា', 'Contract Officer', 60, 'individual'],
+  ['16', 'TRAINEE_OFFICER', 'មន្ត្រីកម្មសិក្សា', 'Trainee Officer', 70, 'individual'],
 ].map(([suffix, code, name, nameEn, rankOrder, positionScope]) => ({
   id: `00000000-0000-4000-8000-0000000000${suffix}`,
   code,
@@ -209,6 +210,7 @@ test('staff directory and ordered position dropdown render cleanly', async ({
     'អនុប្រធានការិយាល័យ — Deputy Office Chief',
     'មន្ត្រី — Officer',
     'មន្ត្រីកិច្ចសន្យា — Contract Officer',
+    'មន្ត្រីកម្មសិក្សា — Trainee Officer',
   ]);
 
   expect(

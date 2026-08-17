@@ -71,7 +71,8 @@ WITH approved_titles (
     ('OFFICE_HEAD', 'ប្រធានការិយាល័យ', 'Office Chief', 30, 'office'),
     ('OFFICE_DEPUTY', 'អនុប្រធានការិយាល័យ', 'Deputy Office Chief', 40, 'office'),
     ('OFFICER', 'មន្ត្រី', 'Officer', 50, 'individual'),
-    ('CONTRACT_OFFICER', 'មន្ត្រីកិច្ចសន្យា', 'Contract Officer', 60, 'individual')
+    ('CONTRACT_OFFICER', 'មន្ត្រីកិច្ចសន្យា', 'Contract Officer', 60, 'individual'),
+    ('TRAINEE_OFFICER', 'មន្ត្រីកម្មសិក្សា', 'Trainee Officer', 70, 'individual')
 )
 INSERT INTO public.job_titles (
   code,
@@ -109,7 +110,8 @@ WITH approved_titles (
     ('OFFICE_HEAD', 'ប្រធានការិយាល័យ', 'Office Chief', 30, 'office'),
     ('OFFICE_DEPUTY', 'អនុប្រធានការិយាល័យ', 'Deputy Office Chief', 40, 'office'),
     ('OFFICER', 'មន្ត្រី', 'Officer', 50, 'individual'),
-    ('CONTRACT_OFFICER', 'មន្ត្រីកិច្ចសន្យា', 'Contract Officer', 60, 'individual')
+    ('CONTRACT_OFFICER', 'មន្ត្រីកិច្ចសន្យា', 'Contract Officer', 60, 'individual'),
+    ('TRAINEE_OFFICER', 'មន្ត្រីកម្មសិក្សា', 'Trainee Officer', 70, 'individual')
 )
 UPDATE public.job_titles AS title
 SET

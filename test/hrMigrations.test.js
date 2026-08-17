@@ -159,6 +159,7 @@ test('refined staff API uses the approved position order and excludes deprecated
     'អនុប្រធានការិយាល័យ',
     'មន្ត្រី',
     'មន្ត្រីកិច្ចសន្យា',
+    'មន្ត្រីកម្មសិក្សា',
   ];
   let previousIndex = -1;
   for (const title of titles) {
