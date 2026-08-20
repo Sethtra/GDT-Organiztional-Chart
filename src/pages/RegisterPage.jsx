@@ -160,7 +160,12 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   disabled={loading}
                 />
-                <button type="button" className="gov-auth-input-icon-btn" onClick={() => setShowPass((v) => !v)} tabIndex={-1}>
+                <button
+                  type="button"
+                  className="gov-auth-input-icon-btn"
+                  onClick={() => setShowPass((v) => !v)}
+                  aria-label={showPass ? 'Hide password' : 'Show password'}
+                >
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -195,7 +200,12 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   disabled={loading}
                 />
-                <button type="button" className="gov-auth-input-icon-btn" onClick={() => setShowConfirm((v) => !v)} tabIndex={-1}>
+                <button
+                  type="button"
+                  className="gov-auth-input-icon-btn"
+                  onClick={() => setShowConfirm((v) => !v)}
+                  aria-label={showConfirm ? 'Hide confirmation password' : 'Show confirmation password'}
+                >
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>

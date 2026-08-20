@@ -177,7 +177,7 @@ test('staff directory and ordered position dropdown render cleanly', async ({
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
 
-  await page.goto('/test-staff');
+  await page.goto('/admin/staff');
   await expect(page.getByText('Officer Data Table')).toBeVisible();
   await expect(page.getByText('Test Officer')).toBeVisible();
   await expect(page.getByText('Finance and Personnel')).toBeVisible();

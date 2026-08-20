@@ -23,7 +23,7 @@ class ErrorBoundary extends React.Component {
       return (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          height: '100vh', backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)', padding: '2rem', textAlign: 'center'
+          height: '100dvh', backgroundColor: 'var(--bg-app)', color: 'var(--text-primary)', padding: '2rem', textAlign: 'center'
         }}>
           <AlertTriangle size={64} color="#ef4444" style={{ marginBottom: '1rem' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>

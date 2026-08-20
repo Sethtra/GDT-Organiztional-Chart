@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { mockHrAdminSession } from "./helpers/mockHrAdminSession";
+
 const READY_OFFICER = {
   id: "00000000-0000-4000-8000-000000000001",
   employeeId: "GDT-001",
@@ -69,6 +71,7 @@ for (const viewport of [
   test(`Ready to Promote filters the staff table on ${viewport.name}`, async ({
     page,
   }, testInfo) => {
+    await mockHrAdminSession(page);
     const consoleProblems = [];
     const failedRequests = [];
 
@@ -120,7 +123,7 @@ for (const viewport of [
 
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize(viewport);
-    await page.goto("/test-staff?promotion=ready");
+    await page.goto("/admin/staff?promotion=ready");
 
     const promotionFilter = page.getByRole("combobox", {
       name: "Filter by promotion readiness",

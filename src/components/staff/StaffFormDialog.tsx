@@ -381,6 +381,7 @@ export default function StaffFormDialog({
     () => departments.find((unit) => unit.id === draft.departmentId) ?? null,
     [departments, draft.departmentId],
   );
+  const currentJobTitleId = staff?.jobTitle?.id;
 
   useEffect(() => {
     if (!open) return;
@@ -397,7 +398,6 @@ export default function StaffFormDialog({
     void listJobArchitecture()
       .then((items) => {
         if (cancelled) return;
-        const currentJobTitleId = staff?.jobTitleId || staff?.jobTitle?.id;
         setPositions(
           items
             .filter(
@@ -431,7 +431,7 @@ export default function StaffFormDialog({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [currentJobTitleId, open]);
 
   const title = staff ? "Edit officer record" : "Add officer";
   const fieldError = useMemo(() => {
@@ -563,7 +563,7 @@ export default function StaffFormDialog({
         </div>
 
         <form
-          className="grid max-h-[calc(100vh-8rem)] overflow-y-auto"
+          className="grid max-h-[calc(100dvh-8rem)] overflow-y-auto"
           onSubmit={handleSubmit}
         >
           <div className="grid gap-5 px-6 py-6">

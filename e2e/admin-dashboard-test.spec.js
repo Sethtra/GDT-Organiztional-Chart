@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { mockHrAdminSession } from "./helpers/mockHrAdminSession";
+
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "tablet", width: 1024, height: 768 },
@@ -62,6 +64,7 @@ for (const viewport of VIEWPORTS) {
   test(`admin design preview is stable on ${viewport.name}`, async ({
     page,
   }, testInfo) => {
+    await mockHrAdminSession(page);
     const consoleProblems = [];
     const failedRequests = [];
     const hrRequests = [];
@@ -98,7 +101,7 @@ for (const viewport of VIEWPORTS) {
       width: viewport.width,
       height: viewport.height,
     });
-    await page.goto("/test-admin");
+    await page.goto("/admin");
 
     await expect(
       page.getByRole("heading", { name: "Executive overview" }),
@@ -120,13 +123,14 @@ for (const viewport of VIEWPORTS) {
     await expect(candidateLink).toContainText("3/3 required skills met");
     await expect(page.getByText("4 ready", { exact: true })).toBeVisible();
     const viewAllCandidates = page.getByRole("link", {
-      name: "View all 4 officers",
+      name: "View all promotion-ready officers",
     });
     await expect(viewAllCandidates).toBeVisible();
     await expect(viewAllCandidates).toHaveAttribute(
       "href",
       "/admin/staff?promotion=ready",
     );
+    await expect(page.getByText("1 / 2", { exact: true })).toBeVisible();
 
     if (viewport.name === "desktop") {
       const [trendBox, queueBox, identityBox, readinessBox] = await Promise.all([
@@ -146,6 +150,18 @@ for (const viewport of VIEWPORTS) {
       const queueBottom = queueBox.y + queueBox.height;
       expect(Math.abs(trendBottom - queueBottom)).toBeLessThanOrEqual(1);
       expect(readinessBox.x).toBeGreaterThan(identityBox.x + 80);
+
+      await page
+        .getByRole("button", { name: "Next promotion candidates page" })
+        .click();
+      await expect(page.getByText("2 / 2", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /Open profile for Heng Pisey/ }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Previous promotion candidates page" })
+        .click();
+      await expect(page.getByText("1 / 2", { exact: true })).toBeVisible();
     }
 
     const overflow = await page.evaluate(
@@ -200,7 +216,70 @@ for (const viewport of VIEWPORTS) {
     expect(failedRequests).toEqual([]);
     expect(hrRequests.length).toBeGreaterThanOrEqual(1);
     expect(
-      hrRequests.every((url) => url.includes("get_promotion_readiness")),
+      hrRequests.some((url) => url.includes("get_promotion_readiness")),
+    ).toBe(true);
+    expect(
+      hrRequests.every(
+        (url) =>
+          url.includes("get_promotion_readiness") ||
+          url.includes("is_hr_admin"),
+      ),
     ).toBe(true);
   });
 }
+
+test("three promotion candidates fill the desktop dashboard row", async ({
+  page,
+}) => {
+  await mockHrAdminSession(page);
+  await page.route("**/rest/v1/rpc/get_promotion_readiness", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(PROMOTION_CANDIDATES.slice(0, 3)),
+    }),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/admin");
+
+  await expect(page.getByText("3 ready", { exact: true })).toBeVisible();
+  const [trendBox, queueBox] = await Promise.all([
+    page.locator("#workforce-trend").boundingBox(),
+    page.locator("#approvals").boundingBox(),
+  ]);
+
+  if (!trendBox || !queueBox) {
+    throw new Error("Dashboard card heights were not measurable.");
+  }
+  expect(Math.abs(trendBox.height - queueBox.height)).toBeLessThanOrEqual(1);
+});
+
+test("empty promotion queue retains its desktop height and footer", async ({
+  page,
+}) => {
+  await mockHrAdminSession(page);
+  await page.route("**/rest/v1/rpc/get_promotion_readiness", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "[]",
+    }),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/admin");
+
+  await expect(page.getByText("No candidates are ready")).toBeVisible();
+  await expect(page.getByText("1 / 1", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View all promotion-ready officers" }),
+  ).toHaveAttribute("href", "/admin/staff?promotion=ready");
+
+  const [trendBox, queueBox] = await Promise.all([
+    page.locator("#workforce-trend").boundingBox(),
+    page.locator("#approvals").boundingBox(),
+  ]);
+  if (!trendBox || !queueBox) {
+    throw new Error("Empty dashboard card heights were not measurable.");
+  }
+  expect(Math.abs(trendBox.height - queueBox.height)).toBeLessThanOrEqual(1);
+});

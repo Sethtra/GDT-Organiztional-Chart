@@ -328,6 +328,10 @@ $migrationSources = @(
     Source = Join-Path $projectRoot 'migrations\2026081102_remove_legacy_skill_rpc_overloads.sql'
     Target = '20260727000023_remove_legacy_skill_rpc_overloads.sql'
   }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026082002_add_account_deletion_support.sql'
+    Target = '20260727000024_add_account_deletion_support.sql'
+  }
 )
 
 if ($PromotionReadinessOnly) {

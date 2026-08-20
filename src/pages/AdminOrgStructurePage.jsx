@@ -649,7 +649,7 @@ export default function AdminOrgStructurePage() {
           onOpenMobileNav={() => setMobileNavOpen(true)}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search units or offices..."
+          searchPlaceholder="Search organization"
           searchLabel="Search organizational units"
           saving={saving}
         />

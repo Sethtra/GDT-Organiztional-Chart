@@ -108,6 +108,7 @@ npm run test:unit    # Vitest component and hook tests
 npm run test:e2e     # Playwright browser tests
 npm run build        # production build
 npm run db:types     # regenerate Supabase types (requires access token)
+npm run functions:account:deploy # deploy the protected account deletion function
 npm run preview      # serve the production build
 ```
 
@@ -136,6 +137,9 @@ Provision the first HR administrator using
 [`docs/hr-admin-provisioning.md`](docs/hr-admin-provisioning.md). Never run the
 dummy-data cleanup before reviewing its dry-run report and exporting every
 affected chart.
+
+Deploy account deletion only in the backup-first order documented in
+[`docs/account-lifecycle-rollout.md`](docs/account-lifecycle-rollout.md).
 
 ## Deployment
 

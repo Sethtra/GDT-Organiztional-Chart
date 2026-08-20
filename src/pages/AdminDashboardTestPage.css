@@ -9,3 +9,29 @@
   overflow: hidden;
   background: var(--pa-canvas);
 }
+
+@media (pointer: coarse) {
+  .admin-dashboard-test button,
+  .admin-dashboard-test a[href],
+  .admin-dashboard-test input,
+  .admin-dashboard-test select,
+  .admin-dashboard-test textarea {
+    min-height: 44px;
+  }
+
+  .admin-dashboard-test input,
+  .admin-dashboard-test select,
+  .admin-dashboard-test textarea {
+    font-size: 16px;
+  }
+
+  .admin-dashboard-test button,
+  .admin-dashboard-test a[href] {
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  .admin-dashboard-test footer {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

@@ -16,6 +16,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 import AdminOrgStructurePage from './pages/AdminOrgStructurePage';
+import AdminOrgStructureTestPage from './pages/AdminOrgStructureTestPage';
 import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
@@ -131,8 +132,16 @@ function AppLayout() {
             }
           />
           <Route path="/test-chart-editor" element={<ChartEditorTestPage />} />
-          <Route path="/test-admin" element={<AdminDashboardPage />} />
-          <Route path="/test-staff" element={<StaffDirectoryPage />} />
+          <Route
+            path="/test-org-structure"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <AdminOrgStructureTestPage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
 
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />

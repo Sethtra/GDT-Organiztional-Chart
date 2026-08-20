@@ -64,6 +64,11 @@ describe("AdminDashboardPage", () => {
     expect(
       screen.getByText("Illustrative — not yet wired to live data"),
     ).toBeInTheDocument();
+    expect(screen.getByText("HR administrator")).toBeInTheDocument();
+    expect(screen.queryByText("sethtragame@gmail.com")).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("searchbox", { name: "Search recent activity" }),
+    ).toHaveLength(1);
   });
 
   it("shows one-level promotion candidates in the decision queue", async () => {
@@ -84,6 +89,18 @@ describe("AdminDashboardPage", () => {
     expect(candidateLink).toHaveTextContent("អនុប្រធានការិយាល័យ");
     expect(candidateLink).toHaveTextContent("3/3 required skills met");
     expect(screen.getByText("1 ready")).toBeInTheDocument();
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Previous promotion candidates page",
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Next promotion candidates page" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("link", { name: "View all promotion-ready officers" }),
+    ).toHaveAttribute("href", "/admin/staff?promotion=ready");
     expect(screen.queryByText("Position assignments")).not.toBeInTheDocument();
     expect(screen.queryByText("Transfer requests")).not.toBeInTheDocument();
     expect(screen.queryByText("Profile updates")).not.toBeInTheDocument();

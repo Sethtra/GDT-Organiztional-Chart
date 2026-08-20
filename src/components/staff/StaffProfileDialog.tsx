@@ -171,7 +171,7 @@ export default function StaffProfileDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="flex h-[min(820px,calc(100vh-2rem))] max-w-4xl grid-rows-none flex-col overflow-hidden rounded-[16px] border-[#d9e1dc] bg-white p-0 text-[#16211b] shadow-2xl"
+        className="flex h-[min(820px,calc(100dvh-2rem))] max-w-4xl grid-rows-none flex-col overflow-hidden rounded-[16px] border-[#d9e1dc] bg-white p-0 text-[#16211b] shadow-2xl"
         style={{ fontFamily: "'Manrope', 'Noto Sans Khmer', system-ui, sans-serif" }}
       >
         <div className="shrink-0 border-b border-[#d9e1dc] bg-[#f3f5f2] px-6 py-5">

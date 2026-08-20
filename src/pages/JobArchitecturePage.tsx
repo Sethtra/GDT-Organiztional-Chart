@@ -417,7 +417,7 @@ export default function JobArchitecturePage() {
           onOpenMobileNav={() => setMobileNavOpen(true)}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search job titles or requirements..."
+          searchPlaceholder="Search job titles"
           searchLabel="Search job titles"
           saving={saving}
         />

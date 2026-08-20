@@ -370,7 +370,7 @@ export default function StaffDirectoryPage() {
           onOpenMobileNav={() => setMobileNavOpen(true)}
           searchValue={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search officers, employee IDs, or positions"
+          searchPlaceholder="Search officers"
           searchLabel="Search officers"
         />
 

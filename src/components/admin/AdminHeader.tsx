@@ -26,10 +26,14 @@ export default function AdminHeader({
   const { user: authUser } = useAuth();
   const userEmail = (authUser as { email?: string } | null)?.email ?? null;
   const searchId = useId();
+  const identityLabel = userEmail ?? "HR administrator";
+  const identityInitials = userEmail
+    ? userEmail.slice(0, 2).toUpperCase()
+    : "HR";
 
   return (
-    <header className="shrink-0 z-30 flex h-[74px] items-center border-b border-[var(--pa-border)] bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-3 px-4 sm:px-7 lg:px-[46px] min-w-0">
+    <header className="z-30 shrink-0 border-b border-[var(--pa-border)] bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex min-h-[74px] w-full max-w-[1400px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 md:flex-nowrap md:py-0 lg:px-[46px]">
         <button
           type="button"
           onClick={onOpenMobileNav}
@@ -40,8 +44,8 @@ export default function AdminHeader({
           <Menu size={19} aria-hidden="true" />
         </button>
 
-        <div className="hidden min-w-0 flex-1 items-center md:flex">
-          <div className="relative w-full max-w-[430px]">
+        <div className="order-last flex w-full min-w-0 items-center md:order-none md:w-auto md:flex-1">
+          <div className="relative w-full md:max-w-[430px]">
             <Search
               size={16}
               className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pa-faint)]"
@@ -56,13 +60,13 @@ export default function AdminHeader({
               value={searchValue}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder={searchPlaceholder}
-              className="pa-focus-ring h-10 w-full rounded-[9px] border border-[var(--pa-border)] bg-[var(--pa-canvas)] pl-10 pr-9 text-[12.5px] font-medium text-[var(--pa-text)] outline-none placeholder:text-[var(--pa-faint)]"
+              className="pa-focus-ring h-11 w-full rounded-[9px] border border-[var(--pa-border)] bg-[var(--pa-canvas)] pl-10 pr-10 text-[16px] font-medium text-[var(--pa-text)] outline-none placeholder:text-[var(--pa-faint)] md:h-10 md:pr-9 md:text-[12.5px]"
             />
             {searchValue && (
               <button
                 type="button"
                 onClick={() => onSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--pa-faint)] transition-colors hover:text-[var(--pa-text)]"
+                className="pa-focus-ring absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-[var(--pa-faint)] transition-colors hover:text-[var(--pa-text)] md:right-1.5"
                 aria-label="Clear search"
               >
                 <X size={14} aria-hidden="true" />
@@ -71,7 +75,7 @@ export default function AdminHeader({
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           {saving && (
             <div className="hidden items-center gap-2 rounded-lg border border-[var(--pa-gold-border)] bg-[var(--pa-gold-soft)] px-3 py-2 text-[10.5px] font-bold text-[#735413] sm:flex">
               <Loader2 size={12} className="animate-spin" aria-hidden="true" />
@@ -80,27 +84,29 @@ export default function AdminHeader({
           )}
           <Link
             to="/"
-            className="pa-focus-ring flex h-9 items-center gap-1.5 rounded-lg border border-[var(--pa-border)] bg-[var(--pa-canvas)] px-3 text-[11px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)] hover:bg-white"
+            className="pa-focus-ring flex size-10 items-center justify-center gap-1.5 rounded-lg border border-[var(--pa-border)] bg-[var(--pa-canvas)] text-[11px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)] hover:bg-white sm:h-10 sm:w-auto sm:px-3"
             title="Return to main page"
+            aria-label="Back to main page"
           >
             <ArrowLeft size={13} strokeWidth={2.2} className="shrink-0 text-[var(--pa-muted)]" aria-hidden="true" />
-            <span>Back to main page</span>
+            <span className="hidden sm:inline">Back to main page</span>
           </Link>
-          <div className="h-8 w-px bg-[var(--pa-border)]" aria-hidden="true" />
+          <div className="hidden h-8 w-px bg-[var(--pa-border)] sm:block" aria-hidden="true" />
           <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-[var(--pa-sidebar)] text-[11px] font-extrabold text-white">
-              {userEmail ? userEmail.slice(0, 2).toUpperCase() : "SE"}
+            <div className="flex size-10 items-center justify-center rounded-lg bg-[var(--pa-sidebar)] text-[11px] font-extrabold text-white">
+              {identityInitials}
             </div>
             <div className="hidden sm:block">
               <div className="max-w-[180px] truncate text-[11.5px] font-extrabold leading-4 text-[var(--pa-text)]">
-                {userEmail ?? "sethtragame@gmail.com"}
+                {identityLabel}
               </div>
               <div className="text-[9.5px] font-semibold text-[var(--pa-muted)]">
-                Signed in
+                {userEmail ? "Signed in" : "Administrator session"}
               </div>
             </div>
           </div>
         </div>
+
       </div>
     </header>
   );

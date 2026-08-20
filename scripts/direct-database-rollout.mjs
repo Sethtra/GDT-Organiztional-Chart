@@ -172,6 +172,11 @@ const migrations = [
     name: 'remove_legacy_skill_rpc_overloads',
     file: 'migrations/2026081102_remove_legacy_skill_rpc_overloads.sql',
   },
+  {
+    version: '20260727000024',
+    name: 'add_account_deletion_support',
+    file: 'migrations/2026082002_add_account_deletion_support.sql',
+  },
 ]
 
 const selectedMigrations = promotionReadinessOnly

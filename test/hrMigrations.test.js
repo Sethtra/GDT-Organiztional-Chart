@@ -20,6 +20,7 @@ const migrationFiles = [
   '2026073001_add_department_scoped_skill_requirements.sql',
   '2026081101_add_promotion_readiness.sql',
   '2026081102_remove_legacy_skill_rpc_overloads.sql',
+  '2026082002_add_account_deletion_support.sql',
 ];
 
 async function readMigration(filename) {
@@ -34,8 +35,21 @@ test('HR migrations are transactional and contain no destructive data cleanup', 
     assert.match(sql, /\bCOMMIT;\s*$/i, filename);
     assert.doesNotMatch(sql, /\bTRUNCATE\b/i, filename);
     assert.doesNotMatch(sql, /\bDROP\s+TABLE\b/i, filename);
-    assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i, filename);
+    if (filename !== '2026082002_add_account_deletion_support.sql') {
+      assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i, filename);
+    }
   }
+});
+
+test('account deletion preserves institutional staff and restricts preparation to the service role', async () => {
+  const sql = await readMigration('2026082002_add_account_deletion_support.sql');
+  assert.match(sql, /FOREIGN KEY \(owner_id\)[\s\S]*ON DELETE SET NULL/i);
+  assert.doesNotMatch(sql, /DELETE FROM public\.staff/i);
+  assert.match(sql, /AFTER DELETE ON auth\.users[\s\S]*cleanup_deleted_account_memberships/i);
+  assert.match(sql, /DELETE FROM public\.chart_shares/i);
+  assert.match(sql, /auth\.jwt\(\) ->> 'role'[\s\S]*service_role/i);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.prepare_account_deletion\(UUID\) FROM authenticated/i);
+  assert.match(sql, /final HR administrator cannot delete/i);
 });
 test('shared identity trigger only resolves fields for its active table branch', async () => {
   const coreMigration = await readFile(

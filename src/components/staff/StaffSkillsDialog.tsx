@@ -173,7 +173,7 @@ export default function StaffSkillsDialog({
           </DialogDescription>
         </div>
 
-        <div className="grid max-h-[calc(100vh-12rem)] gap-4 overflow-y-auto p-6">
+        <div className="grid max-h-[calc(100dvh-12rem)] gap-4 overflow-y-auto p-6">
           {error && (
             <div
               role="alert"

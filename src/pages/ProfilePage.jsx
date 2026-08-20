@@ -31,9 +31,12 @@ import {
   Loader2,
   Lock,
   LogOut,
+  Monitor,
   MonitorSmartphone,
   Pencil,
   ShieldCheck,
+  Smartphone,
+  Tablet,
   Trash2,
   UserRound,
   X,
@@ -42,15 +45,28 @@ import {
 import Navbar from '../components/Navbar';
 import PhotoCropDialog from '../components/staff/PhotoCropDialog';
 import { useAuth } from '../hooks/useAuth';
+import { deleteCurrentAccount } from '../services/accountService';
 import { uploadStaffPhoto } from '../services/staffService';
+import { describeDeviceSession } from '../utils/deviceSession';
 import { ImagePrepError, validateOfficerPhotoFile } from '../utils/imagePrep';
 import '../styles/account-record.css';
 
 const MIN_PASSWORD_LENGTH = 6;
 
+function formatSessionTime(value) {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not available';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 export default function ProfilePage() {
   const {
     user,
+    session,
     displayName,
     avatarUrl,
     updateProfile,
@@ -82,6 +98,26 @@ export default function ProfilePage() {
   const [confirmingGlobalSignOut, setConfirmingGlobalSignOut] = useState(false);
   const [globalSigningOut, setGlobalSigningOut] = useState(false);
   const [sessionNote, setSessionNote] = useState(null);
+
+  const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+  const [deletionConfirmation, setDeletionConfirmation] = useState('');
+  const [accountDeleting, setAccountDeleting] = useState(false);
+  const [deletionNote, setDeletionNote] = useState(null);
+
+  const currentDevice = useMemo(
+    () =>
+      describeDeviceSession(
+        typeof navigator === 'undefined' ? '' : navigator.userAgent,
+        typeof navigator === 'undefined' ? '' : navigator.platform,
+      ),
+    [],
+  );
+  const SessionDeviceIcon =
+    currentDevice.kind === 'mobile'
+      ? Smartphone
+      : currentDevice.kind === 'tablet'
+        ? Tablet
+        : Monitor;
 
   /* Supabase reports every linked provider. An account that only ever signed
      in through Google has no password to change, so the register states that
@@ -205,6 +241,35 @@ export default function ProfilePage() {
     navigate('/login');
   };
 
+  const cancelAccountDeletion = () => {
+    setConfirmingDeletion(false);
+    setDeletionConfirmation('');
+    setDeletionNote(null);
+  };
+
+  const handleAccountDeletion = async () => {
+    setDeletionNote(null);
+    if (deletionConfirmation !== 'DELETE') {
+      setDeletionNote({ kind: 'bad', text: 'Type DELETE exactly to continue.' });
+      return;
+    }
+
+    setAccountDeleting(true);
+    try {
+      await deleteCurrentAccount();
+      navigate('/login', { replace: true, state: { accountDeleted: true } });
+    } catch (error) {
+      setDeletionNote({
+        kind: 'bad',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'The account could not be deleted.',
+      });
+      setAccountDeleting(false);
+    }
+  };
+
   return (
     <div className="acct-page" data-impeccable-seed="a5845ebe">
       <Navbar />
@@ -218,8 +283,9 @@ export default function ProfilePage() {
           <header className="acct-record__head">
             <span className="acct-seal">
               <img
-                src="/gdt-seal-mark.png"
-                srcSet="/gdt-seal-mark.png 1x, /gdt-seal-mark@2x.png 2x, /gdt-seal-mark@3x.png 3x"
+                src="/gdt-seal-mark@3x.png"
+                width="96"
+                height="96"
                 alt=""
                 aria-hidden="true"
               />
@@ -522,11 +588,40 @@ export default function ProfilePage() {
                     </span>
                   </p>
                 ) : (
-                  <p className="acct-copy" style={{ marginBottom: 0 }}>
-                    Signing out everywhere ends every signed-in session on every
-                    device and returns you to the sign-in page. Use it if you
-                    signed in on a shared or lost computer.
-                  </p>
+                  <div className="acct-session">
+                    <span className="acct-session__device" aria-hidden="true">
+                      <SessionDeviceIcon size={20} />
+                    </span>
+                    <div className="acct-session__identity">
+                      <div className="acct-session__title-row">
+                        <strong>{currentDevice.label}</strong>
+                        <span className="acct-flag acct-flag--ok">Current session</span>
+                      </div>
+                      <span className="acct-session__meta">
+                        {currentDevice.kind === 'desktop'
+                          ? 'Computer'
+                          : currentDevice.kind === 'tablet'
+                            ? 'Tablet'
+                            : 'Mobile device'}
+                      </span>
+                      <dl className="acct-session__facts">
+                        <div>
+                          <dt>Signed in</dt>
+                          <dd>{formatSessionTime(user?.last_sign_in_at)}</dd>
+                        </div>
+                        <div>
+                          <dt>Session expires</dt>
+                          <dd>
+                            {formatSessionTime(
+                              session?.expires_at
+                                ? session.expires_at * 1000
+                                : null,
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -597,24 +692,87 @@ export default function ProfilePage() {
               <span className="acct-row__label">Account deletion</span>
               <div className="acct-row__field">
                 <p className="acct-copy" style={{ marginBottom: 0 }}>
-                  Account deletion is temporarily unavailable. It requires a secure
-                  server-side deletion function before the authentication account
-                  and all associated chart data can be removed safely.
+                  Permanently deletes your sign-in account, owned charts, folders,
+                  versions, invitations, and thumbnails. GDT personnel records are
+                  preserved and disconnected from the deleted account.
                 </p>
+                {confirmingDeletion && (
+                  <div className="acct-delete-confirmation">
+                    <label htmlFor="account-delete-confirmation">
+                      Type <strong>DELETE</strong> to confirm
+                    </label>
+                    <input
+                      id="account-delete-confirmation"
+                      className="acct-input"
+                      type="text"
+                      value={deletionConfirmation}
+                      onChange={(event) =>
+                        setDeletionConfirmation(event.target.value)
+                      }
+                      autoComplete="off"
+                      spellCheck="false"
+                      disabled={accountDeleting}
+                    />
+                    <p className="acct-hint">
+                      This cannot be undone. Shared charts owned by other users are
+                      not deleted, but your access to them is removed.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
             <footer className="acct-register__foot">
-              <div className="acct-register__actions">
-                <button
-                  type="button"
-                  className="acct-btn acct-btn--danger"
-                  disabled
-                  title="A secure server-side account deletion function has not been configured yet."
+              {deletionNote && (
+                <span
+                  className={`acct-note acct-note--${deletionNote.kind}`}
+                  role="alert"
                 >
-                  <Trash2 size={15} aria-hidden="true" /> Account deletion
-                  unavailable
-                </button>
+                  <AlertCircle size={14} aria-hidden="true" />
+                  {deletionNote.text}
+                </span>
+              )}
+              <div className="acct-register__actions">
+                {confirmingDeletion ? (
+                  <>
+                    <button
+                      type="button"
+                      className="acct-btn acct-btn--quiet"
+                      onClick={cancelAccountDeletion}
+                      disabled={accountDeleting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="acct-btn acct-btn--danger"
+                      onClick={handleAccountDeletion}
+                      disabled={accountDeleting || deletionConfirmation !== 'DELETE'}
+                    >
+                      {accountDeleting ? (
+                        <>
+                          <Loader2 size={15} className="acct-spin" aria-hidden="true" />
+                          Deleting account
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={15} aria-hidden="true" /> Delete permanently
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="acct-btn acct-btn--danger"
+                    onClick={() => {
+                      setDeletionNote(null);
+                      setConfirmingDeletion(true);
+                    }}
+                  >
+                    <Trash2 size={15} aria-hidden="true" /> Delete account
+                  </button>
+                )}
               </div>
             </footer>
           </section>

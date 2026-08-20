@@ -30,6 +30,7 @@ async function prepareAuthenticatedPage(page) {
           user_metadata: { display_name: 'Tra' },
           app_metadata: {},
           created_at: '2026-01-01T00:00:00.000Z',
+          last_sign_in_at: '2026-08-20T12:00:00.000Z',
         },
       });
       const encoded = btoa(encodeURIComponent(session));
@@ -118,6 +119,33 @@ for (const viewport of [
       if (surface.name === 'landing') {
         expect(measurement.logoLeft).toBe(measurement.contentLeft);
       }
+
+      if (surface.name === 'profile') {
+        const seal = page.locator('.acct-seal img');
+        await expect(seal).toHaveAttribute('src', '/gdt-seal-mark@3x.png');
+        await expect.poll(() => seal.evaluate((image) => image.naturalWidth)).toBe(96);
+        await expect.poll(() => seal.evaluate((image) => image.getBoundingClientRect().width)).toBe(36);
+        await expect(page.getByText('Current session')).toBeVisible();
+        await expect(page.getByText(/Google Chrome on Windows/i)).toBeVisible();
+        await expect(page.getByText('Computer', { exact: true })).toBeVisible();
+        await page.getByRole('heading', { name: 'Active sessions' }).scrollIntoViewIfNeeded();
+        await page.screenshot({
+          path: testInfo.outputPath(`${viewport.name}-profile-sessions.png`),
+          fullPage: false,
+        });
+
+        await page.getByRole('button', { name: 'Delete account' }).click();
+        const confirmation = page.getByLabel('Type DELETE to confirm');
+        await expect(confirmation).toBeVisible();
+        await expect(
+          page.getByRole('button', { name: 'Delete permanently' }),
+        ).toBeDisabled();
+        await page.screenshot({
+          path: testInfo.outputPath(`${viewport.name}-profile-deletion.png`),
+          fullPage: false,
+        });
+        await page.getByRole('button', { name: 'Cancel' }).click();
+      }
     }
 
     for (const measurement of measurements) {
@@ -131,3 +159,34 @@ for (const viewport of [
     expect(new Set(measurements.map(({ logoHeight }) => logoHeight)).size).toBe(1);
   });
 }
+
+test('confirmed account deletion invokes the protected function and returns to sign-in', async ({ page }) => {
+  await prepareAuthenticatedPage(page);
+  let deletionRequest = null;
+  await page.route('**/functions/v1/delete-account', async (route) => {
+    deletionRequest = {
+      authorization: route.request().headers().authorization,
+      body: route.request().postDataJSON(),
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ deleted: true }),
+    });
+  });
+
+  await page.goto('/profile');
+  await page.getByRole('button', { name: 'Delete account' }).click();
+  const deleteButton = page.getByRole('button', { name: 'Delete permanently' });
+  await expect(deleteButton).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await expect(deleteButton).toBeEnabled();
+  await deleteButton.click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(
+    page.getByText('Your account and owned chart data were deleted.'),
+  ).toBeVisible();
+  expect(deletionRequest?.body).toEqual({ confirmation: 'DELETE' });
+  expect(deletionRequest?.authorization).toMatch(/^Bearer /);
+});

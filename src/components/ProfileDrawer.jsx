@@ -174,7 +174,7 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] max-w-[760px] grid-rows-none flex-col p-0">
+      <DialogContent className="flex h-[min(760px,calc(100dvh-2rem))] max-w-[760px] grid-rows-none flex-col p-0">
       {/* Header */}
       <div className="pp-header">
         <div className="pp-header-left">

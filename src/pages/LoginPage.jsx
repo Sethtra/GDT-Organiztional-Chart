@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { Eye, EyeOff, Loader2, AlertCircle, LogIn } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, LogIn } from "lucide-react";
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const accountDeleted = location.state?.accountDeleted === true;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -119,6 +121,13 @@ export default function LoginPage() {
             <span className="gov-auth-divider__line" />
           </div>
 
+          {accountDeleted && (
+            <div className="gov-auth-notice" role="status">
+              <CheckCircle2 size={16} aria-hidden="true" />
+              <span>Your account and owned chart data were deleted.</span>
+            </div>
+          )}
+
           {error && (
             <div className="gov-auth-error">
               <AlertCircle size={15} />
@@ -167,7 +176,7 @@ export default function LoginPage() {
                   type="button"
                   className="gov-auth-input-icon-btn"
                   onClick={() => setShowPass((v) => !v)}
-                  tabIndex={-1}
+                  aria-label={showPass ? "Hide password" : "Show password"}
                 >
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
