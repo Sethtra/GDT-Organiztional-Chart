@@ -582,6 +582,127 @@
   margin-top: 7px;
 }
 
+/* Geometric shape nodes. These are still ordinary orgNode data underneath:
+   name/nameEn/description, colours, alignment, resizing and connectors all
+   travel through the same property panel and persistence path as unit nodes. */
+.org-node--shape {
+  min-width: 32px;
+  min-height: 32px;
+  display: block;
+  overflow: visible;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.org-node--shape:hover,
+.org-node--shape.org-node--selected,
+.org-node--shape.org-node--highlighted {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none;
+}
+
+.org-node__shape-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  color: var(--shape-ink, #ffffff);
+  background: var(--shape-fill, transparent);
+  border: var(--shape-border-width, 2px) solid var(--shape-border, #475569);
+  box-shadow: none;
+  transition:
+    box-shadow 150ms var(--nx-ease),
+    border-color 150ms var(--nx-ease),
+    transform 150ms var(--nx-ease);
+}
+
+/* The shell is rendered after NodeResizer, so its border would otherwise paint
+   across the midpoint grips. Connection handles remain above both at z-index 6. */
+.org-node--shape .react-flow__resize-control {
+  z-index: 5;
+}
+
+.org-node--shape:hover .org-node__shape-shell {
+  box-shadow: 0 0 0 1px var(--nx-green);
+}
+
+.org-node--shape.org-node--selected .org-node__shape-shell {
+  box-shadow: 0 0 0 2px var(--nx-green);
+}
+
+.org-node--shape.org-node--highlighted .org-node__shape-shell {
+  box-shadow: 0 0 0 2px var(--nx-gold);
+}
+
+.org-node--shape-round .org-node__shape-shell {
+  border-radius: 50%;
+}
+
+.org-node--shape-square .org-node__shape-shell {
+  border-radius: var(--nx-radius);
+}
+
+.org-node--shape-diamond .org-node__shape-shell {
+  inset: 14%;
+  border-radius: 9px;
+  transform: rotate(45deg);
+}
+
+.org-node__shape-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px;
+  overflow: hidden;
+  color: inherit;
+}
+
+.org-node--shape-diamond .org-node__shape-body {
+  transform: rotate(-45deg);
+  padding: 16px;
+}
+
+.org-node__shape-name {
+  font-family: var(--nx-font-kh);
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
+.org-node__shape-name-en {
+  margin-top: 3px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  line-height: 1.35;
+  opacity: 0.86;
+  overflow-wrap: break-word;
+  text-transform: uppercase;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
+.org-node__shape-desc {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, currentColor 24%, transparent);
+  line-height: 1.4;
+  opacity: 0.86;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
 /* ── Person node ──────────────────────────────────────────────────────────
    Avatar geometry (84px at -42px, pill at -13px) is load-bearing: the
    connector endpoints in floatingEdge.js land on exactly those points. */

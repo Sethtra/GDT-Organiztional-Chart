@@ -107,4 +107,52 @@ describe("mergeSafeStaffProjection", () => {
 
     expect(node).toEqual(originalNode);
   });
+
+  it("automatically updates stale position label with latest job_title name", () => {
+    const [node] = mergeSafeStaffProjection(
+      [
+        {
+          id: "node-1",
+          data: {
+            orgType: "individualNode",
+            badgeText: "មន្ត្រី",
+            position: "មន្ត្រី",
+            name: "Sokha",
+          },
+        },
+      ],
+      [
+        {
+          id: "position-1",
+          node_id: "node-1",
+          title: "មន្ត្រី",
+          department: "Tax",
+          office: "Operations",
+          job_titles: {
+            id: "title-2",
+            name: "មន្ត្រីកម្មសិក្សា",
+            name_en: "Trainee Officer",
+          },
+          position_assignments: [
+            {
+              id: "assignment-1",
+              end_date: null,
+              staff: {
+                id: "staff-1",
+                name: "Sokha",
+                name_en: "Sokha",
+                photo_url: null,
+              },
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(node?.data).toMatchObject({
+      badgeText: "មន្ត្រីកម្មសិក្សា",
+      position: "មន្ត្រីកម្មសិក្សា",
+      name: "Sokha",
+    });
+  });
 });

@@ -146,13 +146,31 @@
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   font-family: 'Inter', 'Kantumruy Pro', sans-serif;
   background: var(--bg-app);
   color: var(--text-primary);
   overflow: hidden;
   height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+.overflow-y-auto,
+.overflow-x-auto,
+.custom-scrollbar {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
 
 button { cursor: pointer; font-family: inherit; border: none; background: none; }
 input, textarea, select { font-family: 'Kantumruy Pro', 'Inter', sans-serif; }

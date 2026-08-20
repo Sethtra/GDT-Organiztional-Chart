@@ -3,12 +3,18 @@ interface ChartNode {
   data?: Record<string, unknown>;
   [key: string]: unknown;
 }
+interface SafeJobTitle {
+  id: string;
+  name: string;
+  name_en: string | null;
+}
 
 interface SafeAssignedStaff {
   id: string;
   name: string | null;
   name_en: string | null;
   photo_url: string | null;
+  job_titles?: SafeJobTitle | SafeJobTitle[] | null;
 }
 
 interface SafeAssignment {
@@ -23,19 +29,8 @@ export interface SafePositionProjection {
   title: string | null;
   department: string | null;
   office: string | null;
+  job_titles?: SafeJobTitle | SafeJobTitle[] | null;
   position_assignments: SafeAssignment[] | null;
-}
-
-const hasOwn = (object: Record<string, unknown>, key: string) =>
-  Object.prototype.hasOwnProperty.call(object, key) &&
-  object[key] !== undefined;
-
-function fillMissing(
-  target: Record<string, unknown>,
-  key: string,
-  value: unknown,
-) {
-  if (!hasOwn(target, key)) target[key] = value ?? "";
 }
 
 function singleStaff(
@@ -43,6 +38,13 @@ function singleStaff(
 ): SafeAssignedStaff | null {
   if (Array.isArray(staff)) return staff[0] ?? null;
   return staff;
+}
+
+function singleJobTitle(
+  title: SafeJobTitle | SafeJobTitle[] | null | undefined,
+): SafeJobTitle | null {
+  if (Array.isArray(title)) return title[0] ?? null;
+  return title ?? null;
 }
 
 /**
@@ -71,7 +73,6 @@ export function mergeSafeStaffProjection(
     if (!position || node.data?.orgType !== "individualNode") return node;
 
     const data = { ...(node.data ?? {}) };
-    fillMissing(data, "badgeText", position.title);
     delete data.department;
     delete data.office;
     data.positionId = position.id;
@@ -80,6 +81,21 @@ export function mergeSafeStaffProjection(
       (assignment) => assignment.end_date === null,
     );
     const staff = singleStaff(activeAssignment?.staff ?? null);
+    const positionTitle = singleJobTitle(position.job_titles);
+    const staffTitle = singleJobTitle(staff?.job_titles);
+
+    const resolvedTitle =
+      positionTitle?.name ||
+      position.title ||
+      staffTitle?.name ||
+      (data.position as string | undefined) ||
+      (data.badgeText as string | undefined) ||
+      "";
+
+    if (resolvedTitle) {
+      data.badgeText = resolvedTitle;
+      data.position = resolvedTitle;
+    }
 
     if (activeAssignment && staff) {
       data.name = staff.name ?? "";

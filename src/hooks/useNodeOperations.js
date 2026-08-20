@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 import { addEdge, reconnectEdge } from '@xyflow/react';
+import { TYPE_META } from '../data/nodeTypes';
 import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../utils/chartData';
 import { getLayoutedElements } from '../utils/layoutUtils';
+import { moveSelectedNodesToLayer as reorderSelectedNodes } from '../utils/nodeLayering';
 
 /**
  * All pure node/edge mutation operations for the chart editor.
@@ -63,6 +65,16 @@ export function useNodeOperations({
       setNodes(nextNodes);
     },
     [setNodes, takeSnapshot, nodesRef],
+  );
+
+  const moveSelectedNodesToLayer = useCallback(
+    (layer) => {
+      takeSnapshot();
+      const nextNodes = reorderSelectedNodes(nodesRef.current, layer);
+      nodesRef.current = nextNodes;
+      setNodes(nextNodes);
+    },
+    [nodesRef, setNodes, takeSnapshot],
   );
 
   const updateEdgeProperties = useCallback(
@@ -131,6 +143,8 @@ export function useNodeOperations({
       const parent = nodes.find((n) => n.id === parentId);
       if (!parent) return;
       const newId = `node-${Date.now()}`;
+      const typeMeta = TYPE_META[orgType] || TYPE_META.orgNode;
+      const isShape = typeMeta.template === 'shape';
       const colorMap = {
         orgNode: 'var(--default-node-bg)',
         individualNode: '#334155',
@@ -146,10 +160,16 @@ export function useNodeOperations({
           name: 'ថ្មី',
           nameEn: 'New Node',
           orgType,
-          color: colorMap[orgType] || 'var(--default-node-bg)',
+          color: isShape ? 'transparent' : (colorMap[orgType] || 'var(--default-node-bg)'),
+          badgeText: '',
+          ...(isShape ? { borderColor: '#475569', borderWidth: 2 } : {}),
           description: '',
         },
       };
+      if (isShape) {
+        newNode.data.name = '';
+        newNode.data.nameEn = '';
+      }
       const newEdge = {
         id: `e-${parentId}-${newId}`,
         source: parentId,
@@ -240,6 +260,7 @@ export function useNodeOperations({
     onConnect,
     onReconnect,
     updateSelectedNodes,
+    moveSelectedNodesToLayer,
     updateEdgeProperties,
     deleteNodes,
     duplicateNodes,

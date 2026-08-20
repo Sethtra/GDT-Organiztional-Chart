@@ -7,12 +7,15 @@ import {
   Loader2,
   Plus,
   Save,
+  Search,
   Sparkles,
   Star,
+  Trash2,
   UsersRound,
   X,
 } from "lucide-react";
 
+import AdminConfirmModal from "../components/admin/AdminConfirmModal";
 import AdminFooter from "../components/admin/AdminFooter";
 import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
@@ -23,13 +26,30 @@ import type {
   SkillCatalogItem,
 } from "../contracts/hr";
 import {
+  deleteJobTitle,
   listJobArchitecture,
+  removeJobTitleRequirement,
   saveJobTitle,
   setJobTitleRequirement,
 } from "../services/jobArchitectureService";
-import { listSkillCatalog, saveSkillCatalogItem } from "../services/skillService";
+import {
+  deleteSkillCatalogItem,
+  listSkillCatalog,
+  saveSkillCatalogItem,
+} from "../services/skillService";
 import { cn } from "../lib/utils";
+import { getPositionNameEn } from "../data/nodeTypes";
 import "./AdminDashboardTestPage.css";
+
+
+const PROFICIENCY_LABELS: Record<ProficiencyLevel, string> = {
+  1: "1 · Basic awareness",
+  2: "2 · Working guidance",
+  3: "3 · Proficient",
+  4: "4 · Advanced",
+  5: "5 · Expert",
+};
+
 
 function StatusBadge({
   children,
@@ -78,6 +98,22 @@ function StatusBadge({
     </span>
   );
 }
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    if ("message" in err && typeof (err as { message: unknown }).message === "string") {
+      return (err as { message: string }).message;
+    }
+    if (
+      "error_description" in err &&
+      typeof (err as { error_description: unknown }).error_description === "string"
+    ) {
+      return (err as { error_description: string }).error_description;
+    }
+  }
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
 
 export default function JobArchitecturePage() {
   const [titles, setTitles] = useState<JobTitle[]>([]);
@@ -101,11 +137,17 @@ export default function JobArchitecturePage() {
   const [scope, setScope] = useState<PositionScope>("individual");
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // New Skill Catalog Modal state
+  // Skill Catalog Modal state
   const [showNewSkillModal, setShowNewSkillModal] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<"add" | "manage">("add");
+  const [catalogSearch, setCatalogSearch] = useState("");
   const [newSkillName, setNewSkillName] = useState("");
   const [newSkillDesc, setNewSkillDesc] = useState("");
   const newSkillInputRef = useRef<HTMLInputElement>(null);
+
+  // Deletion Confirmation state
+  const [titleToDelete, setTitleToDelete] = useState<JobTitle | null>(null);
+  const [skillToDelete, setSkillToDelete] = useState<SkillCatalogItem | null>(null);
 
   // Skill Requirement state
   const [requirementSkillId, setRequirementSkillId] = useState("");
@@ -118,10 +160,10 @@ export default function JobArchitecturePage() {
   }, [showAddForm]);
 
   useEffect(() => {
-    if (showNewSkillModal) {
+    if (showNewSkillModal && catalogTab === "add") {
       newSkillInputRef.current?.focus();
     }
-  }, [showNewSkillModal]);
+  }, [showNewSkillModal, catalogTab]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,13 +175,14 @@ export default function JobArchitecturePage() {
       ]);
       setTitles(nextTitles);
       setSkills(nextSkills);
-      setSelectedId((current) => current || nextTitles[0]?.id || "");
+      setSelectedId((current) => {
+        if (current && nextTitles.some((t) => t.id === current)) {
+          return current;
+        }
+        return nextTitles[0]?.id || "";
+      });
     } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load job architecture.",
-      );
+      setError(extractErrorMessage(loadError, "Unable to load job architecture."));
     } finally {
       setLoading(false);
     }
@@ -167,6 +210,16 @@ export default function JobArchitecturePage() {
       return true;
     });
   }, [titles, scopeFilter, search]);
+
+  const filteredCatalogSkills = useMemo(() => {
+    if (!catalogSearch.trim()) return skills;
+    const q = catalogSearch.toLowerCase();
+    return skills.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.description?.toLowerCase().includes(q) ?? false),
+    );
+  }, [skills, catalogSearch]);
 
   const totalRequirementsCount = useMemo(() => {
     return titles.reduce((sum, t) => sum + (t.requirements?.length || 0), 0);
@@ -200,11 +253,27 @@ export default function JobArchitecturePage() {
       await load();
       setSelectedId(id);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save the job title.",
-      );
+      setError(extractErrorMessage(saveError, "Unable to save the job title."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDeleteTitle = async () => {
+    if (!titleToDelete) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await deleteJobTitle(titleToDelete.id);
+      const remaining = titles.filter((t) => t.id !== titleToDelete.id);
+      setTitleToDelete(null);
+      await load();
+      if (selectedId === titleToDelete.id) {
+        setSelectedId(remaining[0]?.id || "");
+      }
+    } catch (delError) {
+      setError(extractErrorMessage(delError, "Unable to delete the job title."));
+      setTitleToDelete(null);
     } finally {
       setSaving(false);
     }
@@ -227,11 +296,23 @@ export default function JobArchitecturePage() {
       await load();
       setRequirementSkillId(newSkillId);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to add new skill to catalog.",
-      );
+      setError(extractErrorMessage(saveError, "Unable to add new skill to catalog."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDeleteSkill = async () => {
+    if (!skillToDelete) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await deleteSkillCatalogItem(skillToDelete.id);
+      setSkillToDelete(null);
+      await load();
+    } catch (delError) {
+      setError(extractErrorMessage(delError, "Unable to delete skill from catalog."));
+      setSkillToDelete(null);
     } finally {
       setSaving(false);
     }
@@ -250,15 +331,29 @@ export default function JobArchitecturePage() {
       setRequirementSkillId("");
       await load();
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : "Unable to save the requirement.",
-      );
+      setError(extractErrorMessage(saveError, "Unable to save the requirement."));
     } finally {
       setSaving(false);
     }
   };
+
+  const handleRemoveRequirement = async (skillId: string) => {
+    if (!selected) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await removeJobTitleRequirement({
+        jobTitleId: selected.id,
+        skillId,
+      });
+      await load();
+    } catch (removeError) {
+      setError(extractErrorMessage(removeError, "Unable to remove the skill requirement."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   const getScopeBadgeTone = (scopeVal: string) => {
     if (scopeVal === "organization") return "warning";
@@ -345,11 +440,14 @@ export default function JobArchitecturePage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowNewSkillModal(true)}
+                onClick={() => {
+                  setCatalogTab("add");
+                  setShowNewSkillModal(true);
+                }}
                 className="pa-focus-ring inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] px-3 text-[11px] font-extrabold text-[var(--pa-primary)] transition-colors hover:bg-[var(--pa-primary)] hover:text-white"
               >
                 <Sparkles size={13} aria-hidden="true" />
-                Add Skill to Catalog
+                Manage Skill Catalog
               </button>
               <button
                 type="button"
@@ -501,9 +599,19 @@ export default function JobArchitecturePage() {
 
           {/* Error Notification */}
           {error && (
-            <div className="mb-3.5 flex items-center gap-2 rounded-lg border border-[var(--pa-danger-border)] bg-[var(--pa-danger-soft)] p-3 text-[11px] font-semibold text-[var(--pa-danger)]">
-              <AlertCircle size={15} className="shrink-0" />
-              <span>{error}</span>
+            <div className="mb-3.5 flex items-center justify-between gap-2 rounded-lg border border-[var(--pa-danger-border)] bg-[var(--pa-danger-soft)] p-3 text-[11px] font-semibold text-[var(--pa-danger)]">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={15} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="text-[var(--pa-danger)] opacity-70 hover:opacity-100"
+                aria-label="Dismiss error"
+              >
+                <X size={14} />
+              </button>
             </div>
           )}
 
@@ -593,7 +701,9 @@ export default function JobArchitecturePage() {
                                 </span>
                               </div>
                               <div className="mt-0.5 truncate pl-3 text-[10px] font-semibold text-[var(--pa-muted)]">
-                                {title.nameEn ? `${title.nameEn} · ` : ""}
+                                {getPositionNameEn(title.name, title.nameEn)
+                                  ? `${getPositionNameEn(title.name, title.nameEn)} · `
+                                  : ""}
                                 {getScopeLabel(title.positionScope)}
                               </div>
                             </div>
@@ -624,18 +734,30 @@ export default function JobArchitecturePage() {
                           {selected.name}
                         </h2>
                       </div>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
                         <StatusBadge tone={getScopeBadgeTone(selected.positionScope) as any}>
                           {selected.positionScope} scope
                         </StatusBadge>
+                        <button
+                          type="button"
+                          onClick={() => setTitleToDelete(selected)}
+                          className="pa-focus-ring inline-flex h-7 items-center gap-1 rounded-md border border-[var(--pa-danger-border)] bg-[var(--pa-danger-soft)] px-2 text-[10.5px] font-extrabold text-[var(--pa-danger)] transition-colors hover:bg-[var(--pa-danger)] hover:text-white"
+                          title={`Delete ${selected.name}`}
+                          aria-label={`Delete ${selected.name}`}
+                        >
+                          <Trash2 size={12} aria-hidden="true" />
+                          Delete Title
+                        </button>
                       </div>
                     </div>
-                    {selected.nameEn && (
+                    {getPositionNameEn(selected.name, selected.nameEn) && (
                       <p className="text-[11.5px] font-semibold text-[var(--pa-muted)] pl-9">
-                        {selected.nameEn} {selected.code && `· Code: ${selected.code}`}
+                        {getPositionNameEn(selected.name, selected.nameEn)}{" "}
+                        {selected.code && `· Code: ${selected.code}`}
                       </p>
                     )}
                   </div>
+
 
                   {/* Skill Requirements Section */}
                   <div>
@@ -646,7 +768,10 @@ export default function JobArchitecturePage() {
                       </h3>
                       <button
                         type="button"
-                        onClick={() => setShowNewSkillModal(true)}
+                        onClick={() => {
+                          setCatalogTab("add");
+                          setShowNewSkillModal(true);
+                        }}
                         className="text-[10.5px] font-bold text-[var(--pa-primary)] hover:underline flex items-center gap-1"
                       >
                         <Plus size={12} /> Add new skill to database catalog
@@ -674,10 +799,11 @@ export default function JobArchitecturePage() {
                         value={minimumLevel}
                         onChange={(e) => setMinimumLevel(Number(e.target.value) as ProficiencyLevel)}
                         className="pa-focus-ring h-8 rounded-md border border-[var(--pa-border)] bg-white px-2.5 text-[11px] font-bold text-[var(--pa-text)] outline-none"
+                        aria-label="Select minimum skill level"
                       >
-                        {[1, 2, 3, 4, 5].map((lvl) => (
+                        {([1, 2, 3, 4, 5] as const).map((lvl) => (
                           <option key={lvl} value={lvl}>
-                            Min Level {lvl}
+                            {PROFICIENCY_LABELS[lvl]}
                           </option>
                         ))}
                       </select>
@@ -715,32 +841,45 @@ export default function JobArchitecturePage() {
                             key={req.id}
                             className="flex items-center justify-between gap-3 rounded-lg border border-[var(--pa-border)] bg-white p-3 shadow-2xs transition-colors hover:border-[var(--pa-border-strong)]"
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
                               <span className="flex size-6 shrink-0 items-center justify-center rounded bg-[var(--pa-primary-soft)] text-[var(--pa-primary)] text-[10px] font-bold">
                                 L{req.minimumProficiency}
                               </span>
-                              <div>
+                              <div className="min-w-0 flex-1">
                                 <div className="text-[12.5px] font-extrabold text-[var(--pa-text)] truncate">
                                   {req.skill.name}
                                 </div>
                                 <div className="text-[10px] font-medium text-[var(--pa-faint)]">
-                                  Minimum Required Proficiency: Level {req.minimumProficiency} of 5
+                                  Minimum Required Proficiency: {PROFICIENCY_LABELS[req.minimumProficiency as ProficiencyLevel] || `Level ${req.minimumProficiency}`}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1 shrink-0">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  size={12}
-                                  className={cn(
-                                    star <= req.minimumProficiency
-                                      ? "fill-[var(--pa-gold)] text-[var(--pa-gold)]"
-                                      : "text-[var(--pa-border-strong)]",
-                                  )}
-                                />
-                              ))}
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    size={12}
+                                    className={cn(
+                                      star <= req.minimumProficiency
+                                        ? "fill-[var(--pa-gold)] text-[var(--pa-gold)]"
+                                        : "text-[var(--pa-border-strong)]",
+                                    )}
+                                  />
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void handleRemoveRequirement(req.skill.id)}
+                                disabled={saving}
+                                className="pa-focus-ring flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--pa-muted)] transition-colors hover:bg-[var(--pa-danger-soft)] hover:text-[var(--pa-danger)] disabled:opacity-50"
+                                title={`Remove ${req.skill.name} requirement`}
+                                aria-label={`Remove ${req.skill.name} requirement`}
+                              >
+                                <Trash2 size={13} aria-hidden="true" />
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -767,17 +906,18 @@ export default function JobArchitecturePage() {
         <AdminFooter />
       </div>
 
-      {/* Add New Skill Catalog Item Modal */}
+      {/* Skill Catalog Management Modal */}
       {showNewSkillModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#081a12]/60 p-4 backdrop-blur-[2px]">
           <div
-            className="w-full max-w-md rounded-xl border border-[var(--pa-border)] bg-white p-5 shadow-xl motion-safe:animate-in motion-safe:fade-in-50 motion-safe:zoom-in-95"
+            className="w-full max-w-lg rounded-xl border border-[var(--pa-border)] bg-white p-5 shadow-xl motion-safe:animate-in motion-safe:fade-in-50 motion-safe:zoom-in-95 flex flex-col max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Modal Header */}
             <div className="mb-3 flex items-center justify-between border-b border-[var(--pa-border)] pb-2.5">
               <div className="flex items-center gap-2 text-[13.5px] font-extrabold text-[var(--pa-text)]">
                 <Sparkles size={16} className="text-[var(--pa-primary)]" />
-                Add New Skill to Database Catalog
+                Skill Competency Catalog
               </div>
               <button
                 type="button"
@@ -788,60 +928,187 @@ export default function JobArchitecturePage() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div>
-                <label className="mb-1 block text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--pa-muted)]">
-                  Skill Name *
-                </label>
-                <input
-                  ref={newSkillInputRef}
-                  type="text"
-                  value={newSkillName}
-                  onChange={(e) => setNewSkillName(e.target.value)}
-                  placeholder="e.g. Tax Inspection & Audit"
-                  dir="auto"
-                  className="pa-focus-ring h-8.5 w-full rounded-md border border-[var(--pa-border)] bg-white px-3 text-[12px] font-semibold text-[var(--pa-text)] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--pa-muted)]">
-                  Description (Optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={newSkillDesc}
-                  onChange={(e) => setNewSkillDesc(e.target.value)}
-                  placeholder="Enter competency description..."
-                  className="pa-focus-ring w-full rounded-md border border-[var(--pa-border)] bg-white p-2.5 text-[11.5px] font-medium text-[var(--pa-text)] outline-none resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--pa-border)] pt-3">
+            {/* Modal Tabs */}
+            <div className="mb-3.5 flex border-b border-[var(--pa-border)]">
               <button
                 type="button"
-                onClick={() => setShowNewSkillModal(false)}
-                className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-3 text-[11px] font-bold text-[var(--pa-muted)] hover:bg-[var(--pa-surface-muted)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCreateCatalogSkill()}
-                disabled={!newSkillName.trim() || saving}
-                className="pa-focus-ring inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--pa-primary)] px-3.5 text-[11px] font-extrabold text-white transition-colors hover:bg-[var(--pa-primary-hover)] disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Save size={13} />
+                onClick={() => setCatalogTab("add")}
+                className={cn(
+                  "px-3 pb-2 text-[11.5px] font-extrabold transition-colors relative",
+                  catalogTab === "add"
+                    ? "text-[var(--pa-primary)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--pa-primary)]"
+                    : "text-[var(--pa-muted)] hover:text-[var(--pa-text)]",
                 )}
-                Save Skill to Catalog
+              >
+                Add New Skill
+              </button>
+              <button
+                type="button"
+                onClick={() => setCatalogTab("manage")}
+                className={cn(
+                  "px-3 pb-2 text-[11.5px] font-extrabold transition-colors relative",
+                  catalogTab === "manage"
+                    ? "text-[var(--pa-primary)] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[var(--pa-primary)]"
+                    : "text-[var(--pa-muted)] hover:text-[var(--pa-text)]",
+                )}
+              >
+                All Skills ({skills.length})
               </button>
             </div>
+
+            {/* Tab 1: Add New Skill */}
+            {catalogTab === "add" && (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--pa-muted)]">
+                    Skill Name *
+                  </label>
+                  <input
+                    ref={newSkillInputRef}
+                    type="text"
+                    value={newSkillName}
+                    onChange={(e) => setNewSkillName(e.target.value)}
+                    placeholder="e.g. Tax Inspection & Audit"
+                    dir="auto"
+                    className="pa-focus-ring h-8.5 w-full rounded-md border border-[var(--pa-border)] bg-white px-3 text-[12px] font-semibold text-[var(--pa-text)] outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[var(--pa-muted)]">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newSkillDesc}
+                    onChange={(e) => setNewSkillDesc(e.target.value)}
+                    placeholder="Enter competency description..."
+                    className="pa-focus-ring w-full rounded-md border border-[var(--pa-border)] bg-white p-2.5 text-[11.5px] font-medium text-[var(--pa-text)] outline-none resize-none"
+                  />
+                </div>
+
+                <div className="mt-2 flex items-center justify-end gap-2 border-t border-[var(--pa-border)] pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewSkillModal(false)}
+                    className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-3 text-[11px] font-bold text-[var(--pa-muted)] hover:bg-[var(--pa-surface-muted)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateCatalogSkill()}
+                    disabled={!newSkillName.trim() || saving}
+                    className="pa-focus-ring inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--pa-primary)] px-3.5 text-[11px] font-extrabold text-white transition-colors hover:bg-[var(--pa-primary-hover)] disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Save size={13} />
+                    )}
+                    Save Skill to Catalog
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Manage Catalog Skills */}
+            {catalogTab === "manage" && (
+              <div className="flex flex-col flex-1 overflow-hidden">
+                {/* Search Bar */}
+                <div className="mb-2.5 relative">
+                  <Search
+                    size={13}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--pa-muted)]"
+                  />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder="Search catalog skills..."
+                    className="pa-focus-ring h-8 w-full rounded-md border border-[var(--pa-border)] bg-white pl-8 pr-2.5 text-[11.5px] font-semibold text-[var(--pa-text)] outline-none"
+                  />
+                </div>
+
+                {/* Skill List */}
+                <div className="flex-1 overflow-y-auto pa-scrollbar pr-1 flex flex-col gap-1.5 max-h-[320px]">
+                  {filteredCatalogSkills.length === 0 ? (
+                    <div className="p-6 text-center text-[11.5px] font-medium text-[var(--pa-muted)]">
+                      No matching catalog skills found
+                    </div>
+                  ) : (
+                    filteredCatalogSkills.map((skill) => (
+                      <div
+                        key={skill.id}
+                        className="flex items-center justify-between gap-2.5 rounded-lg border border-[var(--pa-border)] bg-white p-2.5 transition-colors hover:border-[var(--pa-border-strong)]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12px] font-extrabold text-[var(--pa-text)] truncate" dir="auto">
+                            {skill.name}
+                          </div>
+                          {skill.description && (
+                            <div className="text-[10px] text-[var(--pa-muted)] truncate mt-0.5">
+                              {skill.description}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <StatusBadge tone={skill.isActive ? "success" : "neutral"} dot={false}>
+                            {skill.isActive ? "Active" : "Inactive"}
+                          </StatusBadge>
+                          <button
+                            type="button"
+                            onClick={() => setSkillToDelete(skill)}
+                            className="pa-focus-ring flex size-7 items-center justify-center rounded-md text-[var(--pa-muted)] transition-colors hover:bg-[var(--pa-danger-soft)] hover:text-[var(--pa-danger)]"
+                            title={`Delete ${skill.name} from catalog`}
+                            aria-label={`Delete ${skill.name} from catalog`}
+                          >
+                            <Trash2 size={13} aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-end border-t border-[var(--pa-border)] pt-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewSkillModal(false)}
+                    className="pa-focus-ring h-8 rounded-lg border border-[var(--pa-border)] bg-white px-3 text-[11px] font-bold text-[var(--pa-muted)] hover:bg-[var(--pa-surface-muted)]"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {/* Confirmation Modal: Delete Job Title */}
+      {titleToDelete && (
+        <AdminConfirmModal
+          title="Delete Job Title"
+          message={`Are you sure you want to delete "${titleToDelete.name}"${titleToDelete.nameEn ? ` (${titleToDelete.nameEn})` : ""}? This will permanently remove the position and all its mapped skill requirements.`}
+          confirmLabel="Delete Title"
+          danger={true}
+          onConfirm={handleConfirmDeleteTitle}
+          onCancel={() => setTitleToDelete(null)}
+        />
+      )}
+
+      {/* Confirmation Modal: Delete Skill from Catalog */}
+      {skillToDelete && (
+        <AdminConfirmModal
+          title="Delete Skill from Catalog"
+          message={`Are you sure you want to delete the skill "${skillToDelete.name}" from the database catalog? Note that skills assigned to staff profiles cannot be deleted.`}
+          confirmLabel="Delete Skill"
+          danger={true}
+          onConfirm={handleConfirmDeleteSkill}
+          onCancel={() => setSkillToDelete(null)}
+        />
       )}
     </div>
   );

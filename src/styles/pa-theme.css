@@ -45,6 +45,9 @@
   /* Manrope carries no Khmer glyphs, so Khmer falls through to Kantumruy Pro —
      drawn for interface text, unlike the decorative Moul. */
   font-family: "Manrope", "Kantumruy Pro", "Noto Sans Khmer", system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .pa-theme *,
@@ -58,11 +61,23 @@
   color: var(--pa-text);
 }
 
+.pa-scrollbar,
+.overflow-y-auto,
+.overflow-x-auto,
+.custom-scrollbar {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
 .pa-theme .pa-scrollbar,
 .admin-dashboard-test .pa-scrollbar {
   scrollbar-color: var(--pa-border-strong) transparent;
   scrollbar-width: thin;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
+
 
 .pa-theme .pa-scrollbar::-webkit-scrollbar,
 .admin-dashboard-test .pa-scrollbar::-webkit-scrollbar {

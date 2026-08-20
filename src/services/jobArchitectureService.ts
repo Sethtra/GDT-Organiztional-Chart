@@ -19,7 +19,6 @@ export async function listJobArchitecture(): Promise<JobTitle[]> {
   if (error) throw error;
   return z.array(JobTitleSchema).parse(data ?? []);
 }
-
 export async function saveJobTitle(input: {
   id?: string | null;
   code?: string | null;
@@ -63,6 +62,30 @@ export async function setJobTitleRequirement(input: {
       target_org_unit_id: orgUnitId,
     },
   );
+  if (error) throw error;
+}
+
+export async function deleteJobTitle(jobTitleId: string): Promise<void> {
+  const validatedId = UuidSchema.parse(jobTitleId);
+  const { error } = await supabase.rpc("delete_job_title", {
+    target_job_title_id: validatedId,
+  });
+  if (error) throw error;
+}
+
+export async function removeJobTitleRequirement(input: {
+  jobTitleId: string;
+  skillId: string;
+  orgUnitId?: string | null;
+}): Promise<void> {
+  const jobTitleId = UuidSchema.parse(input.jobTitleId);
+  const skillId = UuidSchema.parse(input.skillId);
+  const orgUnitId = input.orgUnitId ? UuidSchema.parse(input.orgUnitId) : null;
+  const { error } = await supabase.rpc("remove_job_title_skill_requirement", {
+    target_job_title_id: jobTitleId,
+    target_skill_id: skillId,
+    target_org_unit_id: orgUnitId,
+  });
   if (error) throw error;
 }
 

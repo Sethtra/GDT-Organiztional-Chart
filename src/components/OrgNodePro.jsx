@@ -18,8 +18,9 @@ import '../styles/org-node-pro.css';
  *
  * The visual language is a compact GDT civic record: a confident identity
  * header, quiet bilingual hierarchy, and an optional filed-note footer. The
- * component deliberately emits only `.gdt-node*` classes, while person cards
- * delegate to the live OrgNode because their avatar geometry is load-bearing.
+ * component deliberately emits only `.gdt-node*` classes, while person and
+ * geometric cards delegate to the live OrgNode so their production geometry
+ * stays reviewable here.
  */
 
 function readableInk(hex) {
@@ -68,7 +69,7 @@ const OrgNodePro = memo(({ id, data, selected }) => {
   const context = useContext(ChartContext);
   const meta = TYPE_META[data.orgType] || TYPE_META.orgNode;
 
-  if (meta.isPerson) {
+  if (meta.isPerson || meta.template === 'shape') {
     return <OrgNode id={id} data={data} selected={selected} />;
   }
 

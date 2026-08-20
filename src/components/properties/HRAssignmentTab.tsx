@@ -40,6 +40,8 @@ import {
 import type { PositionConfigurationContext } from "../../services/positionConfigurationService";
 import { listJobArchitecture } from "../../services/jobArchitectureService";
 import type { JobTitle } from "../../contracts/hr";
+import { getPositionNameEn } from "../../data/nodeTypes";
+
 
 interface HRAssignmentTabProps {
   chartId: string;
@@ -590,12 +592,16 @@ export default function HRAssignmentTab({
             onChange={(e) => void handleJobTitleChange(e.target.value)}
           >
             <option value="">-- ជ្រើសរើសតួនាទី / Select Position --</option>
-            {positionConfig?.jobTitles.map((title) => (
-              <option key={title.id} value={title.id}>
-                {title.name}
-              </option>
-            ))}
+            {positionConfig?.jobTitles.map((title) => {
+              const nameEn = getPositionNameEn(title.name, title.nameEn);
+              return (
+                <option key={title.id} value={title.id}>
+                  {title.name}{nameEn ? ` — ${nameEn}` : ""}
+                </option>
+              );
+            })}
           </select>
+
         </div>
 
         {/* Minimum skills for the selected position — read-only, HR-managed

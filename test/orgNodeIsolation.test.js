@@ -30,13 +30,60 @@ test('the premium node stays isolated to the test editor route', async () => {
   assert.notEqual(live[1], test_[1], 'the experiment must not leak into production');
 });
 
-test('person cards still route through OrgNode', async () => {
+test('person and geometric cards still route through OrgNode', async () => {
   const pro = await read('src/components/OrgNodePro.jsx');
 
-  // The unit card was redesigned; the person card deliberately was not. Its
-  // avatar geometry is load-bearing for floatingEdge.js's connector anchors.
-  assert.match(pro, /if \(meta\.isPerson\)/);
+  // The unit card was redesigned; person and geometric templates deliberately
+  // stay on production OrgNode so their geometry is reviewed in this route.
+  assert.match(pro, /meta\.isPerson/);
+  assert.match(pro, /meta\.template === 'shape'/);
   assert.match(pro, /<OrgNode\b/);
+});
+
+test('new geometric shapes start as empty transparent outlines', async () => {
+  const [node, operations, panel, panelStyles] = await Promise.all([
+    read('src/components/OrgNode.jsx'),
+    read('src/hooks/useNodeOperations.js'),
+    read('src/components/properties/NodePropertiesPanel.jsx'),
+    read('src/styles/properties-panel.css'),
+  ]);
+
+  assert.match(operations, /color: isShape \? 'transparent'/);
+  assert.match(operations, /newNode\.data\.name = ''/);
+  assert.match(operations, /borderColor: '#475569', borderWidth: 2/);
+  assert.doesNotMatch(node, /data\.name \|\| ["']Shape["']/);
+  assert.match(panel, /currentMeta\.template !== "shape" && nextMeta\.template === "shape"/);
+  assert.match(panel, /setColor\("transparent"\)/);
+  assert.match(
+    panelStyles,
+    /\.pp-node-type-preview--round > span,[\s\S]*?background:\s*transparent/,
+  );
+});
+
+test('geometric shape shell shares the resizer minimum', async () => {
+  const [node, styles] = await Promise.all([
+    read('src/components/OrgNode.jsx'),
+    read('src/styles/chart-editor.css'),
+  ]);
+
+  assert.match(node, /minWidth=\{32\}/);
+  assert.match(node, /minHeight=\{32\}/);
+
+  const shapeRule = styles.match(/\.org-node--shape\s*\{([\s\S]*?)\}/)?.[1] || '';
+  assert.match(shapeRule, /min-width:\s*32px/);
+  assert.match(shapeRule, /min-height:\s*32px/);
+  assert.doesNotMatch(shapeRule, /112px/);
+});
+
+test('geometric shape border stays behind resize and connection handles', async () => {
+  const styles = await read('src/styles/chart-editor.css');
+  const resizeRule = styles.match(
+    /\.org-node--shape \.react-flow__resize-control\s*\{([\s\S]*?)\}/,
+  )?.[1] || '';
+  const connectionRule = styles.match(/\.flow-handle\s*\{([\s\S]*?)\}/)?.[1] || '';
+
+  assert.match(resizeRule, /z-index:\s*5/);
+  assert.match(connectionRule, /z-index:\s*6\s*!important/);
 });
 
 test('the pro stylesheet stays inside its own namespace', async () => {

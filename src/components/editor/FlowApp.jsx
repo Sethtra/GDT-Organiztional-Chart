@@ -268,6 +268,7 @@ export default function FlowApp({
     onConnect,
     onReconnect,
     updateSelectedNodes,
+    moveSelectedNodesToLayer,
     updateEdgeProperties,
     deleteNodes,
     duplicateNodes: duplicateNodesRaw,
@@ -310,10 +311,24 @@ export default function FlowApp({
   // during the drag was cosmetically correct and the one position the user
   // actually looks at afterward was not.
   const [alignmentGuides, setAlignmentGuides] = useState({ guideX: null, guideY: null });
-  const clearResizeGuides = useCallback(
-    () => setAlignmentGuides({ guideX: null, guideY: null }),
-    [],
-  );
+  const dragGuideFrameRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (dragGuideFrameRef.current != null) {
+        cancelAnimationFrame(dragGuideFrameRef.current);
+      }
+    };
+  }, []);
+
+  const clearResizeGuides = useCallback(() => {
+    if (dragGuideFrameRef.current != null) {
+      cancelAnimationFrame(dragGuideFrameRef.current);
+      dragGuideFrameRef.current = null;
+    }
+    setAlignmentGuides({ guideX: null, guideY: null });
+  }, []);
+
   const onNodeResize = useNodeResizeSnap({
     getNodes,
     getZoom,
@@ -322,7 +337,7 @@ export default function FlowApp({
   });
 
   const applyAlignmentSnap = useCallback(
-    (node) => {
+    (node, commit = false) => {
       const dragged = {
         x: node.position.x,
         y: node.position.y,
@@ -338,36 +353,61 @@ export default function FlowApp({
           height: n.measured?.height ?? n.height ?? 0,
         }));
 
-      const threshold = ALIGNMENT_THRESHOLD_PX / getZoom();
-      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(dragged, others, threshold, GRID_SIZE);
+      const threshold = ALIGNMENT_THRESHOLD_PX / Math.max(getZoom(), 0.01);
+      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(
+        dragged,
+        others,
+        threshold,
+        GRID_SIZE,
+      );
 
-      setAlignmentGuides({ guideX, guideY });
+      if (commit) {
+        if (dragGuideFrameRef.current != null) {
+          cancelAnimationFrame(dragGuideFrameRef.current);
+          dragGuideFrameRef.current = null;
+        }
+        setAlignmentGuides({ guideX: null, guideY: null });
 
-      if (deltaX !== 0 || deltaY !== 0) {
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === node.id
-              ? { ...n, position: { x: n.position.x + deltaX, y: n.position.y + deltaY } }
-              : n,
-          ),
-        );
+        if (deltaX !== 0 || deltaY !== 0) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === node.id
+                ? {
+                    ...n,
+                    position: {
+                      x: n.position.x + deltaX,
+                      y: n.position.y + deltaY,
+                    },
+                  }
+                : n,
+            ),
+          );
+        }
+      } else {
+        if (dragGuideFrameRef.current != null) {
+          cancelAnimationFrame(dragGuideFrameRef.current);
+        }
+        dragGuideFrameRef.current = requestAnimationFrame(() => {
+          setAlignmentGuides({ guideX, guideY });
+          dragGuideFrameRef.current = null;
+        });
       }
     },
     [visibleNodes, setNodes, getZoom],
   );
 
   const onNodeDrag = useCallback(
-    (_event, node) => applyAlignmentSnap(node),
+    (_event, node) => applyAlignmentSnap(node, false),
     [applyAlignmentSnap],
   );
 
   const onNodeDragStop = useCallback(
     (_event, node) => {
-      applyAlignmentSnap(node);
-      setAlignmentGuides({ guideX: null, guideY: null });
+      applyAlignmentSnap(node, true);
     },
     [applyAlignmentSnap],
   );
+
 
   // Creating or duplicating a node is itself an explicit edit action, so
   // (unlike a plain click) it should open the properties panel — these
@@ -417,6 +457,25 @@ export default function FlowApp({
       setSelectedEdge(selEdges.length === 1 ? selEdges[0] : null);
     },
     [],
+  );
+
+  const openNodeProperties = useCallback(
+    (nodeId) => {
+      const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
+      if (!node) return;
+
+      setSelectedNodes([node]);
+      setSelectedEdge(null);
+      setNodes((currentNodes) =>
+        currentNodes.map((candidate) => ({
+          ...candidate,
+          selected: candidate.id === nodeId,
+        })),
+      );
+      setShowNodePanel(true);
+      setLinkedChartPopup(null);
+    },
+    [nodesRef, setNodes],
   );
 
   const onNodeClick = useCallback((evt, node) => {
@@ -689,6 +748,7 @@ export default function FlowApp({
                   nodesDraggable={canEdit && !previewMode}
                   nodesConnectable={canEdit && !previewMode}
                   elementsSelectable={canEdit || previewMode}
+                  elevateNodesOnSelect={false}
                   edgesFocusable={canEdit && !previewMode}
                   fitView
                   fitViewOptions={{ padding: 0.15 }}
@@ -805,6 +865,7 @@ export default function FlowApp({
               nodes={selectedNodes}
               edge={selectedEdge}
               onUpdateNodes={updateSelectedNodes}
+              onChangeLayer={moveSelectedNodesToLayer}
               onUpdateEdge={updateEdgeProperties}
               onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
               onDelete={() => {
@@ -843,7 +904,6 @@ export default function FlowApp({
                 );
               }}
               onViewStaffProfile={setProfileStaffId}
-              charts={[]}
             />
           )}
       </div>
@@ -962,6 +1022,11 @@ export default function FlowApp({
       <LinkedChartPopup
         popup={linkedChartPopup}
         onOpen={openLinkedChart}
+        onManage={
+          canEdit && !previewMode && linkedChartPopup
+            ? () => openNodeProperties(linkedChartPopup.node.id)
+            : undefined
+        }
         onClose={() => setLinkedChartPopup(null)}
       />
 

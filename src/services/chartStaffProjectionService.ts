@@ -28,6 +28,11 @@ export async function mergeChartStaffProjection(
       title,
       department,
       office,
+      job_titles (
+        id,
+        name,
+        name_en
+      ),
       position_assignments (
         id,
         end_date,
@@ -35,11 +40,17 @@ export async function mergeChartStaffProjection(
           id,
           name,
           name_en,
-          photo_url
+          photo_url,
+          job_titles (
+            id,
+            name,
+            name_en
+          )
         )
       )
     `)
     .eq("chart_id", chartId);
+
 
   if (error) {
     console.error("Unable to load safe chart staff projection:", error);

@@ -37,7 +37,6 @@ test('HR migrations are transactional and contain no destructive data cleanup', 
     assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i, filename);
   }
 });
-
 test('shared identity trigger only resolves fields for its active table branch', async () => {
   const coreMigration = await readFile(
     new URL('../migration_core_schema.sql', import.meta.url),
@@ -447,4 +446,22 @@ test('dummy staff cleanup is privately recoverable and preserves org structure',
     sql,
     /^\s*'office',?\s*$/im,
   );
+});
+
+test('job architecture delete APIs enforce HR admin checks and clean cascading', async () => {
+  const sql = await readMigration(
+    '2026082001_add_job_architecture_delete_api.sql',
+  );
+
+  assert.match(sql, /^\s*--[\s\S]*\bBEGIN;/i);
+  assert.match(sql, /\bCOMMIT;\s*$/i);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.delete_job_title\(/i);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.remove_job_title_skill_requirement\(/i);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.delete_skill_catalog_item\(/i);
+  assert.match(sql, /is_hr_admin\(\)/i);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.delete_job_title\(UUID\) FROM PUBLIC;/i);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.delete_job_title\(UUID\)[\s\S]*TO authenticated, service_role;/i);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.delete_skill_catalog_item\(UUID\) FROM PUBLIC;/i);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.delete_skill_catalog_item\(UUID\)[\s\S]*TO authenticated, service_role;/i);
+  assert.match(sql, /NOTIFY pgrst, 'reload schema';/i);
 });

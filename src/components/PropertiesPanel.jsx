@@ -7,6 +7,7 @@ export default function PropertiesPanel({
   nodes,
   edge,
   onUpdateNodes,
+  onChangeLayer,
   onUpdateEdge,
   onDelete,
   onAddChild,
@@ -32,6 +33,7 @@ export default function PropertiesPanel({
         chartId={chartId}
         nodes={nodes}
         onUpdateNodes={onUpdateNodes}
+        onChangeLayer={onChangeLayer}
         onDelete={onDelete}
         onAddChild={onAddChild}
         onDuplicate={onDuplicate}

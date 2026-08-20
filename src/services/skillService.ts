@@ -15,7 +15,6 @@ export async function listSkillCatalog(): Promise<SkillCatalogItem[]> {
   if (error) throw error;
   return z.array(SkillCatalogItemSchema).parse(data ?? []);
 }
-
 export async function saveSkillCatalogItem(input: {
   id?: string | null;
   name: string;
@@ -32,6 +31,13 @@ export async function saveSkillCatalogItem(input: {
   return z.string().uuid().parse(data);
 }
 
+export async function deleteSkillCatalogItem(skillId: string): Promise<void> {
+  const validatedId = z.string().uuid().parse(skillId);
+  const { error } = await supabase.rpc("delete_skill_catalog_item", {
+    target_skill_id: validatedId,
+  });
+  if (error) throw error;
+}
 export async function setStaffSkill(input: {
   staffId: string;
   skillId: string;

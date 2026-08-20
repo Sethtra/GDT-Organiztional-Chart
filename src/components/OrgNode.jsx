@@ -54,6 +54,37 @@ const RESIZE_HANDLE = {
   borderRadius: "50%",
 };
 
+function ConnectionHandles() {
+  return (
+    <>
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        className="flow-handle"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        className="flow-handle"
+      />
+    </>
+  );
+}
+
 const OrgNode = memo(({ id, data, selected }) => {
   const [hovered, setHovered] = useState(false);
   const context = useContext(ChartContext);
@@ -206,6 +237,84 @@ const OrgNode = memo(({ id, data, selected }) => {
   const bandColor = data.color || "var(--nx-band-default)";
   const bandInk = authored ? readableInk(data.color) : "#ffffff";
   const isSimple = data.orgType === "simple";
+  const isShapeNode = meta.template === "shape";
+
+  if (isShapeNode) {
+    const shapeName = meta.shape || "square";
+    const shapeFill = data.color || "transparent";
+    const shapeInk = data.textColor || "var(--nx-ink)";
+    const shapeBorder = data.borderColor || "#475569";
+    const shapeBorderWidth = Math.min(12, Math.max(1, Number(data.borderWidth) || 2));
+
+    return (
+      <div
+        className={[
+          "org-node",
+          "org-node--shape",
+          `org-node--shape-${shapeName}`,
+          selected && "org-node--selected",
+          isHighlighted && "org-node--highlighted",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          "--shape-fill": shapeFill,
+          "--shape-ink": shapeInk,
+          "--shape-border": shapeBorder,
+          "--shape-border-width": `${shapeBorderWidth}px`,
+          "--node-accent": badgeAccent,
+        }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        <SmartNodeResizer
+          nodeId={id}
+          minWidth={32}
+          minHeight={32}
+          isVisible={selected}
+          lineStyle={RESIZE_LINE}
+          handleStyle={RESIZE_HANDLE}
+        />
+
+        <ConnectionHandles />
+
+        <div className="org-node__shape-shell">
+          <div
+            className="org-node__shape-body"
+            style={{
+              justifyContent: textVerticalAlign,
+              textAlign,
+            }}
+          >
+            {data.name && (
+              <div
+                className="org-node__shape-name"
+                style={{ fontSize: `${fontSize}px` }}
+              >
+                {data.name}
+              </div>
+            )}
+            {data.nameEn && (
+              <div
+                className="org-node__shape-name-en"
+                style={{ fontSize: `${Math.max(8, fontSize - 3)}px` }}
+              >
+                {data.nameEn}
+              </div>
+            )}
+            {data.description && (
+              <div
+                className="org-node__shape-desc"
+                style={{ fontSize: `${Math.max(8, fontSize - 4)}px` }}
+              >
+                {data.description}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -228,30 +337,7 @@ const OrgNode = memo(({ id, data, selected }) => {
         handleStyle={RESIZE_HANDLE}
       />
 
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="top"
-        className="flow-handle"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        className="flow-handle"
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left"
-        className="flow-handle"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        className="flow-handle"
-      />
+      <ConnectionHandles />
 
       {/* Title band — the author's colour and label */}
       <div className="org-node__band">

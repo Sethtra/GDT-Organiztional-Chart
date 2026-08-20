@@ -4,6 +4,8 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarDays,
+  Check,
+  ChevronDown,
   Loader2,
   Phone,
   Save,
@@ -26,7 +28,10 @@ import {
   saveStaff,
   uploadStaffPhoto,
 } from "../../services/staffService";
+import { getPositionNameEn } from "../../data/nodeTypes";
+import { cn } from "../../lib/utils";
 import { ImagePrepError, validateOfficerPhotoFile } from "../../utils/imagePrep";
+
 import PhotoCropDialog from "./PhotoCropDialog";
 import {
   Dialog,
@@ -201,7 +206,152 @@ function sectionForField(fieldName: unknown): FormSection | null {
   return null;
 }
 
+function PositionSelect({
+  positions,
+  selectedId,
+  onChange,
+  disabled,
+  placeholder = "Select a position",
+}: {
+  positions: JobTitle[];
+  selectedId: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedPosition = useMemo(
+    () => positions.find((p) => p.id === selectedId),
+    [positions, selectedId],
+  );
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative w-full" ref={dropdownRef}>
+      {/* Real select element preserved for accessibility and test queries */}
+      <select
+        className="sr-only"
+        aria-label="Position *"
+        value={selectedId}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        tabIndex={-1}
+      >
+        <option value="">{placeholder}</option>
+        {positions.map((p) => {
+          const nameEn = getPositionNameEn(p.name, p.nameEn);
+          return (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {nameEn ? ` — ${nameEn}` : ""}
+            </option>
+          );
+        })}
+      </select>
+
+      {/* Styled custom trigger button */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={cn(
+          "flex min-h-11 w-full items-center justify-between gap-2 rounded-[9px] border bg-[#f3f5f2] px-3 py-2 text-left text-[13px] font-medium text-[#16211b] outline-none transition cursor-pointer",
+          isOpen
+            ? "border-[#136232] bg-white ring-2 ring-[#136232]/25"
+            : "border-[#d9e1dc] hover:border-[#b8c4bc]",
+          disabled && "cursor-not-allowed opacity-60",
+        )}
+      >
+        <span className="truncate">
+          {selectedPosition ? (
+            <span>
+              {selectedPosition.name}
+              {getPositionNameEn(
+                selectedPosition.name,
+                selectedPosition.nameEn,
+              ) && (
+                <span className="text-[#66716b]">
+                  {" — "}
+                  {getPositionNameEn(
+                    selectedPosition.name,
+                    selectedPosition.nameEn,
+                  )}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="text-[#87918b]">{placeholder}</span>
+          )}
+        </span>
+        <ChevronDown
+          size={16}
+          className={cn(
+            "shrink-0 text-[#66716b] transition-transform duration-200",
+            isOpen && "rotate-180 text-[#136232]",
+          )}
+        />
+      </button>
+
+      {/* Dropdown popup constrained to show first 5 items with smooth scrolling */}
+      {isOpen && !disabled && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-[215px] overflow-y-auto pa-scrollbar rounded-[9px] border border-[#d9e1dc] bg-white p-1.5 shadow-xl">
+          <div className="flex flex-col gap-0.5">
+            {positions.map((p) => {
+              const isSelected = p.id === selectedId;
+              const nameEn = getPositionNameEn(p.name, p.nameEn);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(p.id);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-[6px] px-2.5 py-2 text-left text-[12.5px] transition-colors cursor-pointer",
+                    isSelected
+                      ? "bg-[#136232]/10 font-bold text-[#136232]"
+                      : "font-medium text-[#16211b] hover:bg-[#f3f5f2]",
+                  )}
+                >
+                  <span className="truncate">
+                    <span>{p.name}</span>
+                    {nameEn && (
+                      <span className="text-[#66716b] font-normal">
+                        {" — "}
+                        {nameEn}
+                      </span>
+                    )}
+                  </span>
+                  {isSelected && (
+                    <Check size={14} className="shrink-0 text-[#136232]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StaffFormDialog({
+
   open,
   staff,
   onOpenChange,
@@ -247,18 +397,24 @@ export default function StaffFormDialog({
     void listJobArchitecture()
       .then((items) => {
         if (cancelled) return;
+        const currentJobTitleId = staff?.jobTitleId || staff?.jobTitle?.id;
         setPositions(
           items
             .filter(
-              (item) =>
-                item.isActive && positionOrder.has(item.name),
+              (item) => item.isActive || item.id === currentJobTitleId,
             )
-            .sort(
-              (left, right) =>
-                (positionOrder.get(left.name) ?? 999) -
-                (positionOrder.get(right.name) ?? 999),
-            ),
+            .sort((left, right) => {
+              const leftOrder =
+                positionOrder.get(left.name) ??
+                (100 + (left.rankOrder || 0));
+              const rightOrder =
+                positionOrder.get(right.name) ??
+                (100 + (right.rankOrder || 0));
+              if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+              return left.name.localeCompare(right.name);
+            }),
         );
+
       })
       .catch((loadError) => {
         if (!cancelled) {
@@ -675,31 +831,22 @@ export default function StaffFormDialog({
                       ))}
                     </select>
                   </label>
-                  <label className={`${labelClass} md:col-span-2`}>
-                    Position *
-                    <select
-                      className={inputClass}
-                      value={draft.jobTitleId}
-                      onChange={(event) =>
-                        update("jobTitleId", event.target.value)
-                      }
-                      required
+                  <div className={`${labelClass} md:col-span-2`}>
+                    <span>Position *</span>
+                    <PositionSelect
+                      positions={positions}
+                      selectedId={draft.jobTitleId}
+                      onChange={(value) => update("jobTitleId", value)}
                       disabled={loadingPositions}
-                    >
-                      <option value="">
-                        {loadingPositions
+                      placeholder={
+                        loadingPositions
                           ? "Loading positions…"
-                          : "Select a position"}
-                      </option>
-                      {positions.map((position) => (
-                        <option key={position.id} value={position.id}>
-                          {position.name}
-                          {position.nameEn ? ` — ${position.nameEn}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                          : "Select a position"
+                      }
+                    />
+                  </div>
                   <label className={labelClass}>
+
                     Joined date *
                     <input
                       className={inputClass}

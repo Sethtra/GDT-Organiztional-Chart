@@ -7,7 +7,9 @@ vi.mock("../src/supabaseClient", () => ({
 }));
 
 import {
+  deleteJobTitle,
   evaluateStaffJobFit,
+  removeJobTitleRequirement,
   setJobTitleRequirement,
 } from "../src/services/jobArchitectureService";
 
@@ -33,6 +35,27 @@ describe("jobArchitectureService scoped RPC contract", () => {
       target_skill_id: skillId,
       minimum_proficiency_value: 3,
       is_required_value: true,
+      target_org_unit_id: null,
+    });
+  });
+
+  it("sends target_job_title_id when deleting a job title", async () => {
+    await deleteJobTitle(jobTitleId);
+
+    expect(rpc).toHaveBeenCalledWith("delete_job_title", {
+      target_job_title_id: jobTitleId,
+    });
+  });
+
+  it("sends target IDs when removing a requirement", async () => {
+    await removeJobTitleRequirement({
+      jobTitleId,
+      skillId,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("remove_job_title_skill_requirement", {
+      target_job_title_id: jobTitleId,
+      target_skill_id: skillId,
       target_org_unit_id: null,
     });
   });

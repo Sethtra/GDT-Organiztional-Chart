@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Ban,
+  BringToFront,
   Check,
   ChevronDown,
   Contact,
   Copy,
-  ExternalLink,
-  Link as LinkIcon,
   Palette,
   Plus,
+  SendToBack,
   Tag,
   Trash2,
   User,
@@ -16,15 +17,15 @@ import {
   Zap,
 } from "lucide-react";
 
-import { supabase } from "../../supabaseClient";
 import { HR_FEATURES_ENABLED } from "../../config/hrFeatures";
-import { useAuth } from "../../hooks/useAuth";
+import { useOwnedChartOptions } from "../../hooks/useChartLinks";
 import {
   POSITION_OPTIONS,
   TYPE_META,
   TYPE_OPTIONS,
 } from "../../data/nodeTypes";
 import ColorPresetPicker from "./ColorPresetPicker";
+import ChartLinkSection from "./ChartLinkSection";
 import HRAssignmentTab from "./HRAssignmentTab";
 import {
   DepartmentSelect,
@@ -50,15 +51,32 @@ const COLOR_PRESETS = [
   { label: "Slate",  value: "#334155" },
 ];
 
-export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onDelete, onAddChild, onDuplicate, onClose, onSave, onViewStaffProfile }) {
-  const { user } = useAuth();
+function NodeTypePreview({ type }) {
+  const typeMeta = TYPE_META[type] || TYPE_META.orgNode;
+  const shape = typeMeta.shape || "org";
+
+  return (
+    <>
+      <span className={`pp-node-type-preview pp-node-type-preview--${shape}`} aria-hidden="true">
+        <span />
+      </span>
+      <span className="pp-node-type-label">{typeMeta.label || type}</span>
+    </>
+  );
+}
+
+export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onChangeLayer, onDelete, onAddChild, onDuplicate, onClose, onSave, onViewStaffProfile }) {
+  const charts = useOwnedChartOptions();
   const firstNode = nodes && nodes.length > 0 ? nodes[0] : { data: {} };
+  const firstMeta = TYPE_META[firstNode.data.orgType] || TYPE_META.orgNode;
   const [name, setName]               = useState(firstNode.data.name || "");
   const [nameEn, setNameEn]           = useState(firstNode.data.nameEn || "");
   const [description, setDescription] = useState(firstNode.data.description || "");
   const [orgType, setOrgType]         = useState(firstNode.data.orgType || "orgNode");
-  const [color, setColor]             = useState(firstNode.data.color || "var(--default-node-bg)");
-  const [textColor, setTextColor]     = useState(firstNode.data.textColor || "#ffffff");
+  const [color, setColor]             = useState(firstNode.data.color || (firstMeta.template === "shape" ? "transparent" : "var(--default-node-bg)"));
+  const [textColor, setTextColor]     = useState(firstNode.data.textColor || (firstMeta.template === "shape" ? "#16211b" : "#ffffff"));
+  const [borderColor, setBorderColor] = useState(firstNode.data.borderColor || "#475569");
+  const [borderWidth, setBorderWidth] = useState(firstNode.data.borderWidth || 2);
   const [badgeText, setBadgeText]     = useState(firstNode.data.badgeText || "");
   const [badgeColor, setBadgeColor]   = useState(firstNode.data.badgeColor || "#38bdf8");
   const [position, setPosition]       = useState(firstNode.data.position || firstNode.data.badgeText || "");
@@ -85,24 +103,12 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
   const [vacateStatus, setVacateStatus]   = useState("Retired");
   const [vacateDate, setVacateDate]       = useState(new Date().toISOString().split('T')[0]);
   const [vacateNotes, setVacateNotes]     = useState("");
-  const [charts, setCharts]               = useState([]);
 
   const meta = TYPE_META[orgType] || TYPE_META.orgNode;
   const isMultiSelect = nodes && nodes.length > 1;
   const panelNodesRef = useRef(nodes);
   panelNodesRef.current = nodes;
   const selectedNodeIds = (nodes || []).map((node) => node.id).join(",");
-
-  // Fetch user's charts for chart linking
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('charts')
-      .select('id, name')
-      .eq('owner_id', user.id)
-      .order('updated_at', { ascending: false })
-      .then(({ data }) => setCharts(data || []));
-  }, [user]);
 
   // Guards the auto-save effect below from firing merely because the node-switch
   // effect repopulated fields to match a newly selected node (no actual user edit).
@@ -122,6 +128,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
   useEffect(() => {
     const currentNodes = panelNodesRef.current;
     const fresh = currentNodes && currentNodes.length > 0 ? currentNodes[0] : { data: {} };
+    const freshMeta = TYPE_META[fresh.data.orgType] || TYPE_META.orgNode;
     setName(fresh.data.name || "");
     setNameEn(fresh.data.nameEn || "");
     setDescription(fresh.data.description || "");
@@ -129,8 +136,10 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
     setBadgeText(fresh.data.badgeText || "");
     setBadgeColor(fresh.data.badgeColor || "#38bdf8");
     setPosition(fresh.data.position || fresh.data.badgeText || "");
-    setColor(fresh.data.color || "var(--default-node-bg)");
-    setTextColor(fresh.data.textColor || "#ffffff");
+    setColor(fresh.data.color || (freshMeta.template === "shape" ? "transparent" : "var(--default-node-bg)"));
+    setTextColor(fresh.data.textColor || (freshMeta.template === "shape" ? "#16211b" : "#ffffff"));
+    setBorderColor(fresh.data.borderColor || "#475569");
+    setBorderWidth(fresh.data.borderWidth || 2);
     setLinkedChartId(fresh.data.linkedChartId || "");
     setFontSize(fresh.data.fontSize || 13);
     setTextAlign(fresh.data.textAlign || "center");
@@ -164,6 +173,9 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
   // first node onto the whole selection.
   const buildPayload = () => {
     const payload = { orgType, color, textColor, badgeText: meta.isPerson ? (position || badgeText) : badgeText, badgeColor, fontSize, textAlign, textVerticalAlign };
+    if (meta.template === "shape") {
+      Object.assign(payload, { borderColor, borderWidth });
+    }
     if (!isMultiSelectRef.current) {
       if (meta.isPerson && chartId && HR_FEATURES_ENABLED) {
         Object.assign(payload, {
@@ -182,6 +194,16 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
   };
   const buildPayloadRef = useRef(buildPayload);
   buildPayloadRef.current = buildPayload;
+
+  const handleOrgTypeChange = (nextType) => {
+    const currentMeta = TYPE_META[orgType] || TYPE_META.orgNode;
+    const nextMeta = TYPE_META[nextType] || TYPE_META.orgNode;
+
+    if (currentMeta.template !== "shape" && nextMeta.template === "shape") {
+      setColor("transparent");
+    }
+    setOrgType(nextType);
+  };
 
   const handleVacate = () => {
     if (!name && !nameEn && !staffId) {
@@ -256,7 +278,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
       onUpdateNodesRef.current(buildPayloadRef.current());
     }, 250);
     return () => clearTimeout(t);
-  }, [name, nameEn, description, orgType, color, textColor, badgeText, badgeColor, position, linkedChartId, fontSize, textAlign, textVerticalAlign,
+  }, [name, nameEn, description, orgType, color, textColor, borderColor, borderWidth, badgeText, badgeColor, position, linkedChartId, fontSize, textAlign, textVerticalAlign,
       staffId, department, office, joinDate, phone, address, maritalStatus, siblings, education, skill, history]);
 
   const handleSave = () => {
@@ -271,8 +293,6 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
     if (onSave) onSave();
     else onClose?.();
   };
-
-  const linkedChart = charts.find(c => c.id === linkedChartId);
 
   return (
     <div className="properties-panel pp-light pa-theme">
@@ -294,9 +314,9 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
         {(!meta.isPerson || !chartId || !HR_FEATURES_ENABLED) && (
         <div className="pp-section" style={{ opacity: isMultiSelect ? 0.5 : 1, pointerEvents: isMultiSelect ? 'none' : 'auto' }}>
           <div className="pp-section-label"><User size={11} /> Identity {isMultiSelect && "(Disabled)"}</div>
-          <label className="pp-label">Khmer Name</label>
+          <label className="pp-label">{meta.template === "shape" ? "Text" : "Khmer Name"}</label>
           <textarea className="pp-textarea" value={name} onChange={(e) => setName(e.target.value)} placeholder="ឈ្មោះ..." dir="auto" rows={2} />
-          <label className="pp-label">English Name</label>
+          <label className="pp-label">{meta.template === "shape" ? "Secondary Text" : "English Name"}</label>
           <textarea className="pp-textarea" value={nameEn} onChange={(e) => setNameEn(e.target.value)} placeholder="English name..." rows={2} />
           <label className="pp-label">Description</label>
           <textarea className="pp-textarea" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description..." rows={2} />
@@ -505,8 +525,13 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
           <div className="pp-section-label"><Tag size={11} /> Node Type</div>
           <div className="pp-type-grid">
             {TYPE_OPTIONS.map((t) => (
-              <button key={t} className={`pp-type-btn ${orgType === t ? "active" : ""}`} onClick={() => setOrgType(t)}>
-                {TYPE_META[t]?.label || t}
+              <button
+                key={t}
+                className={`pp-type-btn pp-type-btn--shape ${orgType === t ? "active" : ""}`}
+                onClick={() => handleOrgTypeChange(t)}
+                aria-label={`Use ${TYPE_META[t]?.label || t} node shape`}
+              >
+                <NodeTypePreview type={t} />
               </button>
             ))}
           </div>
@@ -514,7 +539,7 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
 
 
         {/* Custom Badge */}
-        {!meta.isPerson && (
+        {!meta.isPerson && meta.template !== "shape" && (
         <div className="pp-section">
           <div className="pp-section-label"><Tag size={11} /> Badge Settings</div>
           <label className="pp-label">Badge Text</label>
@@ -548,13 +573,52 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
             a fixed dark card matching design turn 11b (see OrgNode.jsx) */}
         {!meta.isPerson && (
         <div className="pp-section">
-          <div className="pp-section-label"><Palette size={11} /> Background Color</div>
+          <div className="pp-section-label"><Palette size={11} /> {meta.template === "shape" ? "Fill Color" : "Background Color"}</div>
+          {meta.template === "shape" && (
+            <button
+              type="button"
+              className={`pp-btn pp-btn--ghost pp-no-paint ${color === "transparent" ? "active" : ""}`}
+              onClick={() => setColor("transparent")}
+            >
+              <Ban size={13} /> No Fill
+            </button>
+          )}
           <ColorPresetPicker
             presets={COLOR_PRESETS}
             value={color}
             onChange={setColor}
           />
-          <div className="pp-color-preview" style={{ background: color }}><span>{color}</span></div>
+          <div className={`pp-color-preview ${color === "transparent" ? "pp-color-preview--transparent" : ""}`} style={{ background: color }}><span>{color}</span></div>
+        </div>
+        )}
+
+        {meta.template === "shape" && (
+        <div className="pp-section">
+          <div className="pp-section-label"><Palette size={11} /> Outline</div>
+          <button
+            type="button"
+            className={`pp-btn pp-btn--ghost pp-no-paint ${borderColor === "transparent" ? "active" : ""}`}
+            onClick={() => setBorderColor("transparent")}
+          >
+            <Ban size={13} /> No Outline
+          </button>
+          <label className="pp-label">Color</label>
+          <ColorPresetPicker
+            presets={COLOR_PRESETS}
+            value={borderColor}
+            onChange={setBorderColor}
+            customLabel="Custom outline color"
+          />
+          <label className="pp-label">Width - <strong>{borderWidth}px</strong></label>
+          <input
+            type="range"
+            min={1}
+            max={12}
+            value={borderWidth}
+            onChange={(event) => setBorderWidth(Number(event.target.value))}
+            className="pp-range"
+            aria-label="Shape outline width"
+          />
         </div>
         )}
 
@@ -660,42 +724,26 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
           )}
         </div>
 
-        {/* Chart Link */}
-        <div className="pp-section" style={{ opacity: isMultiSelect ? 0.5 : 1, pointerEvents: isMultiSelect ? 'none' : 'auto' }}>
-          <div className="pp-section-label"><LinkIcon size={11} /> Link to Chart</div>
-          <p style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>
-            Link this node to another chart. Viewers can click the node to open it.
-          </p>
-          <select
-            className="pp-input"
-            value={linkedChartId}
-            onChange={(e) => setLinkedChartId(e.target.value)}
-            style={{ cursor: 'pointer' }}
-          >
-            <option value="">— No link —</option>
-            {charts.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          {linkedChart && (
-            <div style={{ marginTop: 8, background: 'rgba(19, 98, 50, 0.1)', border: '1px solid rgba(19, 98, 50, 0.3)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ExternalLink size={12} style={{ color: '#136232', flexShrink: 0 }} />
-              <span style={{ color: '#136232', fontSize: 12, fontWeight: 600 }}>{linkedChart.name}</span>
-              <button
-                onClick={() => setLinkedChartId("")}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
-                title="Remove link"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          )}
-        </div>
+        <ChartLinkSection
+          availableCharts={charts}
+          linkedChartId={linkedChartId}
+          isDisabled={isMultiSelect}
+          onChange={setLinkedChartId}
+        />
 
         {/* Actions */}
         {!isMultiSelect && (
           <div className="pp-section">
             <div className="pp-section-label"><Zap size={11} /> Actions</div>
+
+            <div className="pp-layer-actions" aria-label="Layer order">
+              <button className="pp-btn pp-btn--ghost" onClick={() => onChangeLayer?.("back")}>
+                <SendToBack size={13} /> Send to Back
+              </button>
+              <button className="pp-btn pp-btn--ghost" onClick={() => onChangeLayer?.("front")}>
+                <BringToFront size={13} /> Bring to Front
+              </button>
+            </div>
 
             <button className="pp-btn pp-btn--ghost" onClick={() => onDuplicate?.()}>
               <Copy size={13} /> Duplicate Node
@@ -710,8 +758,13 @@ export default function NodePropertiesPanel({ chartId, nodes, onUpdateNodes, onD
                 <div className="pp-add-child">
                   <div className="pp-type-grid" style={{ marginBottom: 8 }}>
                     {TYPE_OPTIONS.map((t) => (
-                      <button key={t} className={`pp-type-btn ${addChildType === t ? "active" : ""}`} onClick={() => setAddChildType(t)}>
-                        {TYPE_META[t]?.label || t}
+                      <button
+                        key={t}
+                        className={`pp-type-btn pp-type-btn--shape ${addChildType === t ? "active" : ""}`}
+                        onClick={() => setAddChildType(t)}
+                        aria-label={`Create ${TYPE_META[t]?.label || t} child node`}
+                      >
+                        <NodeTypePreview type={t} />
                       </button>
                     ))}
                   </div>

@@ -280,27 +280,29 @@ export function useChartPersistence<NodeType, EdgeType>({
 
   useEffect(() => {
     if (loading || !canEdit) return;
-    const nodesString = JSON.stringify(nodes);
-    const edgesString = JSON.stringify(edges);
-    if (
-      nodesString === lastSyncData.current.nodes &&
-      edgesString === lastSyncData.current.edges
-    ) {
-      return;
-    }
-
-    try {
-      localStorage.setItem(
-        `chart_backup_${chartId}`,
-        JSON.stringify({ nodes, edges, timestamp: Date.now() }),
-      );
-    } catch (backupError) {
-      console.warn("Failed to save to localStorage", backupError);
-    }
 
     const timeout = window.setTimeout(() => {
+      const nodesString = JSON.stringify(nodes);
+      const edgesString = JSON.stringify(edges);
+      if (
+        nodesString === lastSyncData.current.nodes &&
+        edgesString === lastSyncData.current.edges
+      ) {
+        return;
+      }
+
+      try {
+        localStorage.setItem(
+          `chart_backup_${chartId}`,
+          JSON.stringify({ nodes, edges, timestamp: Date.now() }),
+        );
+      } catch (backupError) {
+        console.warn("Failed to save to localStorage", backupError);
+      }
+
       void performSave({ refreshThumbnail: false });
-    }, 350);
+    }, 400);
+
     return () => window.clearTimeout(timeout);
   }, [
     canEdit,
@@ -311,6 +313,7 @@ export function useChartPersistence<NodeType, EdgeType>({
     nodes,
     performSave,
   ]);
+
 
   useEffect(() => {
     if (loading || !canEdit) return;

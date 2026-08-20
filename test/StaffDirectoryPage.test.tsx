@@ -271,8 +271,19 @@ vi.mock("../src/services/jobArchitectureService", () => ({
       isActive: true,
       requirements: [],
     },
+    {
+      id: "00000000-0000-4000-8000-000000000017",
+      code: "BRANCH_HEAD",
+      name: "ប្រធានសាខា",
+      nameEn: "Branch Director",
+      rankOrder: 25,
+      positionScope: "department",
+      isActive: true,
+      requirements: [],
+    },
   ]),
 }));
+
 
 import StaffDirectoryPage from "../src/pages/StaffDirectoryPage";
 import { listPromotionReadiness } from "../src/services/promotionReadinessService";
@@ -444,8 +455,37 @@ describe("Staff Directory", () => {
       "មន្ត្រី — Officer",
       "មន្ត្រីកិច្ចសន្យា — Contract Officer",
       "មន្ត្រីកម្មសិក្សា — Trainee Officer",
+      "ប្រធានសាខា — Branch Director",
     ]);
   });
+
+
+  it("falls back to standard English label if position record has null nameEn", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <StaffDirectoryPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "New Officer" }),
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Employment" }),
+    );
+
+    const positionSelect = await screen.findByRole("combobox", {
+      name: "Position *",
+    });
+
+    expect(
+      positionSelect.querySelector("option[value='00000000-0000-4000-8000-000000000016']"),
+    ).toHaveTextContent("មន្ត្រីកម្មសិក្សា — Trainee Officer");
+  });
+
+
 
   it("selects a department first and keeps office optional", async () => {
     const user = userEvent.setup();

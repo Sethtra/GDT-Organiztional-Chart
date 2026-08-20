@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Background,
@@ -18,8 +18,8 @@ import '@xyflow/react/dist/style.css';
 import CustomEdge from '../components/CustomEdge';
 // OrgNodePro is the premium revision under review; it is mounted on this route
 // only. The live editor (FlowApp.jsx) still mounts OrgNode. OrgNodePro
-// delegates person cards straight back to OrgNode, so both node kinds render
-// here and only the unit card differs from production.
+// delegates person and geometric shape cards straight back to OrgNode, so only
+// the unit card differs from production.
 import OrgNodePro from '../components/OrgNodePro';
 import ConfirmModal from '../components/ConfirmModal';
 import ContextMenu from '../components/ContextMenu';
@@ -145,6 +145,52 @@ const initialNodes = [
     },
   },
   {
+    id: 'shape-round',
+    type: 'orgNode',
+    position: { x: 260, y: 640 },
+    width: 140,
+    height: 140,
+    data: {
+      orgType: 'roundNode',
+      color: 'transparent',
+      borderColor: '#0d9488',
+      borderWidth: 2,
+      name: '',
+      nameEn: '',
+      description: '',
+    },
+  },
+  {
+    id: 'shape-diamond',
+    type: 'orgNode',
+    position: { x: 500, y: 640 },
+    width: 150,
+    height: 150,
+    data: {
+      orgType: 'diamondNode',
+      color: 'transparent',
+      borderColor: '#7c3aed',
+      borderWidth: 2,
+      name: '',
+      nameEn: '',
+    },
+  },
+  {
+    id: 'shape-square',
+    type: 'orgNode',
+    position: { x: 760, y: 640 },
+    width: 140,
+    height: 140,
+    data: {
+      orgType: 'squareNode',
+      color: 'transparent',
+      borderColor: '#334155',
+      borderWidth: 2,
+      name: '',
+      nameEn: '',
+    },
+  },
+  {
     id: 'person-head',
     type: 'orgNode',
     position: { x: 430, y: 440 },
@@ -236,6 +282,7 @@ function ChartEditorTestHarness() {
     onConnect,
     onReconnect,
     updateSelectedNodes,
+    moveSelectedNodesToLayer,
     updateEdgeProperties,
     deleteNodes,
     duplicateNodes,
@@ -449,8 +496,18 @@ function ChartEditorTestHarness() {
   // FINAL dropped position wherever the pointer released — every guide
   // during the drag was cosmetically correct and the one position a user
   // actually looks at afterward was not.
+  const dragGuideFrameRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (dragGuideFrameRef.current != null) {
+        cancelAnimationFrame(dragGuideFrameRef.current);
+      }
+    };
+  }, []);
+
   const applyAlignmentSnap = useCallback(
-    (node) => {
+    (node, commit = false) => {
       const dragged = {
         x: node.position.x,
         y: node.position.y,
@@ -466,36 +523,61 @@ function ChartEditorTestHarness() {
           height: n.measured?.height ?? n.height ?? 0,
         }));
 
-      const threshold = ALIGNMENT_THRESHOLD_PX / getZoom();
-      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(dragged, others, threshold, GRID_SIZE);
+      const threshold = ALIGNMENT_THRESHOLD_PX / Math.max(getZoom(), 0.01);
+      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(
+        dragged,
+        others,
+        threshold,
+        GRID_SIZE,
+      );
 
-      setGuides({ guideX, guideY });
+      if (commit) {
+        if (dragGuideFrameRef.current != null) {
+          cancelAnimationFrame(dragGuideFrameRef.current);
+          dragGuideFrameRef.current = null;
+        }
+        setGuides({ guideX: null, guideY: null });
 
-      if (deltaX !== 0 || deltaY !== 0) {
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === node.id
-              ? { ...n, position: { x: n.position.x + deltaX, y: n.position.y + deltaY } }
-              : n,
-          ),
-        );
+        if (deltaX !== 0 || deltaY !== 0) {
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === node.id
+                ? {
+                    ...n,
+                    position: {
+                      x: n.position.x + deltaX,
+                      y: n.position.y + deltaY,
+                    },
+                  }
+                : n,
+            ),
+          );
+        }
+      } else {
+        if (dragGuideFrameRef.current != null) {
+          cancelAnimationFrame(dragGuideFrameRef.current);
+        }
+        dragGuideFrameRef.current = requestAnimationFrame(() => {
+          setGuides({ guideX, guideY });
+          dragGuideFrameRef.current = null;
+        });
       }
     },
     [nodes, setNodes, getZoom],
   );
 
   const onNodeDrag = useCallback(
-    (_event, node) => applyAlignmentSnap(node),
+    (_event, node) => applyAlignmentSnap(node, false),
     [applyAlignmentSnap],
   );
 
   const onNodeDragStop = useCallback(
     (_event, node) => {
-      applyAlignmentSnap(node);
-      setGuides({ guideX: null, guideY: null });
+      applyAlignmentSnap(node, true);
     },
     [applyAlignmentSnap],
   );
+
 
   // The real production path (same layoutUtils.js), not a stub — this is
   // what actually proves whether a crooked parent/child connector is a
@@ -586,6 +668,7 @@ function ChartEditorTestHarness() {
             nodesDraggable
             nodesConnectable
             elementsSelectable
+            elevateNodesOnSelect={false}
             edgesFocusable
             fitView
             fitViewOptions={{ padding: 0.2 }}
@@ -619,6 +702,7 @@ function ChartEditorTestHarness() {
             nodes={selectedNodes}
             edge={selectedEdge}
             onUpdateNodes={updateSelectedNodes}
+            onChangeLayer={moveSelectedNodesToLayer}
             onUpdateEdge={updateEdgeProperties}
             onAddChild={(type) => addChildNode(selectedNodes[0]?.id, type)}
             onDelete={() => {
@@ -650,7 +734,6 @@ function ChartEditorTestHarness() {
               setNodes((nds) => nds.map((n) => (n.selected ? { ...n, selected: false } : n)));
             }}
             onViewStaffProfile={() => { }}
-            charts={[]}
           />
         )}
       </div>
