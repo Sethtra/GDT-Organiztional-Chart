@@ -133,6 +133,25 @@ export default function StaffSkillsDialog({
 
   const handleCreateSkill = async () => {
     if (!staff || !newSkillName.trim()) return;
+    const normalizedName = newSkillName
+      .replace(/[\u200B-\u200D\uFEFF]/gu, "")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .toLocaleLowerCase();
+    const existingSkill = catalog.find(
+      (skill) =>
+        skill.name
+          .replace(/[\u200B-\u200D\uFEFF]/gu, "")
+          .replace(/\s+/gu, " ")
+          .trim()
+          .toLocaleLowerCase() === normalizedName,
+    );
+    if (existingSkill) {
+      setError(`The skill “${existingSkill.name}” already exists.`);
+      setSkillId(existingSkill.id);
+      setActiveTab("assign");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -212,7 +231,9 @@ export default function StaffSkillsDialog({
                             {entry.skill.name}
                           </span>
                           <span className="inline-flex shrink-0 items-center rounded-full border border-[#c6e1d1] bg-[#e7f3ec] px-2 py-0.5 text-[10.5px] font-bold text-[#136232]">
-                            Lvl {entry.proficiency}
+                            {entry.proficiency === null
+                              ? "Unassessed"
+                              : `Lvl ${entry.proficiency}`}
                           </span>
                         </div>
 
@@ -223,7 +244,8 @@ export default function StaffSkillsDialog({
                               <div
                                 key={lvl}
                                 className={`h-1.5 w-5 rounded-full ${
-                                  lvl <= entry.proficiency
+                              entry.proficiency !== null &&
+                              lvl <= entry.proficiency
                                     ? "bg-[#136232]"
                                     : "bg-[#d9e1dc]"
                                 }`}

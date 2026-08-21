@@ -101,6 +101,7 @@ describe("assignment candidate filters", () => {
       joinedDate: "2020-01-01",
       retiredDate: null,
       gender: "unspecified",
+      email: null,
       status: "active",
       photoUrl: null,
       education: "Private education",

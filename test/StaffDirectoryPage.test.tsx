@@ -21,6 +21,7 @@ vi.mock("../src/services/staffService", () => ({
       joinedDate: "2020-03-01",
       retiredDate: null,
       gender: "unspecified",
+      email: "officer@gdt.gov.kh",
       status: "active",
       jobTitle: {
         id: "00000000-0000-4000-8000-000000000006",
@@ -57,6 +58,7 @@ vi.mock("../src/services/staffProfileService", () => ({
     joinedDate: "2020-03-01",
     retiredDate: null,
     gender: "unspecified",
+    email: "officer@gdt.gov.kh",
     status: "active",
     jobTitle: {
       id: "00000000-0000-4000-8000-000000000006",
@@ -357,6 +359,7 @@ describe("Staff Directory", () => {
       await screen.findByRole("dialog", { name: "Officer profile" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Test Officer").length).toBeGreaterThan(0);
+    expect(screen.getByText("officer@gdt.gov.kh")).toBeInTheDocument();
   });
 
   it("opens the selected HR staff profile", async () => {

@@ -63,6 +63,7 @@ interface StaffDraft {
   retiredDate: string;
   gender: StaffInput["gender"];
   education: string;
+  email: string;
   phone: string;
   address: string;
   otherInformation: string;
@@ -74,7 +75,7 @@ type FormSection = "personal" | "employment" | "contact";
 const SECTION_FIELDS: Record<FormSection, ReadonlyArray<keyof StaffDraft>> = {
   personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education", "photoUrl"],
   employment: ["departmentId", "officeId", "jobTitleId", "joinedDate", "retiredDate"],
-  contact: ["phone", "address", "otherInformation"],
+  contact: ["email", "phone", "address", "otherInformation"],
 };
 
 const SECTION_TABS: Array<{
@@ -113,6 +114,7 @@ const emptyDraft: StaffDraft = {
   retiredDate: "",
   gender: "male",
   education: "",
+  email: "",
   phone: "",
   address: "",
   otherInformation: "",
@@ -138,6 +140,7 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     retiredDate: staff.retiredDate ?? "",
     gender: staff.gender === "female" ? "female" : "male",
     education: staff.education ?? "",
+    email: staff.email ?? "",
     phone: staff.phone ?? "",
     address: staff.address ?? "",
     otherInformation: staff.otherInformation ?? "",
@@ -501,6 +504,7 @@ export default function StaffFormDialog({
       retiredDate: draft.retiredDate || null,
       gender: draft.gender,
       education: draft.education || null,
+      email: draft.email || null,
       phone: draft.phone || null,
       address: draft.address || null,
       otherInformation: draft.otherInformation || null,
@@ -891,6 +895,17 @@ export default function StaffFormDialog({
             {activeSection === "contact" && (
               <div className="grid gap-4">
                 <div className="grid gap-4 md:grid-cols-2">
+                  <label className={labelClass}>
+                    Email
+                    <input
+                      className={inputClass}
+                      type="email"
+                      value={draft.email}
+                      onChange={(event) => update("email", event.target.value)}
+                      maxLength={320}
+                      autoComplete="email"
+                    />
+                  </label>
                   <label className={labelClass}>
                     Phone
                     <input

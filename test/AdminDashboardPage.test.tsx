@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -38,11 +38,22 @@ vi.mock("../src/services/promotionReadinessService", () => ({
   ]),
 }));
 
+vi.mock("../src/services/staffService", () => ({
+  listHrStaff: vi.fn(async () => [
+    { id: "active-male-1", gender: "male", status: "active" },
+    { id: "active-male-2", gender: "male", status: "active" },
+    { id: "active-female-1", gender: "female", status: "active" },
+    { id: "active-unspecified-1", gender: "unspecified", status: "active" },
+    { id: "archived-female-1", gender: "female", status: "archived" },
+  ]),
+}));
+
 import AdminDashboardPage from "../src/pages/AdminDashboardPage";
 import { listPromotionReadiness } from "../src/services/promotionReadinessService";
+import { listHrStaff } from "../src/services/staffService";
 
 describe("AdminDashboardPage", () => {
-  it("renders the admin dashboard with semantic navigation and metrics", () => {
+  it("renders live active-officer workforce metrics", async () => {
     render(
       <MemoryRouter>
         <AdminDashboardPage />
@@ -58,12 +69,23 @@ describe("AdminDashboardPage", () => {
     expect(
       screen.getByRole("link", { name: /Executive overview/i }),
     ).toHaveAttribute("aria-current", "page");
-    expect(
+    const metrics = within(
       screen.getByRole("region", { name: "Key workforce metrics" }),
-    ).toBeInTheDocument();
+    );
+    expect(metrics.getByText("Total workforce")).toBeInTheDocument();
+    expect(metrics.getByText("Male officers")).toBeInTheDocument();
+    expect(metrics.getByText("Female officers")).toBeInTheDocument();
+    expect(await metrics.findByText("4")).toBeInTheDocument();
+    expect(metrics.getByText("2")).toBeInTheDocument();
+    expect(metrics.getByText("1")).toBeInTheDocument();
+    expect(metrics.queryByText("Position coverage")).not.toBeInTheDocument();
+    expect(metrics.queryByText("Open positions")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Illustrative — not yet wired to live data"),
+      screen.getByText(
+        "Workforce totals are live — remaining analytics are illustrative",
+      ),
     ).toBeInTheDocument();
+    expect(listHrStaff).toHaveBeenCalledWith();
     expect(screen.getByText("HR administrator")).toBeInTheDocument();
     expect(screen.queryByText("sethtragame@gmail.com")).not.toBeInTheDocument();
     expect(
@@ -123,6 +145,23 @@ describe("AdminDashboardPage", () => {
       await screen.findByText("Promotion data unavailable"),
     ).toBeInTheDocument();
     expect(screen.queryByText("0 promotion ready")).not.toBeInTheDocument();
+  });
+
+  it("does not present a failed workforce request as zero officers", async () => {
+    vi.mocked(listHrStaff).mockRejectedValueOnce(new Error("RPC unavailable"));
+    render(
+      <MemoryRouter>
+        <AdminDashboardPage />
+      </MemoryRouter>,
+    );
+
+    const metrics = within(
+      screen.getByRole("region", { name: "Key workforce metrics" }),
+    );
+    expect(
+      await metrics.findAllByText("Live workforce data unavailable"),
+    ).toHaveLength(3);
+    expect(metrics.getAllByText("—")).toHaveLength(3);
   });
 
   it("switches trend periods and filters recent activity", async () => {

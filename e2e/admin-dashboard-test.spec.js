@@ -96,6 +96,13 @@ for (const viewport of VIEWPORTS) {
         body: JSON.stringify(PROMOTION_CANDIDATES),
       }),
     );
+    await page.route("**/rest/v1/rpc/get_hr_staff_directory", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      }),
+    );
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({
       width: viewport.width,
@@ -106,7 +113,11 @@ for (const viewport of VIEWPORTS) {
     await expect(
       page.getByRole("heading", { name: "Executive overview" }),
     ).toBeVisible();
-    await expect(page.getByText(/Illustrative/)).toBeVisible();
+    await expect(
+      page.getByText(
+        /Workforce totals are live.*remaining analytics are illustrative/i,
+      ),
+    ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Key workforce metrics" }),
     ).toBeVisible();
@@ -219,9 +230,13 @@ for (const viewport of VIEWPORTS) {
       hrRequests.some((url) => url.includes("get_promotion_readiness")),
     ).toBe(true);
     expect(
+      hrRequests.some((url) => url.includes("get_hr_staff_directory")),
+    ).toBe(true);
+    expect(
       hrRequests.every(
         (url) =>
           url.includes("get_promotion_readiness") ||
+          url.includes("get_hr_staff_directory") ||
           url.includes("is_hr_admin"),
       ),
     ).toBe(true);

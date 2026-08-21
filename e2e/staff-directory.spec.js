@@ -95,6 +95,7 @@ test.beforeEach(async ({ page }) => {
           joinedDate: '2020-03-01',
           retiredDate: null,
           gender: 'unspecified',
+          email: 'officer@gdt.gov.kh',
           status: 'active',
           jobTitle: {
             id: jobTitles[4].id,
@@ -142,6 +143,7 @@ test.beforeEach(async ({ page }) => {
         joinedDate: '2020-03-01',
         retiredDate: null,
         gender: 'unspecified',
+        email: 'officer@gdt.gov.kh',
         status: 'active',
         jobTitle: {
           id: jobTitles[4].id,

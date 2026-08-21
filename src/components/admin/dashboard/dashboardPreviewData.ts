@@ -1,10 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import {
-  BriefcaseBusiness,
-  Clock3,
-  UserRoundCheck,
-  UsersRound,
-} from "lucide-react";
+import { Clock3 } from "lucide-react";
 
 export type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
 export type TrendPeriod = "30d" | "90d" | "12m";
@@ -44,43 +39,16 @@ export interface DashboardActivity {
   tone: BadgeTone;
 }
 
-// These fixtures are intentionally isolated so they cannot be mistaken for
-// service-backed operational data when the dashboard is wired to live APIs.
-export const DASHBOARD_KPIS: DashboardKpi[] = [
-  {
-    label: "Total workforce",
-    value: "1,248",
-    detail: "40 added this quarter",
-    badge: "+3.2%",
-    tone: "success",
-    icon: UsersRound,
-  },
-  {
-    label: "Position coverage",
-    value: "96.8%",
-    detail: "1,206 roles staffed",
-    badge: "+1.4%",
-    tone: "success",
-    icon: UserRoundCheck,
-  },
-  {
-    label: "Open positions",
-    value: "42",
-    detail: "Across 9 departments",
-    badge: "12 priority",
-    tone: "warning",
-    icon: BriefcaseBusiness,
-  },
-  {
-    label: "Actions due",
-    value: "18",
-    detail: "5 need attention today",
-    badge: "Review",
-    tone: "info",
-    icon: Clock3,
-    highlighted: true,
-  },
-];
+// Preview fixtures remain isolated from the live workforce totals.
+export const DASHBOARD_ACTIONS_KPI: DashboardKpi = {
+  label: "Actions due",
+  value: "18",
+  detail: "5 need attention today",
+  badge: "Review",
+  tone: "info",
+  icon: Clock3,
+  highlighted: true,
+};
 
 export const DASHBOARD_TRENDS: Record<TrendPeriod, DashboardTrend> = {
   "30d": {

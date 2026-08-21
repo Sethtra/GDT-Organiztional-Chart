@@ -16,6 +16,7 @@ import {
   type TrendPeriod,
 } from "../components/admin/dashboard/dashboardPreviewData";
 import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
+import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
@@ -23,6 +24,7 @@ export default function AdminDashboardPage() {
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("30d");
   const [query, setQuery] = useState("");
   const promotion = usePromotionReadiness();
+  const workforce = useWorkforceMetrics();
 
   const filteredActivity = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -79,9 +81,9 @@ export default function AdminDashboardPage() {
           <div className="mb-7 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-2.5">
-                <StatusBadge tone="warning">Preview data</StatusBadge>
+                <StatusBadge tone="info">Mixed data</StatusBadge>
                 <span className="text-[10.5px] font-bold uppercase tracking-[0.09em] text-[var(--pa-faint)]">
-                  Illustrative — not yet wired to live data
+                  Workforce totals are live — remaining analytics are illustrative
                 </span>
               </div>
               <h1 className="text-[28px] font-extrabold tracking-[-0.035em] text-[var(--pa-text)] sm:text-[32px]">
@@ -107,7 +109,11 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <DashboardMetricGrid />
+          <DashboardMetricGrid
+            metrics={workforce.metrics}
+            loading={workforce.loading}
+            hasError={workforce.hasError}
+          />
 
           <div className="mb-4 grid gap-4 xl:grid-cols-12">
             <WorkforceTrendPanel

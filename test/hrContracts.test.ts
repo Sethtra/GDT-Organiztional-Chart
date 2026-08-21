@@ -132,7 +132,7 @@ describe('HR contracts', () => {
     expect(invited.access).toBe('invited');
     expect(hr.access).toBe('hr');
     expect('nationalId' in hr).toBe(false);
-    expect('email' in hr).toBe(false);
+    expect(hr.email).toBeNull();
     expect('age' in hr).toBe(false);
     expect('maritalStatus' in hr).toBe(false);
   });

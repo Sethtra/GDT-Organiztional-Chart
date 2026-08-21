@@ -74,7 +74,7 @@ for (const viewport of [VIEWPORTS[0], VIEWPORTS[2], VIEWPORTS[4]]) {
     await page.setViewportSize(viewport);
 
     for (const surface of [
-      { route: "/admin/org-structure", heading: "Organization Setup" },
+      { route: "/admin/org-structure", heading: "Organization structure" },
       { route: "/admin/job-architecture", heading: "Job Architecture" },
     ]) {
       await page.goto(surface.route);

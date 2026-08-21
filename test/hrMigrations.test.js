@@ -21,6 +21,9 @@ const migrationFiles = [
   '2026081101_add_promotion_readiness.sql',
   '2026081102_remove_legacy_skill_rpc_overloads.sql',
   '2026082002_add_account_deletion_support.sql',
+  '2026082101_add_staff_excel_import.sql',
+  '2026082102_fix_staff_import_source_hash.sql',
+  '2026082103_normalize_imported_skills.sql',
 ];
 
 async function readMigration(filename) {
@@ -35,10 +38,70 @@ test('HR migrations are transactional and contain no destructive data cleanup', 
     assert.match(sql, /\bCOMMIT;\s*$/i, filename);
     assert.doesNotMatch(sql, /\bTRUNCATE\b/i, filename);
     assert.doesNotMatch(sql, /\bDROP\s+TABLE\b/i, filename);
-    if (filename !== '2026082002_add_account_deletion_support.sql') {
+    if (![
+      '2026082002_add_account_deletion_support.sql',
+      '2026082103_normalize_imported_skills.sql',
+    ].includes(filename)) {
       assert.doesNotMatch(sql, /\bDELETE\s+FROM\b/i, filename);
     }
   }
+});
+
+test('Excel staff import is atomic, HR-only, mapped, and leaves skills unassessed', async () => {
+  const sql = await readMigration('2026082101_add_staff_excel_import.sql');
+
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.import_staff_workbook\(import_payload JSONB\)/i);
+  assert.match(sql, /IF NOT public\.is_hr_admin\(\)/i);
+  assert.match(sql, /pg_advisory_xact_lock/i);
+  assert.match(sql, /This workbook has already been imported/i);
+  assert.match(sql, /workbook_sha256 TEXT :=/i);
+  assert.match(sql, /lower\(batch\.source_sha256\) = lower\(workbook_sha256\)/i);
+  assert.doesNotMatch(sql, /source_sha256 TEXT :=/i);
+  assert.match(sql, /office\.unit_id = row_data\."departmentId"/i);
+  assert.match(sql, /INSERT INTO public\.staff_import_batches/i);
+  assert.match(sql, /INSERT INTO public\.staff_placements/i);
+  assert.match(sql, /INSERT INTO public\.staff_skill_history[\s\S]*?NULL,[\s\S]*?current_date/i);
+  assert.match(sql, /private\.normalize_import_label\(skill\.name\)/i);
+  assert.match(sql, /ALTER COLUMN proficiency DROP NOT NULL/i);
+  assert.match(sql, /jsonb_build_object\('email', staff\.email\)/i);
+  assert.match(sql, /CASE WHEN public\.is_hr_admin\(\) THEN staff\.email ELSE NULL END/i);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.import_staff_workbook\(JSONB\) FROM PUBLIC/i);
+  assert.match(sql, /NOTIFY pgrst, 'reload schema'/i);
+});
+
+test('deployed Excel import functions repair the legacy source hash variable without privileged settings', async () => {
+  const sql = await readMigration('2026082102_fix_staff_import_source_hash.sql');
+
+  assert.match(sql, /pg_get_functiondef/i);
+  assert.match(sql, /'source_sha256 TEXT :='/i);
+  assert.match(sql, /'workbook_sha256 TEXT :='/i);
+  assert.match(sql, /EXECUTE repaired_definition/i);
+  assert.doesNotMatch(sql, /plpgsql\.variable_conflict/i);
+});
+
+test('imported skill cleanup merges typo variants and splits only confirmed compounds', async () => {
+  const sql = await readMigration('2026082103_normalize_imported_skills.sql');
+
+  assert.match(sql, /'ធនាគា', ARRAY\['ធនាគារ'\]/u);
+  assert.match(sql, /'និតិសាស្រ្ដ', ARRAY\['នីតិសាស្ត្រ'\]/u);
+  assert.match(sql, /'ហរិញ្ញវត្ថុ', ARRAY\['ហិរញ្ញវត្ថុ'\]/u);
+  assert.match(sql, /'កសិ-ឧស្សាហកម្ម', ARRAY\['កសិ\.ឧស្សាហកម្ម'\]/u);
+  assert.match(sql, /'ហិរញ្ញវត្ថុ-ធនាគារ', ARRAY\['ហិរញ្ញវត្ថុ', 'ធនាគារ'\]/u);
+  assert.match(sql, /គ្រប់គ្រងវិទ្យាសាស្ត្រាកុំព្យូទ័រ\/សវនកម្មពន្ធ/u);
+  assert.match(sql, /INSERT INTO public\.staff_skill_history/i);
+  assert.match(sql, /INSERT INTO public\.job_title_skill_requirements/i);
+  assert.match(sql, /DELETE FROM public\.skills/i);
+  assert.match(sql, /pg_advisory_xact_lock/i);
+  assert.ok(
+    sql.indexOf('INSERT INTO public.staff_skill_history') <
+      sql.indexOf('DELETE FROM public.staff_skill_history'),
+    'officer skill links must be reassigned before duplicate links are removed',
+  );
+  assert.ok(
+    sql.indexOf('INSERT INTO public.job_title_skill_requirements') <
+      sql.indexOf('DELETE FROM public.job_title_skill_requirements'),
+    'job requirements must be reassigned before duplicate links are removed',
+  );
 });
 
 test('account deletion preserves institutional staff and restricts preparation to the service role', async () => {
@@ -478,4 +541,17 @@ test('job architecture delete APIs enforce HR admin checks and clean cascading',
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.delete_skill_catalog_item\(UUID\) FROM PUBLIC;/i);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.delete_skill_catalog_item\(UUID\)[\s\S]*TO authenticated, service_role;/i);
   assert.match(sql, /NOTIFY pgrst, 'reload schema';/i);
+});
+
+test('database rollout falls back when Docker is installed but its daemon is stopped', async () => {
+  const powershellRollout = await readFile(
+    new URL('../scripts/deploy-supabase.ps1', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(powershellRollout, /dockerDaemonAvailable = \$false/i);
+  assert.match(powershellRollout, /dockerCommand\.Source info/i);
+  assert.match(powershellRollout, /\$LASTEXITCODE -eq 0/i);
+  assert.match(powershellRollout, /-not \$dockerDaemonAvailable/i);
+  assert.match(powershellRollout, /using the direct PostgreSQL backup and rollout/i);
 });

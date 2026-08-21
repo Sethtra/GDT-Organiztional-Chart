@@ -130,15 +130,28 @@ $dataBackup = Join-Path $backupDirectory 'data.sql'
 Write-Host "Creating pre-rollout database backup in $backupDirectory"
 
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
+$dockerDaemonAvailable = $false
+if ($null -ne $dockerCommand) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    & $dockerCommand.Source info --format '{{.ServerVersion}}' *> $null
+    $dockerDaemonAvailable = $LASTEXITCODE -eq 0
+  }
+  finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+}
+
 if (
-  $null -eq $dockerCommand -or
+  -not $dockerDaemonAvailable -or
   -not [string]::IsNullOrWhiteSpace($StaffImportFile)
 ) {
   if (-not [string]::IsNullOrWhiteSpace($StaffImportFile)) {
     Write-Host 'Using the transactional direct rollout for the validated staff import.'
   }
   else {
-    Write-Host 'Docker is unavailable; using the direct PostgreSQL backup and rollout.'
+    Write-Host 'Docker is unavailable or its daemon is stopped; using the direct PostgreSQL backup and rollout.'
   }
   $directRolloutScript =
     Join-Path $projectRoot 'scripts\direct-database-rollout.mjs'
@@ -331,6 +344,10 @@ $migrationSources = @(
   @{
     Source = Join-Path $projectRoot 'migrations\2026082002_add_account_deletion_support.sql'
     Target = '20260727000024_add_account_deletion_support.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026082101_add_staff_excel_import.sql'
+    Target = '20260727000025_add_staff_excel_import.sql'
   }
 )
 

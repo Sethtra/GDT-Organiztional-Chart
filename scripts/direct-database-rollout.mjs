@@ -177,6 +177,21 @@ const migrations = [
     name: 'add_account_deletion_support',
     file: 'migrations/2026082002_add_account_deletion_support.sql',
   },
+  {
+    version: '20260727000025',
+    name: 'add_staff_excel_import',
+    file: 'migrations/2026082101_add_staff_excel_import.sql',
+  },
+  {
+    version: '20260727000026',
+    name: 'fix_staff_import_source_hash',
+    file: 'migrations/2026082102_fix_staff_import_source_hash.sql',
+  },
+  {
+    version: '20260727000027',
+    name: 'normalize_imported_skills',
+    file: 'migrations/2026082103_normalize_imported_skills.sql',
+  },
 ]
 
 const selectedMigrations = promotionReadinessOnly

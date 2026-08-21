@@ -63,12 +63,6 @@
   --gray-300:     #cbd5e1;
   --gray-400:     #94a3b8;
   --gray-500:     #64748b;
-  --gray-600:     #475569;
-  --gray-700:     #334155;
-  --gray-800:     #1e293b;
-  --red:          #dc2626;
-  --red-light:    #fef2f2;
-  --green:        #136232;
 
   --radius-sm:    4px;
   --radius:       8px;
@@ -81,37 +75,6 @@
   /* ============================================================
      THEME (semantic) TOKENS — Light theme is the only active theme.
      ============================================================ */
-  --surface-rgb:    0,0,0;
-  --shadow-rgb:     0,0,0;
-  --bg-app:         #f3f5f2;
-  --bg-surface:     #ffffff;
-  --bg-surface-rgb: 255,255,255;
-  --bg-surface-translucent: rgba(255,255,255, 0.92);
-  --bg-surface-2:   #f8fafc;
-  --bg-elevated:    #ffffff;
-  --text-primary:   #0f172a;
-  --text-secondary: #334155;
-  --text-muted:     #64748b;
-  --link-color:     #136232;
-  --border-subtle:  rgba(0,0,0, .12);
-  --border-strong:  rgba(0,0,0, .22);
-
-  --shadow-sm:    0 2px 8px rgba(var(--shadow-rgb),.08), 0 1px 2px rgba(var(--shadow-rgb),.04);
-  --shadow:       0 8px 24px rgba(var(--shadow-rgb),.12);
-  --shadow-lg:    0 16px 40px rgba(var(--shadow-rgb),.16);
-  --shadow-xl:    0 24px 64px rgba(var(--shadow-rgb),.2);
-
-  --person-position-color: var(--blue);
-  --person-team-bg: var(--blue);
-  --person-team-text: #ffffff;
-  --person-avatar-border: rgba(19, 98, 50, .35);
-  --badge-office: var(--blue);
-  --person-avatar-bg: var(--blue);
-  --default-node-bg: var(--blue);
-}
-
-:root[data-theme="light"],
-:root[data-theme="dark"] {
   --surface-rgb:    0,0,0;
   --shadow-rgb:     0,0,0;
   --bg-app:         #f3f5f2;
@@ -164,14 +127,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.overflow-y-auto,
-.overflow-x-auto,
 .custom-scrollbar {
-  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
 }
 
+.overflow-x-auto {
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 button { cursor: pointer; font-family: inherit; border: none; background: none; }
 input, textarea, select { font-family: 'Kantumruy Pro', 'Inter', sans-serif; }

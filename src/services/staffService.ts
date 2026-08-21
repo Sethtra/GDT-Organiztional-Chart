@@ -75,6 +75,7 @@ export async function saveStaff(
       retired_date_value: validated.retiredDate,
       gender_value: validated.gender,
       education_value: nullable(validated.education),
+      email_value: nullable(validated.email),
       phone_value: nullable(validated.phone),
       address_value: nullable(validated.address),
       other_information_value: nullable(validated.otherInformation),

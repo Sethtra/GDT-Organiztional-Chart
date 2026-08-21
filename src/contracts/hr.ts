@@ -6,6 +6,7 @@ export const UuidSchema = z.string().uuid();
 export const IsoDateSchema = z.string().regex(isoDatePattern, 'Use YYYY-MM-DD');
 export const NullableIsoDateSchema = IsoDateSchema.nullable();
 export const DatabaseTimestampSchema = z.string().datetime({ offset: true });
+export const EmailSchema = z.string().trim().email().max(320);
 export const LegacyEmployeeIdSchema = z
   .string()
   .trim()
@@ -72,6 +73,7 @@ export const StaffInputSchema = z
     retiredDate: NullableIsoDateSchema,
     gender: GenderSchema,
     education: z.string().trim().max(4_000, 'Education description is too long.').nullable(),
+    email: EmailSchema.nullable().default(null),
     phone: z.string().trim().max(50, 'Phone number is too long.').nullable(),
     address: z.string().trim().max(4_000, 'Address is too long.').nullable(),
     otherInformation: z.string().trim().max(4_000, 'Information is too long.').nullable(),
@@ -152,6 +154,7 @@ export const StaffDirectorySummarySchema = z.object({
   joinedDate: NullableIsoDateSchema,
   retiredDate: NullableIsoDateSchema,
   gender: GenderSchema,
+  email: EmailSchema.nullable().default(null),
   status: StaffStatusSchema,
   photoUrl: z.string().trim().max(2_048).nullable().default(null),
   jobTitle: StaffJobTitleSchema.nullable(),
@@ -220,7 +223,7 @@ export const StaffSkillSchema = z.object({
   id: UuidSchema,
   staffId: UuidSchema,
   skill: SkillCatalogItemSchema,
-  proficiency: ProficiencyLevelSchema,
+  proficiency: ProficiencyLevelSchema.nullable(),
   effectiveFrom: IsoDateSchema,
   effectiveTo: NullableIsoDateSchema,
   notes: z.string().trim().max(2_000).nullable(),
@@ -289,6 +292,63 @@ export const PromotionReadinessSchema = z.object({
   status: PromotionReadinessStatusSchema,
 });
 
+export const StaffWorkbookImportRecordSchema = z
+  .object({
+    sourceRow: z.number().int().positive().max(1_000_000),
+    employeeId: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(200),
+    nameEn: z.string().trim().max(200).nullable(),
+    email: EmailSchema.nullable(),
+    jobTitleId: UuidSchema,
+    departmentId: UuidSchema,
+    officeId: UuidSchema.nullable(),
+    dateOfBirth: IsoDateSchema,
+    joinedDate: IsoDateSchema,
+    retiredDate: NullableIsoDateSchema,
+    gender: GenderSchema,
+    education: z.string().trim().max(4_000).nullable(),
+    skills: z.array(z.string().trim().min(1).max(200)).max(50),
+    phone: z.string().trim().max(50).nullable(),
+    address: z.string().trim().max(4_000).nullable(),
+    otherInformation: z.string().trim().max(4_000).nullable(),
+  })
+  .superRefine((record, context) => {
+    if (record.joinedDate.localeCompare(record.dateOfBirth) < 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['joinedDate'],
+        message: 'Joined date cannot be before date of birth.',
+      });
+    }
+    if (
+      record.retiredDate &&
+      record.retiredDate.localeCompare(record.joinedDate) < 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['retiredDate'],
+        message: 'Retired date cannot be before joined date.',
+      });
+    }
+  });
+
+export const StaffWorkbookImportPayloadSchema = z.object({
+  source: z.object({
+    name: z.string().trim().min(1).max(255),
+    sha256: z.string().regex(/^[A-Fa-f0-9]{64}$/),
+    sheet: z.string().trim().min(1).max(255),
+  }),
+  records: z.array(StaffWorkbookImportRecordSchema).min(1).max(5_000),
+});
+
+export const StaffWorkbookImportResultSchema = z.object({
+  batchId: UuidSchema,
+  insertedStaff: z.number().int().nonnegative(),
+  insertedPlacements: z.number().int().nonnegative(),
+  createdSkills: z.number().int().nonnegative(),
+  assignedSkills: z.number().int().nonnegative(),
+});
+
 const SharedProfileFieldsSchema = StaffDirectorySummarySchema.extend({
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
@@ -344,6 +404,15 @@ export type PromotionReadinessStatus = z.infer<
   typeof PromotionReadinessStatusSchema
 >;
 export type PromotionReadiness = z.infer<typeof PromotionReadinessSchema>;
+export type StaffWorkbookImportRecord = z.infer<
+  typeof StaffWorkbookImportRecordSchema
+>;
+export type StaffWorkbookImportPayload = z.infer<
+  typeof StaffWorkbookImportPayloadSchema
+>;
+export type StaffWorkbookImportResult = z.infer<
+  typeof StaffWorkbookImportResultSchema
+>;
 export type InvitedStaffProfile = z.infer<typeof InvitedStaffProfileSchema>;
 export type HrStaffProfile = z.infer<typeof HrStaffProfileSchema>;
 export type StaffProfile = z.infer<typeof StaffProfileSchema>;

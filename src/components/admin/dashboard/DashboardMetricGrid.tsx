@@ -1,14 +1,82 @@
+import { UserRound, UserRoundCheck, UsersRound } from "lucide-react";
+
+import type { WorkforceMetrics } from "../../../hooks/useWorkforceMetrics";
 import { cn } from "../../../lib/utils";
-import { DASHBOARD_KPIS } from "./dashboardPreviewData";
+import {
+  DASHBOARD_ACTIONS_KPI,
+  type DashboardKpi,
+} from "./dashboardPreviewData";
 import { StatusBadge } from "./DashboardPrimitives";
 
-export default function DashboardMetricGrid() {
+interface DashboardMetricGridProps {
+  metrics: WorkforceMetrics;
+  loading: boolean;
+  hasError: boolean;
+}
+
+function formatPercentage(count: number, total: number): string {
+  if (total === 0) return "0%";
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format((count / total) * 100)}%`;
+}
+
+export default function DashboardMetricGrid({
+  metrics,
+  loading,
+  hasError,
+}: DashboardMetricGridProps) {
+  const liveValue = (value: number) =>
+    loading || hasError ? "—" : value.toLocaleString("en-US");
+  const liveBadge = (count?: number) => {
+    if (loading) return "Loading";
+    if (hasError) return "Unavailable";
+    return count === undefined
+      ? "Live"
+      : formatPercentage(count, metrics.total);
+  };
+  const liveDetail = (label: string) => {
+    if (loading) return "Loading live workforce data…";
+    if (hasError) return "Live workforce data unavailable";
+    return label;
+  };
+  const liveTone = loading ? "neutral" : hasError ? "danger" : "success";
+
+  const kpis: DashboardKpi[] = [
+    {
+      label: "Total workforce",
+      value: liveValue(metrics.total),
+      detail: liveDetail("Active officer records"),
+      badge: liveBadge(),
+      tone: liveTone,
+      icon: UsersRound,
+    },
+    {
+      label: "Male officers",
+      value: liveValue(metrics.male),
+      detail: liveDetail("Active male officer records"),
+      badge: liveBadge(metrics.male),
+      tone: loading || hasError ? liveTone : "info",
+      icon: UserRoundCheck,
+    },
+    {
+      label: "Female officers",
+      value: liveValue(metrics.female),
+      detail: liveDetail("Active female officer records"),
+      badge: liveBadge(metrics.female),
+      tone: loading || hasError ? liveTone : "info",
+      icon: UserRound,
+    },
+    DASHBOARD_ACTIONS_KPI,
+  ];
+
   return (
     <section
       className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-[var(--pa-border)] shadow-[var(--pa-shadow)] xl:grid-cols-4"
       aria-label="Key workforce metrics"
+      aria-busy={loading}
     >
-      {DASHBOARD_KPIS.map((item) => {
+      {kpis.map((item) => {
         const Icon = item.icon;
         return (
           <article

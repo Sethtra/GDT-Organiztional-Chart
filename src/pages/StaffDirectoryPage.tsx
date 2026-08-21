@@ -276,6 +276,7 @@ export default function StaffDirectoryPage() {
       return [
         person.name,
         person.nameEn,
+        person.email,
         person.employeeId,
         person.jobTitle?.name,
         person.jobTitle?.nameEn,

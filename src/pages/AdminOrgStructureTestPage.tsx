@@ -5,36 +5,43 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  FlaskConical,
+  Loader2,
   MapPin,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   X,
 } from "lucide-react";
+import { z } from "zod";
 
 import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
 import { cn } from "../lib/utils";
-import {
-  ADMIN_ORG_STRUCTURE_PREVIEW_DATA,
-  type PreviewOrgUnit,
-  type PreviewUnitType,
-} from "./adminOrgStructurePreviewData";
+import { useOrgStructure } from "../hooks/useOrgStructure";
+import { supabase } from "../supabaseClient";
 import "./AdminDashboardTestPage.css";
 import "./AdminOrgStructureTestPage.css";
 
 const PAGE_SIZE = 7;
 const OFFICE_PAGE_SIZE = 6;
 
-const TYPE_LABELS: Record<PreviewUnitType, string> = {
+const TYPE_LABELS: Record<string, string> = {
   department: "Department",
   district: "District",
   province: "Province",
 };
 
-type UnitFilter = "all" | PreviewUnitType;
+const UnitTypeSchema = z.enum(["department", "district", "province"]);
+const OrganizationNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Name is required.")
+  .max(200, "Name must be 200 characters or fewer.");
+
+type UnitType = z.infer<typeof UnitTypeSchema>;
+type UnitFilter = "all" | UnitType;
 
 interface DeleteTarget {
   kind: "unit" | "office";
@@ -43,16 +50,23 @@ interface DeleteTarget {
   name: string;
 }
 
-function TypeBadge({ type }: { type: PreviewUnitType }) {
-  return <span className={`ost-type-badge ost-type-badge--${type}`}>{TYPE_LABELS[type]}</span>;
+function TypeBadge({ type }: { type: string }) {
+  const normalizedType = (type || "department").toLowerCase();
+  const label = TYPE_LABELS[normalizedType] || type || "Department";
+  const badgeClass =
+    normalizedType === "district"
+      ? "ost-type-badge--district"
+      : normalizedType === "province"
+        ? "ost-type-badge--province"
+        : "ost-type-badge--department";
+
+  return <span className={`ost-type-badge ${badgeClass}`}>{label}</span>;
 }
 
-export default function AdminOrgStructureTestPage() {
+export default function AdminOrgStructurePageView() {
+  const { units, loading, error, refetch } = useOrgStructure();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [units, setUnits] = useState<PreviewOrgUnit[]>(ADMIN_ORG_STRUCTURE_PREVIEW_DATA);
-  const [selectedUnitId, setSelectedUnitId] = useState(
-    ADMIN_ORG_STRUCTURE_PREVIEW_DATA[0]?.id ?? "",
-  );
+  const [selectedUnitId, setSelectedUnitId] = useState("");
   const [search, setSearch] = useState("");
   const [officeSearch, setOfficeSearch] = useState("");
   const [filter, setFilter] = useState<UnitFilter>("all");
@@ -60,8 +74,7 @@ export default function AdminOrgStructureTestPage() {
   const [officePage, setOfficePage] = useState(1);
   const [showUnitForm, setShowUnitForm] = useState(false);
   const [newUnitName, setNewUnitName] = useState("");
-  const [newUnitNameEn, setNewUnitNameEn] = useState("");
-  const [newUnitType, setNewUnitType] = useState<PreviewUnitType>("department");
+  const [newUnitType, setNewUnitType] = useState<UnitType>("department");
   const [showOfficeForm, setShowOfficeForm] = useState(false);
   const [newOfficeName, setNewOfficeName] = useState("");
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
@@ -69,17 +82,24 @@ export default function AdminOrgStructureTestPage() {
   const [editingOfficeId, setEditingOfficeId] = useState<string | null>(null);
   const [officeDraft, setOfficeDraft] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [saving, setSaving] = useState(false);
   const officePanelRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (units.length > 0 && (!selectedUnitId || !units.some((u) => u.id === selectedUnitId))) {
+      setSelectedUnitId(units[0]?.id ?? "");
+    }
+  }, [units, selectedUnitId]);
 
   const filteredUnits = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return units.filter((unit) => {
-      if (filter !== "all" && unit.type !== filter) return false;
+      const unitType = (unit.type || "").toLowerCase();
+      if (filter !== "all" && unitType !== filter) return false;
       if (!query) return true;
       return (
         unit.name.toLocaleLowerCase().includes(query) ||
-        unit.nameEn.toLocaleLowerCase().includes(query) ||
-        unit.offices.some((item) => item.name.toLocaleLowerCase().includes(query))
+        (unit.offices || []).some((item) => item.name.toLocaleLowerCase().includes(query))
       );
     });
   }, [filter, search, units]);
@@ -90,7 +110,7 @@ export default function AdminOrgStructureTestPage() {
   const visibleOffices = useMemo(() => {
     const query = officeSearch.trim().toLocaleLowerCase();
     if (!selectedUnit || !query) return selectedUnit?.offices ?? [];
-    return selectedUnit.offices.filter((item) =>
+    return (selectedUnit.offices || []).filter((item) =>
       item.name.toLocaleLowerCase().includes(query),
     );
   }, [officeSearch, selectedUnit]);
@@ -103,8 +123,8 @@ export default function AdminOrgStructureTestPage() {
     officePage * OFFICE_PAGE_SIZE,
   );
 
-  const totalOffices = units.reduce((sum, unit) => sum + unit.offices.length, 0);
-  const departmentCount = units.filter((unit) => unit.type === "department").length;
+  const totalOffices = units.reduce((sum, unit) => sum + (unit.offices?.length || 0), 0);
+  const departmentCount = units.filter((unit) => (unit.type || "").toLowerCase() === "department").length;
   const regionalCount = units.length - departmentCount;
 
   useEffect(() => {
@@ -135,98 +155,174 @@ export default function AdminOrgStructureTestPage() {
     }
   };
 
-  const addUnit = (event: FormEvent<HTMLFormElement>) => {
+  const addUnit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const name = newUnitName.trim();
-    if (!name) return;
-
-    const unit: PreviewOrgUnit = {
-      id: `preview-unit-${Date.now()}`,
-      name,
-      nameEn: newUnitNameEn.trim() || TYPE_LABELS[newUnitType],
-      type: newUnitType,
-      offices: [],
-    };
-    setUnits((current) => [...current, unit]);
-    setSelectedUnitId(unit.id);
-    setNewUnitName("");
-    setNewUnitNameEn("");
-    setShowUnitForm(false);
-    setFilter("all");
-    setSearch("");
-    setPage(Math.ceil((units.length + 1) / PAGE_SIZE));
-  };
-
-  const saveUnitName = (unitId: string) => {
-    const name = unitDraft.trim();
-    if (name) {
-      setUnits((current) =>
-        current.map((unit) => (unit.id === unitId ? { ...unit, name } : unit)),
-      );
+    const input = z
+      .object({ name: OrganizationNameSchema, type: UnitTypeSchema })
+      .safeParse({ name: newUnitName, type: newUnitType });
+    if (!input.success) {
+      alert(input.error.issues[0]?.message ?? "Enter a valid unit.");
+      return;
     }
-    setEditingUnitId(null);
+
+    setSaving(true);
+    try {
+      const maxSort = (units || []).reduce(
+        (max, u) => Math.max(max, u.sort_order || 0),
+        0,
+      );
+      const { data, error: insertError } = await supabase
+        .from("org_units")
+        .insert({
+          name: input.data.name,
+          type: input.data.type,
+          sort_order: maxSort + 1,
+        })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      setNewUnitName("");
+      setShowUnitForm(false);
+      await refetch();
+      const inserted = data as { id?: string } | null;
+      if (inserted?.id) setSelectedUnitId(inserted.id);
+    } catch (err) {
+      console.error("Failed to add unit:", err);
+      alert(err instanceof Error ? err.message : "Failed to add unit");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const addOffice = (event: FormEvent<HTMLFormElement>) => {
+  const saveUnitName = async (unitId: string) => {
+    const input = OrganizationNameSchema.safeParse(unitDraft);
+    if (!input.success) {
+      alert(input.error.issues[0]?.message ?? "Enter a valid unit name.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data, error: updateError } = await supabase
+        .from("org_units")
+        .update({ name: input.data })
+        .eq("id", unitId)
+        .select("id")
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!data) throw new Error("Unit not found or update prohibited.");
+      await refetch();
+    } catch (err) {
+      console.error("Failed to rename unit:", err);
+      alert(err instanceof Error ? err.message : "Failed to rename unit");
+    } finally {
+      setSaving(false);
+      setEditingUnitId(null);
+    }
+  };
+
+  const addOffice = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const name = newOfficeName.trim();
-    if (!selectedUnit || !name) return;
-
-    setUnits((current) =>
-      current.map((unit) =>
-        unit.id === selectedUnit.id
-          ? {
-              ...unit,
-              offices: [...unit.offices, { id: `preview-office-${Date.now()}`, name }],
-            }
-          : unit,
-      ),
-    );
-    setNewOfficeName("");
-    setShowOfficeForm(false);
-    setOfficePage(Math.ceil((selectedUnit.offices.length + 1) / OFFICE_PAGE_SIZE));
-  };
-
-  const saveOfficeName = (unitId: string, officeId: string) => {
-    const name = officeDraft.trim();
-    if (name) {
-      setUnits((current) =>
-        current.map((unit) =>
-          unit.id === unitId
-            ? {
-                ...unit,
-                offices: unit.offices.map((item) =>
-                  item.id === officeId ? { ...item, name } : item,
-                ),
-              }
-            : unit,
-        ),
-      );
+    if (!selectedUnit) return;
+    const input = OrganizationNameSchema.safeParse(newOfficeName);
+    if (!input.success) {
+      alert(input.error.issues[0]?.message ?? "Enter a valid office name.");
+      return;
     }
-    setEditingOfficeId(null);
+
+    setSaving(true);
+    try {
+      const maxSort = (selectedUnit.offices || []).reduce(
+        (max, o) => Math.max(max, o.sort_order || 0),
+        0,
+      );
+      const { data, error: insertError } = await supabase
+        .from("org_offices")
+        .insert({
+          unit_id: selectedUnit.id,
+          name: input.data,
+          sort_order: maxSort + 1,
+        })
+        .select("id")
+        .maybeSingle();
+      if (insertError) throw insertError;
+      if (!data) throw new Error("Office was not created or creation was prohibited.");
+      setNewOfficeName("");
+      setShowOfficeForm(false);
+      await refetch();
+      setOfficePage(Math.ceil(((selectedUnit.offices?.length || 0) + 1) / OFFICE_PAGE_SIZE));
+    } catch (err) {
+      console.error("Failed to add office:", err);
+      alert(err instanceof Error ? err.message : "Failed to add office");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const confirmDelete = () => {
+  const saveOfficeName = async (_unitId: string, officeId: string) => {
+    const input = OrganizationNameSchema.safeParse(officeDraft);
+    if (!input.success) {
+      alert(input.error.issues[0]?.message ?? "Enter a valid office name.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data, error: updateError } = await supabase
+        .from("org_offices")
+        .update({ name: input.data })
+        .eq("id", officeId)
+        .select("id")
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!data) throw new Error("Office not found or update prohibited.");
+      await refetch();
+    } catch (err) {
+      console.error("Failed to rename office:", err);
+      alert(err instanceof Error ? err.message : "Failed to rename office");
+    } finally {
+      setSaving(false);
+      setEditingOfficeId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.kind === "unit") {
-      const remaining = units.filter((unit) => unit.id !== deleteTarget.unitId);
-      setUnits(remaining);
-      if (selectedUnitId === deleteTarget.unitId) {
-        setSelectedUnitId(remaining[0]?.id ?? "");
+
+    setSaving(true);
+    try {
+      if (deleteTarget.kind === "unit") {
+        const { data, error: delError } = await supabase
+          .from("org_units")
+          .delete()
+          .eq("id", deleteTarget.unitId)
+          .select("id")
+          .maybeSingle();
+        if (delError) throw delError;
+        if (!data) throw new Error("Unit not found or deletion prohibited.");
+        await refetch();
+        if (selectedUnitId === deleteTarget.unitId) {
+          const remaining = units.filter((unit) => unit.id !== deleteTarget.unitId);
+          setSelectedUnitId(remaining[0]?.id ?? "");
+        }
+      } else if (deleteTarget.officeId) {
+        const { data, error: delError } = await supabase
+          .from("org_offices")
+          .delete()
+          .eq("id", deleteTarget.officeId)
+          .select("id")
+          .maybeSingle();
+        if (delError) throw delError;
+        if (!data) throw new Error("Office not found or deletion prohibited.");
+        await refetch();
       }
-    } else if (deleteTarget.officeId) {
-      setUnits((current) =>
-        current.map((unit) =>
-          unit.id === deleteTarget.unitId
-            ? {
-                ...unit,
-                offices: unit.offices.filter((item) => item.id !== deleteTarget.officeId),
-              }
-            : unit,
-        ),
-      );
+    } catch (err) {
+      console.error("Failed to delete:", err);
+      alert(err instanceof Error ? err.message : "Failed to delete");
+    } finally {
+      setSaving(false);
+      setDeleteTarget(null);
     }
-    setDeleteTarget(null);
   };
 
   return (
@@ -272,22 +368,46 @@ export default function AdminOrgStructureTestPage() {
             <div className="ost-title-row">
               <div>
                 <div className="ost-eyebrow">
-                  <span className="ost-preview-badge"><FlaskConical size={11} /> Design preview</span>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--pa-primary)]">
+                    <Building2 size={13} /> Organization register
+                  </span>
                   <span>Departments and offices</span>
                 </div>
                 <h1>Organization structure</h1>
                 <p>Maintain the reporting units used by staff records and organization charts.</p>
               </div>
-              <button
-                type="button"
-                className="ost-primary-button pa-focus-ring"
-                onClick={() => setShowUnitForm((current) => !current)}
-                aria-expanded={showUnitForm}
-              >
-                <Plus size={15} aria-hidden="true" />
-                Add unit
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="ost-secondary-button pa-focus-ring"
+                  onClick={() => refetch()}
+                  title="Reload live data"
+                  aria-label="Reload live data"
+                  disabled={loading}
+                >
+                  <RefreshCw size={14} className={cn(loading && "animate-spin")} />
+                </button>
+                <button
+                  type="button"
+                  className="ost-primary-button pa-focus-ring"
+                  onClick={() => setShowUnitForm((current) => !current)}
+                  aria-expanded={showUnitForm}
+                  disabled={saving}
+                >
+                  <Plus size={15} aria-hidden="true" />
+                  Add unit
+                </button>
+              </div>
             </div>
+
+            {error && (
+              <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <span>{error}</span>
+                <button type="button" onClick={() => refetch()} className="flex items-center gap-1 font-semibold text-red-800 underline">
+                  <RefreshCw size={14} /> Retry
+                </button>
+              </div>
+            )}
 
             <section className="ost-summary" aria-label="Organization summary">
               <div><span>Organizational units</span><strong>{units.length}</strong></div>
@@ -301,7 +421,7 @@ export default function AdminOrgStructureTestPage() {
                 <div className="ost-create-unit__heading">
                   <div>
                     <strong>New organizational unit</strong>
-                    <span>Prototype data only</span>
+                    <span>Live database record</span>
                   </div>
                   <button type="button" onClick={() => setShowUnitForm(false)} aria-label="Close new unit form">
                     <X size={16} />
@@ -309,20 +429,24 @@ export default function AdminOrgStructureTestPage() {
                 </div>
                 <div className="ost-create-unit__fields">
                   <label>
-                    <span>Khmer name</span>
-                    <input autoFocus value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} required />
-                  </label>
-                  <label>
-                    <span>English name</span>
-                    <input value={newUnitNameEn} onChange={(event) => setNewUnitNameEn(event.target.value)} />
+                    <span>Unit name</span>
+                    <input autoFocus value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder="e.g. នាយកដ្ឋាន..." required />
                   </label>
                   <label>
                     <span>Unit type</span>
-                    <select value={newUnitType} onChange={(event) => setNewUnitType(event.target.value as PreviewUnitType)}>
+                    <select
+                      value={newUnitType}
+                      onChange={(event) => {
+                        const parsedType = UnitTypeSchema.safeParse(event.target.value);
+                        if (parsedType.success) setNewUnitType(parsedType.data);
+                      }}
+                    >
                       {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
                   </label>
-                  <button className="ost-primary-button pa-focus-ring" type="submit"><Check size={14} /> Add unit</button>
+                  <button className="ost-primary-button pa-focus-ring" type="submit" disabled={saving}>
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Add unit
+                  </button>
                 </div>
               </form>
             )}
@@ -360,7 +484,7 @@ export default function AdminOrgStructureTestPage() {
                       <tr>
                         <th scope="col">Unit</th>
                         <th scope="col" className="ost-type-column">Type</th>
-                        <th scope="col">Offices</th>
+                        <th scope="col" className="ost-offices-column">Offices</th>
                         <th scope="col" className="ost-actions-column"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
@@ -368,6 +492,7 @@ export default function AdminOrgStructureTestPage() {
                       {pagedUnits.map((unit) => {
                         const selected = unit.id === selectedUnitId;
                         const editing = unit.id === editingUnitId;
+                        const officeCount = unit.offices?.length || 0;
                         return (
                           <tr key={unit.id} className={cn(selected && "is-selected")}>
                             <td>
@@ -389,18 +514,16 @@ export default function AdminOrgStructureTestPage() {
                               ) : (
                                 <button type="button" className="ost-unit-select" onClick={() => selectUnit(unit.id)} aria-current={selected ? "true" : undefined}>
                                   <span dir="auto">{unit.name}</span>
-                                  <small>{unit.nameEn}</small>
+                                  <small>{TYPE_LABELS[(unit.type || "").toLowerCase()] || unit.type}</small>
                                   <span className="ost-mobile-type"><TypeBadge type={unit.type} /></span>
                                 </button>
                               )}
                             </td>
                             <td className="ost-type-column"><TypeBadge type={unit.type} /></td>
-                            <td>
-                              <button type="button" className="ost-office-count" onClick={() => selectUnit(unit.id)} aria-label={`View ${unit.offices.length} offices for ${unit.name}`}>
-                                <MapPin size={13} aria-hidden="true" />
-                                <strong>{unit.offices.length}</strong>
-                                <span>office{unit.offices.length === 1 ? "" : "s"}</span>
-                                <ChevronRight size={13} aria-hidden="true" />
+                            <td className="ost-offices-column">
+                              <button type="button" className="ost-office-count" onClick={() => selectUnit(unit.id)} aria-label={`View ${officeCount} offices for ${unit.name}`}>
+                                <strong>{officeCount}</strong>
+                                <span>office{officeCount === 1 ? "" : "s"}</span>
                               </button>
                             </td>
                             <td className="ost-actions-column">
@@ -428,7 +551,14 @@ export default function AdminOrgStructureTestPage() {
                       })}
                     </tbody>
                   </table>
-                  {pagedUnits.length === 0 && (
+                  {loading && units.length === 0 && (
+                    <div className="ost-empty-table">
+                      <Loader2 size={24} className="animate-spin text-[var(--pa-primary)]" />
+                      <strong>Loading units...</strong>
+                      <span>Fetching live organizational structure from database.</span>
+                    </div>
+                  )}
+                  {!loading && pagedUnits.length === 0 && (
                     <div className="ost-empty-table">
                       <Search size={22} />
                       <strong>No matching units</strong>
@@ -437,14 +567,16 @@ export default function AdminOrgStructureTestPage() {
                   )}
                 </div>
 
-                <div className="ost-pagination" aria-label="Organization table pagination">
-                  <span>{filteredUnits.length ? `${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, filteredUnits.length)} of ${filteredUnits.length}` : "0 results"}</span>
-                  <div>
-                    <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} aria-label="Previous organization page"><ChevronLeft size={15} /></button>
-                    <strong>{page} / {totalPages}</strong>
-                    <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages} aria-label="Next organization page"><ChevronRight size={15} /></button>
+                {totalPages > 1 && (
+                  <div className="ost-pagination" aria-label="Organization table pagination">
+                    <span>{filteredUnits.length ? `${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, filteredUnits.length)} of ${filteredUnits.length}` : "0 results"}</span>
+                    <div>
+                      <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} aria-label="Previous organization page"><ChevronLeft size={15} /></button>
+                      <strong>{page} / {totalPages}</strong>
+                      <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages} aria-label="Next organization page"><ChevronRight size={15} /></button>
+                    </div>
                   </div>
-                </div>
+                )}
               </section>
 
               <aside
@@ -459,7 +591,7 @@ export default function AdminOrgStructureTestPage() {
                       <div>
                         <TypeBadge type={selectedUnit.type} />
                         <h2 id="ost-offices-heading" dir="auto">{selectedUnit.name}</h2>
-                        <p>{selectedUnit.nameEn}</p>
+                        <p>{TYPE_LABELS[(selectedUnit.type || "").toLowerCase()] || selectedUnit.type}</p>
                       </div>
                     </div>
 
@@ -469,7 +601,7 @@ export default function AdminOrgStructureTestPage() {
                         <span className="sr-only">Search selected unit offices</span>
                         <input type="search" value={officeSearch} onChange={(event) => setOfficeSearch(event.target.value)} placeholder="Search offices" />
                       </label>
-                      <button type="button" className="ost-secondary-button" onClick={() => setShowOfficeForm((current) => !current)} aria-expanded={showOfficeForm}>
+                      <button type="button" className="ost-secondary-button" onClick={() => setShowOfficeForm((current) => !current)} aria-expanded={showOfficeForm} disabled={saving}>
                         <Plus size={14} /> Add office
                       </button>
                     </div>
@@ -478,7 +610,9 @@ export default function AdminOrgStructureTestPage() {
                       <form className="ost-add-office" onSubmit={addOffice}>
                         <MapPin size={15} />
                         <input autoFocus value={newOfficeName} onChange={(event) => setNewOfficeName(event.target.value)} placeholder="Office name" aria-label="New office name" required />
-                        <button type="submit" aria-label="Save office"><Check size={15} /></button>
+                        <button type="submit" aria-label="Save office" disabled={saving}>
+                          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
+                        </button>
                         <button type="button" onClick={() => setShowOfficeForm(false)} aria-label="Cancel adding office"><X size={15} /></button>
                       </form>
                     )}
@@ -527,39 +661,41 @@ export default function AdminOrgStructureTestPage() {
                         </div>
                       )}
                     </div>
-                    <div
-                      className="ost-pagination ost-office-pagination"
-                      aria-label="Office directory pagination"
-                    >
-                      <span>
-                        {visibleOffices.length
-                          ? `${(officePage - 1) * OFFICE_PAGE_SIZE + 1}-${Math.min(officePage * OFFICE_PAGE_SIZE, visibleOffices.length)} of ${visibleOffices.length}`
-                          : "0 results"}
-                      </span>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setOfficePage((current) => Math.max(1, current - 1))}
-                          disabled={officePage === 1}
-                          aria-label="Previous office page"
-                        >
-                          <ChevronLeft size={15} />
-                        </button>
-                        <strong>{officePage} / {totalOfficePages}</strong>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOfficePage((current) =>
-                              Math.min(totalOfficePages, current + 1),
-                            )
-                          }
-                          disabled={officePage === totalOfficePages}
-                          aria-label="Next office page"
-                        >
-                          <ChevronRight size={15} />
-                        </button>
+                    {totalOfficePages > 1 && (
+                      <div
+                        className="ost-pagination ost-office-pagination"
+                        aria-label="Office directory pagination"
+                      >
+                        <span>
+                          {visibleOffices.length
+                            ? `${(officePage - 1) * OFFICE_PAGE_SIZE + 1}-${Math.min(officePage * OFFICE_PAGE_SIZE, visibleOffices.length)} of ${visibleOffices.length}`
+                            : "0 results"}
+                        </span>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setOfficePage((current) => Math.max(1, current - 1))}
+                            disabled={officePage === 1}
+                            aria-label="Previous office page"
+                          >
+                            <ChevronLeft size={15} />
+                          </button>
+                          <strong>{officePage} / {totalOfficePages}</strong>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOfficePage((current) =>
+                                Math.min(totalOfficePages, current + 1),
+                              )
+                            }
+                            disabled={officePage === totalOfficePages}
+                            aria-label="Next office page"
+                          >
+                            <ChevronRight size={15} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </>
                 ) : (
                   <div className="ost-empty-offices"><Building2 size={24} /><strong>Select a unit</strong><span>Its offices will appear here.</span></div>
@@ -569,9 +705,9 @@ export default function AdminOrgStructureTestPage() {
           </div>
         </main>
 
-        <footer className="ost-preview-footer">
-          <FlaskConical size={12} aria-hidden="true" />
-          Prototype data only. No database changes are made on this page.
+        <footer className="ost-live-footer">
+          <Building2 size={13} aria-hidden="true" />
+          Live organizational structure connected to database
         </footer>
       </div>
 
@@ -580,11 +716,13 @@ export default function AdminOrgStructureTestPage() {
           <div className="ost-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ost-delete-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="ost-dialog__icon"><AlertTriangle size={20} /></div>
             <h2 id="ost-delete-title">Delete {deleteTarget.kind}</h2>
-            <p>Remove <strong dir="auto">{deleteTarget.name}</strong> from this prototype?</p>
-            {deleteTarget.kind === "unit" && <span>Its offices will also be removed from the preview.</span>}
+            <p>Are you sure you want to delete <strong dir="auto">{deleteTarget.name}</strong>?</p>
+            {deleteTarget.kind === "unit" && <span>All associated sub-offices will also be removed.</span>}
             <div className="ost-dialog__actions">
               <button type="button" onClick={() => setDeleteTarget(null)}>Cancel</button>
-              <button type="button" className="is-danger" onClick={confirmDelete}>Delete</button>
+              <button type="button" className="is-danger" onClick={confirmDelete} disabled={saving}>
+                {saving ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         </div>

@@ -62,19 +62,19 @@
 }
 
 .pa-scrollbar,
-.overflow-y-auto,
-.overflow-x-auto,
 .custom-scrollbar {
-  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
+}
+
+.overflow-x-auto {
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pa-theme .pa-scrollbar,
 .admin-dashboard-test .pa-scrollbar {
   scrollbar-color: var(--pa-border-strong) transparent;
   scrollbar-width: thin;
-  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 

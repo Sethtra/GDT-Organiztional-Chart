@@ -13,6 +13,7 @@ import {
   Info,
   Loader2,
   LocateFixed,
+  Mail,
   MapPin,
   Maximize2,
   Phone,
@@ -338,6 +339,11 @@ export default function StaffProfileDialog({
                       value={profile.phone}
                     />
                     <ValueRow
+                      icon={<Mail className="size-3.5" />}
+                      label="Email"
+                      value={profile.email}
+                    />
+                    <ValueRow
                       icon={<MapPin className="size-3.5" />}
                       label="Address"
                       value={profile.address}
@@ -403,7 +409,9 @@ export default function StaffProfileDialog({
                           {skill.skill.name}
                         </div>
                         <div className="mt-1 text-[11px] font-medium text-[#66716b]">
-                          {proficiencyLabels[skill.proficiency]}
+                          {skill.proficiency === null
+                            ? "Unassessed"
+                            : proficiencyLabels[skill.proficiency]}
                         </div>
                       </div>
                     ))}
