@@ -11,17 +11,15 @@ import PromotionCandidatesPanel from "../components/admin/dashboard/PromotionCan
 import RecentActivityPanel from "../components/admin/dashboard/RecentActivityPanel";
 import { StatusBadge } from "../components/admin/dashboard/DashboardPrimitives";
 import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPanel";
-import {
-  DASHBOARD_ACTIVITY,
-  type TrendPeriod,
-} from "../components/admin/dashboard/dashboardPreviewData";
+import { DASHBOARD_ACTIVITY } from "../components/admin/dashboard/dashboardPreviewData";
 import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
+import type { TrendRange } from "../utils/workforceTrend";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("30d");
+  const [trendRange, setTrendRange] = useState<TrendRange>("10y");
   const [query, setQuery] = useState("");
   const promotion = usePromotionReadiness();
   const workforce = useWorkforceMetrics();
@@ -117,8 +115,11 @@ export default function AdminDashboardPage() {
 
           <div className="mb-4 grid gap-4 xl:grid-cols-12">
             <WorkforceTrendPanel
-              period={trendPeriod}
-              onPeriodChange={setTrendPeriod}
+              years={workforce.years}
+              range={trendRange}
+              onRangeChange={setTrendRange}
+              loading={workforce.loading}
+              hasError={workforce.hasError}
             />
             <PromotionCandidatesPanel
               candidates={promotion.candidates}

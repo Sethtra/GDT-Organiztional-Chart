@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { listHrStaff } from "../services/staffService";
+import {
+  buildWorkforceYears,
+  type WorkforceYear,
+} from "../utils/workforceTrend";
 
 export interface WorkforceMetrics {
   total: number;
@@ -18,13 +22,17 @@ export function useWorkforceMetrics() {
   const [metrics, setMetrics] = useState<WorkforceMetrics>(
     EMPTY_WORKFORCE_METRICS,
   );
+  const [years, setYears] = useState<WorkforceYear[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    void listHrStaff()
+    // Archived records are required: a departed officer is the only evidence of
+    // a departure, and the headcount timeline is built from arrivals and exits.
+    // The KPI metrics below still count active officers only.
+    void listHrStaff(true)
       .then((staff) => {
         if (cancelled) return;
 
@@ -35,6 +43,7 @@ export function useWorkforceMetrics() {
           female: activeStaff.filter((person) => person.gender === "female")
             .length,
         });
+        setYears(buildWorkforceYears(staff));
         setHasError(false);
       })
       .catch(() => {
@@ -49,5 +58,5 @@ export function useWorkforceMetrics() {
     };
   }, []);
 
-  return { metrics, loading, hasError };
+  return { metrics, years, loading, hasError };
 }
