@@ -1,22 +1,21 @@
-import { useMemo } from "react";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  CalendarRange,
+  Check,
+  ChevronDown,
+  Minus,
+} from "lucide-react";
 
 import { cn } from "../../../lib/utils";
 import {
-  sliceTrendRange,
+  aggregateTrendPeriodsToMaxPillars,
+  sliceTrendYearRange,
   summarizeTrendRange,
-  TREND_RANGE_LABELS,
-  TREND_RANGES,
-  type TrendRange,
   type WorkforceYear,
 } from "../../../utils/workforceTrend";
 import { PanelHeader } from "./DashboardPrimitives";
-
-const RANGE_BUTTON_LABELS: Record<TrendRange, string> = {
-  "5y": "5Y",
-  "10y": "10Y",
-  all: "All",
-};
 
 // Headcount line occupies the upper region; joined/departed bars sit in a
 // separate band below so the two different scales are never read as one.
@@ -27,20 +26,202 @@ const BAR_BASELINE = 222;
 const CHART_WIDTH = 720;
 const PAD_X = 14;
 
+function WorkforceYearRangePicker({
+  years,
+  startYear,
+  endYear,
+  onStartYearChange,
+  onEndYearChange,
+  disabled,
+}: {
+  years: number[];
+  startYear: number | null;
+  endYear: number | null;
+  onStartYearChange: (year: number | null) => void;
+  onEndYearChange: (year: number | null) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const label =
+    startYear !== null && endYear !== null
+      ? `${startYear} – ${endYear}`
+      : startYear !== null
+        ? `${startYear} – Latest`
+        : endYear !== null
+          ? `Earliest – ${endYear}`
+          : "All years";
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  const chooseStart = (year: number | null) => {
+    onStartYearChange(year);
+    if (year !== null && endYear !== null && endYear < year) {
+      onEndYearChange(year);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        className="pa-focus-ring inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--pa-border)] bg-[var(--pa-canvas)] px-2.5 text-[10.5px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)] hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+        aria-expanded={open}
+        aria-controls={menuId}
+        aria-haspopup="dialog"
+        aria-label="Filter headcount by year range"
+        disabled={disabled}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <CalendarRange size={14} className="text-[var(--pa-primary)]" aria-hidden="true" />
+        <span className="whitespace-nowrap">{label}</span>
+        <ChevronDown
+          size={13}
+          className={`text-[var(--pa-muted)] transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div
+          id={menuId}
+          role="dialog"
+          aria-label="Headcount year range"
+          className="absolute right-0 top-[calc(100%+8px)] z-40 w-[min(90vw,320px)] overflow-hidden rounded-xl border border-[var(--pa-border)] bg-white shadow-[0_14px_32px_rgba(20,38,28,0.16)]"
+        >
+          <div className="flex items-center justify-between border-b border-[var(--pa-border)] bg-[var(--pa-canvas)] px-3.5 py-2.5">
+            <div>
+              <div className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[var(--pa-primary)]">
+                Year range
+              </div>
+              <div className="mt-0.5 text-[11px] font-bold text-[var(--pa-text)]">{label}</div>
+            </div>
+            {(startYear !== null || endYear !== null) && (
+              <button
+                type="button"
+                className="pa-focus-ring rounded-md px-2 py-1 text-[10px] font-extrabold text-[var(--pa-primary)] transition-colors hover:bg-[var(--pa-primary-soft)]"
+                onClick={() => {
+                  onStartYearChange(null);
+                  onEndYearChange(null);
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 divide-x divide-[var(--pa-border)] p-2">
+            {[
+              {
+                title: "From",
+                value: startYear,
+                onChange: chooseStart,
+              },
+              {
+                title: "To",
+                value: endYear,
+                onChange: onEndYearChange,
+              },
+            ].map((column) => (
+              <div key={column.title} className="min-w-0 px-1.5 first:pr-2.5 last:pl-2.5">
+                <div className="mb-1.5 px-2 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                  {column.title}
+                </div>
+                <div className="max-h-48 overflow-y-auto pr-0.5">
+                  <button
+                    type="button"
+                    className={cn(
+                      "pa-focus-ring flex min-h-8 w-full items-center justify-between rounded-md px-2 text-left text-[10.5px] font-bold transition-colors hover:bg-[var(--pa-canvas)]",
+                      column.value === null
+                        ? "bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]"
+                        : "text-[var(--pa-muted)]",
+                    )}
+                    onClick={() => column.onChange(null)}
+                  >
+                    Any year
+                    {column.value === null && <Check size={13} aria-hidden="true" />}
+                  </button>
+                  {years.map((year) => {
+                    const unavailable =
+                      column.title === "To" && startYear !== null && year < startYear;
+                    const selected = column.value === year;
+                    return (
+                      <button
+                        key={`${column.title}-${year}`}
+                        type="button"
+                        disabled={unavailable}
+                        className={cn(
+                          "pa-focus-ring mt-0.5 flex min-h-8 w-full items-center justify-between rounded-md px-2 text-left text-[10.5px] font-bold transition-colors disabled:pointer-events-none disabled:opacity-25",
+                          selected
+                            ? "bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]"
+                            : "text-[var(--pa-text)] hover:bg-[var(--pa-canvas)]",
+                        )}
+                        onClick={() => column.onChange(year)}
+                      >
+                        {year}
+                        {selected && <Check size={13} aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function endpointPositionPercent(index: number, count: number): number {
+  return count === 1 ? 50 : (index / (count - 1)) * 100;
+}
+
 export default function WorkforceTrendPanel({
   years,
-  range,
-  onRangeChange,
   loading,
   hasError,
 }: {
   years: WorkforceYear[];
-  range: TrendRange;
-  onRangeChange: (range: TrendRange) => void;
   loading: boolean;
   hasError: boolean;
 }) {
-  const visible = useMemo(() => sliceTrendRange(years, range), [years, range]);
+  const [startYear, setStartYear] = useState<number | null>(null);
+  const [endYear, setEndYear] = useState<number | null>(null);
+  const yearOptions = useMemo(() => years.map(({ year }) => year), [years]);
+  const selectedStartYear =
+    startYear !== null && yearOptions.includes(startYear) ? startYear : null;
+  const selectedEndYear =
+    endYear !== null && yearOptions.includes(endYear) ? endYear : null;
+  const sliced = useMemo(
+    () => sliceTrendYearRange(years, selectedStartYear, selectedEndYear),
+    [years, selectedStartYear, selectedEndYear],
+  );
+  const visible = useMemo(
+    () => aggregateTrendPeriodsToMaxPillars(sliced),
+    [sliced],
+  );
   const summary = useMemo(() => summarizeTrendRange(visible), [visible]);
 
   const chart = useMemo(() => {
@@ -50,9 +231,7 @@ export default function WorkforceTrendPanel({
     const slotWidth = usableWidth / visible.length;
     // A single year has no span to interpolate across, so it is centred.
     const xFor = (index: number) =>
-      visible.length === 1
-        ? CHART_WIDTH / 2
-        : PAD_X + (index * usableWidth) / (visible.length - 1);
+      PAD_X + (endpointPositionPercent(index, visible.length) / 100) * usableWidth;
 
     const headcounts = visible.map((year) => year.headcount);
     const minValue = Math.min(...headcounts);
@@ -107,12 +286,15 @@ export default function WorkforceTrendPanel({
     return { points, polyline, area, bars, barWidth, domainMin, domainMax };
   }, [visible]);
 
-  const rangeLabel = TREND_RANGE_LABELS[range];
+  const rangeLabel =
+    selectedStartYear === null && selectedEndYear === null
+      ? "All recorded years"
+      : `${selectedStartYear ?? years[0]?.year ?? ""}-${selectedEndYear ?? years.at(-1)?.year ?? ""}`;
   const description = loading
     ? "Loading live workforce data…"
     : hasError
       ? "Live workforce data unavailable"
-      : `${rangeLabel} · Derived from officer joined and departure dates`;
+      : `${rangeLabel} · Grouped into up to five periods`;
 
   const NetIcon =
     summary.net > 0 ? ArrowUpRight : summary.net < 0 ? ArrowDownRight : Minus;
@@ -137,27 +319,14 @@ export default function WorkforceTrendPanel({
         title="Headcount trend"
         description={description}
         action={
-          <div
-            className="flex rounded-lg border border-[var(--pa-border)] bg-[var(--pa-canvas)] p-1"
-            aria-label="Trend range"
-          >
-            {TREND_RANGES.map((trendRange) => (
-              <button
-                key={trendRange}
-                type="button"
-                onClick={() => onRangeChange(trendRange)}
-                aria-pressed={range === trendRange}
-                className={cn(
-                  "pa-focus-ring h-9 min-w-10 rounded-md px-2.5 text-[10px] font-extrabold uppercase transition-colors",
-                  range === trendRange
-                    ? "bg-white text-[var(--pa-text)] shadow-sm"
-                    : "text-[var(--pa-muted)] hover:text-[var(--pa-text)]",
-                )}
-              >
-                {RANGE_BUTTON_LABELS[trendRange]}
-              </button>
-            ))}
-          </div>
+          <WorkforceYearRangePicker
+            years={yearOptions}
+            startYear={selectedStartYear}
+            endYear={selectedEndYear}
+            onStartYearChange={setStartYear}
+            onEndYearChange={setEndYear}
+            disabled={loading || years.length === 0}
+          />
         }
       />
       <div className="px-4 pb-5 pt-5 sm:px-6">
@@ -214,10 +383,10 @@ export default function WorkforceTrendPanel({
                 aria-labelledby="workforce-chart-title workforce-chart-description"
               >
                 <title id="workforce-chart-title">
-                  Officer headcount, arrivals and departures by year
+                  Officer headcount, arrivals and departures by period
                 </title>
                 <desc id="workforce-chart-description">
-                  {`${rangeLabel}. Headcount moves from ${visible[0]!.headcount} officers in ${visible[0]!.year} to ${summary.headcount} in ${visible.at(-1)!.year}, with ${summary.joined} joining and ${summary.departed} departing over the period. Arrival and departure bars use their own scale, shown beneath the headcount line.`}
+                  {`${rangeLabel}. Headcount moves from ${visible[0]!.headcount} officers in ${visible[0]!.label ?? visible[0]!.year} to ${summary.headcount} in ${visible.at(-1)!.label ?? visible.at(-1)!.year}, with ${summary.joined} joining and ${summary.departed} departing over the period. Arrival and departure bars use their own scale, shown beneath the headcount line.`}
                 </desc>
 
                 {[LINE_TOP, 49, 79, 108, LINE_BOTTOM].map((y) => (
@@ -263,7 +432,7 @@ export default function WorkforceTrendPanel({
                       strokeWidth={isLast ? 3 : 2}
                       className="pa-chart-line"
                     >
-                      <title>{`${point.year.year}: ${point.year.headcount} serving`}</title>
+                      <title>{`${point.year.label ?? point.year.year}: ${point.year.headcount} serving`}</title>
                     </circle>
                   );
                 })}
@@ -287,7 +456,7 @@ export default function WorkforceTrendPanel({
                         rx="1.5"
                         fill="var(--pa-primary)"
                       >
-                        <title>{`${bar.year.year}: ${bar.year.joined} joined`}</title>
+                        <title>{`${bar.year.label ?? bar.year.year}: ${bar.year.joined} joined`}</title>
                       </rect>
                     )}
                     {bar.departed.height > 0 && (
@@ -299,24 +468,28 @@ export default function WorkforceTrendPanel({
                         rx="1.5"
                         fill="var(--pa-danger)"
                       >
-                        <title>{`${bar.year.year}: ${bar.year.departed} departed`}</title>
+                        <title>{`${bar.year.label ?? bar.year.year}: ${bar.year.departed} departed`}</title>
                       </rect>
                     )}
                   </g>
                 ))}
               </svg>
               <div
-                className="-mt-1 grid gap-1 px-1"
+                className="relative -mt-1 h-4"
                 style={{
-                  gridTemplateColumns: `repeat(${visible.length}, minmax(0, 1fr))`,
+                  marginLeft: `${(PAD_X / CHART_WIDTH) * 100}%`,
+                  marginRight: `${(PAD_X / CHART_WIDTH) * 100}%`,
                 }}
               >
-                {visible.map((year) => (
+                {visible.map((year, index) => (
                   <span
                     key={year.year}
-                    className="truncate text-center text-[9px] font-semibold text-[var(--pa-faint)]"
+                    className="absolute -translate-x-1/2 truncate whitespace-nowrap text-center text-[9px] font-semibold text-[var(--pa-faint)]"
+                    style={{
+                      left: `${endpointPositionPercent(index, visible.length)}%`,
+                    }}
                   >
-                    {year.year}
+                    {year.label ?? year.year}
                   </span>
                 ))}
               </div>

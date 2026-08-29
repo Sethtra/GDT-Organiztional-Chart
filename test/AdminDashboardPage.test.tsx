@@ -48,12 +48,44 @@ vi.mock("../src/services/staffService", () => ({
   ]),
 }));
 
+vi.mock("../src/services/activityLogService", () => ({
+  listRecentActivity: vi.fn(async () => [
+    {
+      id: "00000000-0000-4000-8000-aaa000000001",
+      staffId: "00000000-0000-4000-8000-000000000001",
+      staffName: "Chantha Sok",
+      staffNameEn: "Sok Chantha",
+      photoUrl: null,
+      eventType: "promoted",
+      description: "Promoted to new position",
+      departmentName: "Digital Tax Department",
+      officeName: "Tax Office",
+      metadata: {},
+      occurredAt: new Date().toISOString(),
+    },
+    {
+      id: "00000000-0000-4000-8000-aaa000000002",
+      staffId: "00000000-0000-4000-8000-000000000002",
+      staffName: "Sreyneang Ros",
+      staffNameEn: null,
+      photoUrl: null,
+      eventType: "transferred",
+      description: "Transferred to new position",
+      departmentName: "Finance Department",
+      officeName: null,
+      metadata: {},
+      occurredAt: new Date().toISOString(),
+    },
+  ]),
+}));
+
 import AdminDashboardPage from "../src/pages/AdminDashboardPage";
 import { listPromotionReadiness } from "../src/services/promotionReadinessService";
 import { listHrStaff } from "../src/services/staffService";
 
 describe("AdminDashboardPage", () => {
   it("renders live active-officer workforce metrics", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <AdminDashboardPage />
@@ -63,12 +95,30 @@ describe("AdminDashboardPage", () => {
     expect(
       screen.getByRole("heading", { name: "Executive overview" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("navigation", { name: "Admin navigation" }),
-    ).toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", {
+      name: "Admin navigation",
+    });
+    expect(navigation).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Executive overview/i }),
     ).toHaveAttribute("aria-current", "page");
+    const overviewToggle = screen.getByRole("button", {
+      name: "Expand Executive overview",
+    });
+    expect(overviewToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      within(navigation).queryByRole("link", { name: "Recent activity" }),
+    ).not.toBeInTheDocument();
+    await user.click(overviewToggle);
+    expect(overviewToggle).toHaveAttribute("aria-expanded", "true");
+    const navigationLinks = within(navigation).getAllByRole("link");
+    expect(navigationLinks.map((link) => link.textContent?.trim())).toEqual([
+      expect.stringContaining("Executive overview"),
+      "Recent activity",
+      expect.stringContaining("Staff directory"),
+      expect.stringContaining("Organization"),
+      expect.stringContaining("Job architecture"),
+    ]);
     const metrics = within(
       screen.getByRole("region", { name: "Key workforce metrics" }),
     );
@@ -85,7 +135,7 @@ describe("AdminDashboardPage", () => {
         "Workforce totals are live — remaining analytics are illustrative",
       ),
     ).toBeInTheDocument();
-    expect(listHrStaff).toHaveBeenCalledWith();
+    expect(listHrStaff).toHaveBeenCalledWith(true);
     expect(screen.getByText("HR administrator")).toBeInTheDocument();
     expect(screen.queryByText("sethtragame@gmail.com")).not.toBeInTheDocument();
     expect(
@@ -164,7 +214,7 @@ describe("AdminDashboardPage", () => {
     expect(metrics.getAllByText("—")).toHaveLength(3);
   });
 
-  it("switches trend periods and filters recent activity", async () => {
+  it("shows live recent activity with the all-years trend by default", async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -172,17 +222,29 @@ describe("AdminDashboardPage", () => {
       </MemoryRouter>,
     );
 
-    const twelveMonths = screen.getByRole("button", { name: "12m" });
-    await user.click(twelveMonths);
-    expect(twelveMonths).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Last 12 months · Active officer records")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/All recorded years/, { selector: "p" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Filter headcount by year range" }),
+    ).toHaveTextContent("All years");
 
+    // Live recent activity entries should appear
+    expect(await screen.findByText("Chantha Sok")).toBeInTheDocument();
+    expect(screen.getByText("Sreyneang Ros")).toBeInTheDocument();
+
+    // Search filters down to matching events
     const search = screen.getByRole("searchbox", {
       name: "Search recent activity",
     });
     await user.type(search, "Digital Tax");
     expect(screen.getByText("Chantha Sok")).toBeInTheDocument();
     expect(screen.queryByText("Sreyneang Ros")).not.toBeInTheDocument();
+
+    // "View all" link should be present
+    expect(
+      screen.getByRole("link", { name: /View all activity/i }),
+    ).toHaveAttribute("href", "/admin/activity");
   });
 
   it("opens and closes the mobile navigation", async () => {

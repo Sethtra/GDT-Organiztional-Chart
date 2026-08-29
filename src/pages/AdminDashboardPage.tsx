@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CalendarDays, Plus, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -11,28 +11,19 @@ import PromotionCandidatesPanel from "../components/admin/dashboard/PromotionCan
 import RecentActivityPanel from "../components/admin/dashboard/RecentActivityPanel";
 import { StatusBadge } from "../components/admin/dashboard/DashboardPrimitives";
 import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPanel";
-import { DASHBOARD_ACTIVITY } from "../components/admin/dashboard/dashboardPreviewData";
+import { useRecentActivity } from "../hooks/useRecentActivity";
 import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
-import type { TrendRange } from "../utils/workforceTrend";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [trendRange, setTrendRange] = useState<TrendRange>("10y");
   const [query, setQuery] = useState("");
   const promotion = usePromotionReadiness();
   const workforce = useWorkforceMetrics();
+  const activity = useRecentActivity();
 
-  const filteredActivity = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return DASHBOARD_ACTIVITY;
-    return DASHBOARD_ACTIVITY.filter((row) =>
-      [row.name, row.action, row.department, row.status].some((value) =>
-        value.toLowerCase().includes(normalized),
-      ),
-    );
-  }, [query]);
+  // Filtering is now handled inside RecentActivityPanel to keep this page lean.
 
   return (
     <div className="admin-dashboard-test flex h-dvh overflow-hidden bg-[var(--pa-canvas)]">
@@ -116,8 +107,6 @@ export default function AdminDashboardPage() {
           <div className="mb-4 grid gap-4 xl:grid-cols-12">
             <WorkforceTrendPanel
               years={workforce.years}
-              range={trendRange}
-              onRangeChange={setTrendRange}
               loading={workforce.loading}
               hasError={workforce.hasError}
             />
@@ -131,8 +120,10 @@ export default function AdminDashboardPage() {
           <div className="grid gap-4 xl:grid-cols-12">
             <DepartmentCoveragePanel />
             <RecentActivityPanel
+              events={activity.events}
+              loading={activity.loading}
+              hasError={activity.hasError}
               query={query}
-              activity={filteredActivity}
               onClearSearch={() => setQuery("")}
             />
           </div>

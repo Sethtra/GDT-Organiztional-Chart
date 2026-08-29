@@ -19,6 +19,7 @@ import AdminOrgStructurePage from './pages/AdminOrgStructurePage';
 import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminActivityPage from './pages/AdminActivityPage';
 import ChartEditorTestPage from './pages/ChartEditorTestPage';
 
 /**
@@ -108,6 +109,16 @@ function AppLayout() {
               <ProtectedRoute>
                 <HrAdminRoute>
                   <JobArchitecturePage />
+                </HrAdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/activity"
+            element={
+              <ProtectedRoute>
+                <HrAdminRoute>
+                  <AdminActivityPage />
                 </HrAdminRoute>
               </ProtectedRoute>
             }

@@ -349,6 +349,18 @@ $migrationSources = @(
     Source = Join-Path $projectRoot 'migrations\2026082101_add_staff_excel_import.sql'
     Target = '20260727000025_add_staff_excel_import.sql'
   }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026082901_add_hr_activity_log.sql'
+    Target = '20260727000028_add_hr_activity_log.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026082902_fix_activity_log_triggers.sql'
+    Target = '20260727000029_fix_activity_log_triggers.sql'
+  }
+  @{
+    Source = Join-Path $projectRoot 'migrations\2026082903_fix_hr_activity_log_rpc_volatility.sql'
+    Target = '20260727000030_fix_hr_activity_log_rpc_volatility.sql'
+  }
 )
 
 if ($PromotionReadinessOnly) {

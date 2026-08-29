@@ -13,6 +13,8 @@ export type WorkforceTrendRecord = Pick<
 
 export interface WorkforceYear {
   year: number;
+  /** Display label for an aggregated period; plain years leave this unset. */
+  label?: string;
   /** Officers whose joined date falls in this year. */
   joined: number;
   /** Officers whose departure date falls in this year. */
@@ -25,22 +27,74 @@ export interface WorkforceYear {
   headcount: number;
 }
 
-/** How many trailing years of the timeline to display. */
-export type TrendRange = "5y" | "10y" | "all";
+/**
+ * Groups a year-by-year series into contiguous five-year periods.
+ *
+ * The final period intentionally keeps its remainder instead of backfilling
+ * from the previous period: 23 years become 5 + 5 + 5 + 5 + 3, then 4 and 5
+ * as new years are added. The period's headcount is its final year's value.
+ */
+export function aggregateTrendPeriods(
+  series: WorkforceYear[],
+  periodSize = 5,
+): WorkforceYear[] {
+  if (series.length === 0) return [];
+  if (!Number.isInteger(periodSize) || periodSize < 1) {
+    throw new Error("Trend period size must be a positive integer.");
+  }
 
-export const TREND_RANGES: TrendRange[] = ["5y", "10y", "all"];
+  const periods: WorkforceYear[] = [];
+  for (let start = 0; start < series.length; start += periodSize) {
+    const period = series.slice(start, start + periodSize);
+    const first = period[0]!;
+    const last = period.at(-1)!;
+    const joined = period.reduce((total, year) => total + year.joined, 0);
+    const departed = period.reduce((total, year) => total + year.departed, 0);
 
-export const TREND_RANGE_YEARS: Record<TrendRange, number | null> = {
-  "5y": 5,
-  "10y": 10,
-  all: null,
-};
+    periods.push({
+      year: last.year,
+      label:
+        first.year === last.year
+          ? `${first.year}`
+          : `${first.year}-${last.year}`,
+      joined,
+      departed,
+      headcount: last.headcount,
+    });
+  }
 
-export const TREND_RANGE_LABELS: Record<TrendRange, string> = {
-  "5y": "Last 5 years",
-  "10y": "Last 10 years",
-  all: "All recorded years",
-};
+  return periods;
+}
+
+/** Group a series into no more than the requested number of pillars. */
+export function aggregateTrendPeriodsToMaxPillars(
+  series: WorkforceYear[],
+  maxPillars = 5,
+): WorkforceYear[] {
+  if (series.length === 0) return [];
+  if (!Number.isInteger(maxPillars) || maxPillars < 1) {
+    throw new Error("Maximum trend pillars must be a positive integer.");
+  }
+
+  const periodSize = Math.max(1, Math.ceil(series.length / maxPillars));
+  return aggregateTrendPeriods(series, periodSize);
+}
+
+/**
+ * Keep only the inclusive year range selected by the dashboard controls.
+ * Either boundary may be omitted to keep the corresponding edge open.
+ */
+export function sliceTrendYearRange(
+  series: WorkforceYear[],
+  startYear: number | null,
+  endYear: number | null,
+): WorkforceYear[] {
+  if (series.length === 0) return [];
+  const firstYear = startYear ?? series[0]!.year;
+  const lastYear = endYear ?? series.at(-1)!.year;
+  if (lastYear < firstYear) return [];
+  return series.filter(({ year }) => year >= firstYear && year <= lastYear);
+}
 
 export function toIsoDate(date: Date): string {
   const year = `${date.getFullYear()}`.padStart(4, "0");
@@ -133,16 +187,6 @@ export function buildWorkforceYears(
   }
 
   return series;
-}
-
-/** Trailing slice of the full series. Always keeps at least one year. */
-export function sliceTrendRange(
-  series: WorkforceYear[],
-  range: TrendRange,
-): WorkforceYear[] {
-  const years = TREND_RANGE_YEARS[range];
-  if (years === null || series.length <= years) return series;
-  return series.slice(series.length - years);
 }
 
 export interface WorkforceTrendSummary {

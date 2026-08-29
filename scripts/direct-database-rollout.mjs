@@ -192,6 +192,21 @@ const migrations = [
     name: 'normalize_imported_skills',
     file: 'migrations/2026082103_normalize_imported_skills.sql',
   },
+  {
+    version: '20260727000028',
+    name: 'add_hr_activity_log',
+    file: 'migrations/2026082901_add_hr_activity_log.sql',
+  },
+  {
+    version: '20260727000029',
+    name: 'fix_activity_log_triggers',
+    file: 'migrations/2026082902_fix_activity_log_triggers.sql',
+  },
+  {
+    version: '20260727000030',
+    name: 'fix_hr_activity_log_rpc_volatility',
+    file: 'migrations/2026082903_fix_hr_activity_log_rpc_volatility.sql',
+  },
 ]
 
 const selectedMigrations = promotionReadinessOnly
