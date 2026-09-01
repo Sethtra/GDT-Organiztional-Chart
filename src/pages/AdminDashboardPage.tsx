@@ -14,6 +14,7 @@ import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPan
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
+import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
@@ -22,6 +23,7 @@ export default function AdminDashboardPage() {
   const promotion = usePromotionReadiness();
   const workforce = useWorkforceMetrics();
   const activity = useRecentActivity();
+  const coverage = useDepartmentCoverage();
 
   // Filtering is now handled inside RecentActivityPanel to keep this page lean.
 
@@ -118,7 +120,11 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-12">
-            <DepartmentCoveragePanel />
+            <DepartmentCoveragePanel
+              rows={coverage.rows}
+              loading={coverage.loading}
+              hasError={coverage.hasError}
+            />
             <RecentActivityPanel
               events={activity.events}
               loading={activity.loading}

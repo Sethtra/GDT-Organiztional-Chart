@@ -269,7 +269,6 @@ function ChartEditorTestHarness() {
   const [searchHighlights, setSearchHighlights] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [layoutDir, setLayoutDir] = useState('TB');
   const [shiftHeld, setShiftHeld] = useState(false);
   const [clipboard, setClipboard] = useState(null);
   const lastSyncData = useRef({ nodes: '[]', edges: '[]' });
@@ -288,8 +287,6 @@ function ChartEditorTestHarness() {
     duplicateNodes,
     addChildNode: addChildNodeRaw,
     addRootNode: addRootNodeRaw,
-    autoLayout: autoLayoutRaw,
-    toggleLayout,
     toggleCollapse,
   } = useNodeOperations({
     nodes,
@@ -299,8 +296,6 @@ function ChartEditorTestHarness() {
     nodesRef,
     setNodes,
     setEdges,
-    layoutDir,
-    setLayoutDir,
     setCollapsedNodes,
   });
 
@@ -579,15 +574,6 @@ function ChartEditorTestHarness() {
   );
 
 
-  // The real production path (same layoutUtils.js), not a stub — this is
-  // what actually proves whether a crooked parent/child connector is a
-  // centring bug in the algorithm or just this page's hand-placed fixture
-  // coordinates never having been run through it.
-  const autoLayout = useCallback(() => {
-    autoLayoutRaw();
-    window.setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [autoLayoutRaw, fitView]);
-
   const handleFlyTo = useCallback(
     (node) => {
       setCenter(node.position.x + 100, node.position.y + 50, { zoom: 1.2, duration: 600 });
@@ -595,10 +581,7 @@ function ChartEditorTestHarness() {
     [setCenter],
   );
 
-  // ── Collapse-aware visible set + child/team counts (same derivation
-  // FlowApp.jsx uses — collapsing a node here now actually hides its
-  // subtree instead of the child-count/team-size pills being fixed
-  // fixture numbers that never moved). ───────────────────────────────────
+  // ── Collapse-aware visible set + child/team counts ─────────────────
   const { visibleNodes, visibleEdges, childCounts, teamSizes } = useMemo(
     () => computeChartHierarchy(nodes, edges, collapsedNodes),
     [nodes, edges, collapsedNodes],
@@ -622,9 +605,6 @@ function ChartEditorTestHarness() {
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column' }}>
       <EditorHeader
         addRootNode={addRootNode}
-        autoLayout={autoLayout}
-        toggleLayout={toggleLayout}
-        layoutDir={layoutDir}
         undo={undo}
         redo={redo}
         canUndo={canUndo}

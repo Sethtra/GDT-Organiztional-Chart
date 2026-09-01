@@ -681,3 +681,375 @@
     width: auto;
   }
 }
+
+/* ── Header: icon + contextual actions ──────────── */
+.pp-light .pp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pp-light .pp-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+  flex-shrink: 0;
+}
+
+.pp-light .pp-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--pa-border);
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+  color: var(--pa-muted);
+  transition: background 150ms ease-out, color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+
+.pp-light .pp-icon-btn:hover {
+  background: var(--pa-canvas);
+  color: var(--pa-text);
+  border-color: var(--pa-border-strong);
+}
+
+.pp-light .pp-icon-btn--danger {
+  color: var(--pa-danger);
+  border-color: var(--pa-danger-border);
+}
+
+.pp-light .pp-icon-btn--danger:hover {
+  background: var(--pa-danger-soft);
+  border-color: var(--pa-danger);
+  color: var(--pa-danger);
+}
+
+/* ── Node type strip (sticky above scroll) ──────── */
+.pp-light .pp-type-strip {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.pp-light .pp-type-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.pp-light .pp-type-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-width: 52px;
+  padding: 6px 8px;
+  border: 1px solid var(--pa-border);
+  border-radius: 8px;
+  background: var(--pa-canvas);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--pa-muted);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.pp-light .pp-type-chip:hover {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-surface);
+  color: var(--pa-text);
+}
+
+.pp-light .pp-type-chip.active {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-type-chip .pp-node-type-preview {
+  width: 28px;
+  height: 20px;
+}
+
+.pp-light .pp-type-chip .pp-node-type-preview--person {
+  width: 28px;
+  height: 24px;
+}
+
+.pp-light .pp-type-chip .pp-node-type-label {
+  font-size: 8px;
+}
+
+/* ── Quick actions strip ─────────────────────────── */
+.pp-light .pp-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--pa-border);
+  background: var(--pa-surface);
+  flex-shrink: 0;
+}
+
+.pp-light .pp-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--pa-border);
+  border-radius: 8px;
+  background: var(--pa-canvas);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pa-text);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out;
+}
+
+.pp-light .pp-quick-btn:hover {
+  border-color: var(--pa-border-strong);
+  background: var(--pa-surface);
+}
+
+.pp-light .pp-quick-btn--primary {
+  border-color: var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-quick-btn--primary:hover,
+.pp-light .pp-quick-btn--primary.active {
+  background: var(--pa-primary);
+  color: #fff;
+  border-color: var(--pa-primary);
+}
+
+.pp-light .pp-quick-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.pp-light .pp-quick-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ── Child node type picker ──────────────────────── */
+.pp-light .pp-child-picker {
+  flex-shrink: 0;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--pa-primary-border);
+  background: var(--pa-primary-soft);
+}
+
+/* ── Accordion sections ──────────────────────────── */
+.pp-light .pp-accordion {
+  border-bottom: 1px solid var(--pa-border);
+}
+
+.pp-light .pp-accordion:last-child {
+  border-bottom: none;
+}
+
+.pp-light .pp-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 11px 16px;
+  border: 0;
+  background: var(--pa-surface);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 150ms ease-out;
+}
+
+.pp-light .pp-accordion-header:hover {
+  background: var(--pa-canvas);
+}
+
+.pp-light .pp-accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-accordion-title svg {
+  flex-shrink: 0;
+  color: var(--pa-primary);
+}
+
+.pp-light .pp-accordion-chevron {
+  flex-shrink: 0;
+  color: var(--pa-muted);
+  transition: transform 200ms ease;
+}
+
+.pp-light .pp-accordion-chevron--open {
+  transform: rotate(180deg);
+}
+
+.pp-light .pp-accordion-body {
+  padding: 4px 14px 14px;
+  background: var(--pa-surface);
+}
+
+/* ── Sub-label for grouped fields in Appearance ──── */
+.pp-light .pp-section-sublabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 12px 0 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pa-muted);
+}
+
+.pp-light .pp-section-sublabel:first-child {
+  margin-top: 0;
+}
+
+.pp-light .pp-section-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--pa-border);
+}
+
+/* ── Compact format row (font-size stepper) ─────── */
+.pp-light .pp-format-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pp-light .pp-format-row .pp-range {
+  flex: 1;
+}
+
+.pp-light .pp-btn--icon {
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Alignment row (H + V combined) ─────────────── */
+.pp-light .pp-align-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.pp-light .pp-align-row .pp-align-btn {
+  flex: 1;
+  min-height: 32px;
+  padding: 0;
+}
+
+.pp-light .pp-align-divider {
+  width: 1px;
+  flex-shrink: 0;
+  margin: 2px 4px;
+  background: var(--pa-border);
+}
+
+/* ── Vacate form (CSS classes, no inline styles) ─── */
+.pp-light .pp-vacate-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--pa-border-strong);
+}
+
+.pp-light .pp-btn--vacate {
+  width: 100%;
+  border-color: var(--pa-danger-border);
+  background: var(--pa-danger-soft);
+  color: var(--pa-danger);
+}
+
+.pp-light .pp-btn--vacate:hover:not(:disabled) {
+  background: #fbdedb;
+  border-color: var(--pa-danger);
+}
+
+.pp-light .pp-vacate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 14px;
+  border: 1px solid var(--pa-danger-border);
+  border-radius: 10px;
+  background: var(--pa-danger-soft);
+}
+
+.pp-light .pp-vacate-form__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pa-danger);
+}
+
+.pp-light .pp-vacate-form .pp-label {
+  color: var(--pa-muted);
+}
+
+.pp-light .pp-vacate-form .pp-input,
+.pp-light .pp-vacate-form .pp-textarea {
+  background: #fff;
+}
+
+.pp-light .pp-vacate-form__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pp-light .pp-vacate-form__actions .pp-btn {
+  flex: 1;
+}
+
+/* ── Full-width button ───────────────────────────── */
+.pp-light .pp-btn--full {
+  width: 100%;
+}
+
+/* ── 3-column type grid for marital status ───────── */
+.pp-light .pp-type-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 10px;
+}

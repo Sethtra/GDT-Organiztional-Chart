@@ -55,7 +55,7 @@ describe("NodePropertiesPanel persistence handoff", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Use SQUARE node shape" }));
+    fireEvent.click(screen.getByRole("button", { name: "SQUARE node" }));
     fireEvent.click(screen.getByTitle("Save and close"));
 
     expect(onUpdateNodes).toHaveBeenLastCalledWith(
@@ -90,6 +90,8 @@ describe("NodePropertiesPanel persistence handoff", () => {
       />,
     );
 
+    // Appearance accordion is collapsed by default — open it first
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
     fireEvent.click(screen.getByRole("button", { name: "No Outline" }));
     fireEvent.click(screen.getByTitle("Save and close"));
 

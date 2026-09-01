@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
-import { getNodesBounds } from '@xyflow/react';
+import {
+  getNodesBounds as getNodesBoundsStatic,
+  getViewportForBounds,
+} from '@xyflow/react';
 import {
   chartBackupFilename,
   createChartBackup,
@@ -19,6 +22,7 @@ export function useChartBackupOps({
   nodesRef,
   edgesRef,
   getNodes,
+  getNodesBounds,
   theme,
   setNodes,
   setEdges,
@@ -97,6 +101,7 @@ export function useChartBackupOps({
           },
         });
       } catch (error) {
+        console.error('Chart restore failed:', error);
         setConfirmModal({
           title: 'Backup cannot be restored',
           message:
@@ -123,18 +128,34 @@ export function useChartBackupOps({
 
   const downloadImage = useCallback(async () => {
     const currentNodes = getNodes();
-    if (currentNodes.length === 0) return;
-    const nodesBounds = getNodesBounds(currentNodes);
+    if (!currentNodes || currentNodes.length === 0) {
+      window.alert('No nodes in the chart to export.');
+      return;
+    }
 
-    const padding = 60;
-    const imageWidth = Math.ceil(nodesBounds.width + padding * 2);
-    const imageHeight = Math.ceil(nodesBounds.height + padding * 2);
+    const calcBounds = getNodesBounds || getNodesBoundsStatic;
+    const nodesBounds = calcBounds(currentNodes);
 
-    const viewport = {
-      x: padding - nodesBounds.x,
-      y: padding - nodesBounds.y,
-      zoom: 1,
-    };
+    if (!nodesBounds || !nodesBounds.width || !nodesBounds.height) {
+      window.alert('Unable to calculate chart bounds.');
+      return;
+    }
+
+    // Generous margin around all sides to ensure connector lines, handles,
+    // and card drop-shadows have plenty of breathing room.
+    const horizontalMargin = 160;
+    const verticalMargin = 140;
+    const imageWidth = Math.ceil(nodesBounds.width + horizontalMargin * 2);
+    const imageHeight = Math.ceil(nodesBounds.height + verticalMargin * 2);
+
+    const viewport = getViewportForBounds(
+      nodesBounds,
+      imageWidth,
+      imageHeight,
+      0.05,
+      2,
+      0.12, // 12% padding ratio guarantees all outer connector lines stay inside frame
+    );
 
     const el = document.querySelector('.react-flow__viewport');
     if (!el) return;
@@ -145,6 +166,8 @@ export function useChartBackupOps({
         backgroundColor: theme === 'dark' ? '#0f2044' : '#ffffff',
         width: imageWidth,
         height: imageHeight,
+        skipFonts: true,
+        pixelRatio: 2,
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -159,7 +182,7 @@ export function useChartBackupOps({
       console.error('Chart image export failed:', error);
       window.alert('Unable to export the chart image. Please try again.');
     }
-  }, [getNodes, theme, chartName]);
+  }, [getNodes, getNodesBounds, theme, chartName]);
 
   return { downloadChartBackup, restoreChartBackup, downloadImage };
 }

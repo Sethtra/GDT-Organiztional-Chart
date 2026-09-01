@@ -13,6 +13,8 @@ export const ActivityEventTypeSchema = z.enum([
   "assigned",
   "position_vacated",
   "skills_updated",
+  "unit_created",
+  "unit_updated",
 ]);
 
 export type ActivityEventType = z.infer<typeof ActivityEventTypeSchema>;
@@ -47,6 +49,8 @@ export const EVENT_TYPE_LABELS: Record<ActivityEventType, string> = {
   assigned:         "Assignment",
   position_vacated: "Position vacated",
   skills_updated:   "Skills updated",
+  unit_created:     "New unit",
+  unit_updated:     "Unit updated",
 };
 
 export const EVENT_TYPE_TONES: Record<ActivityEventType, BadgeTone> = {
@@ -57,6 +61,8 @@ export const EVENT_TYPE_TONES: Record<ActivityEventType, BadgeTone> = {
   assigned:         "info",
   position_vacated: "neutral",
   skills_updated:   "info",
+  unit_created:     "success",
+  unit_updated:     "info",
 };
 
 /** Derive two-letter initials from a Khmer or English name. */

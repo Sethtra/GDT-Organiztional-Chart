@@ -4,6 +4,89 @@ import { z } from "zod";
 import { HR_FEATURES_ENABLED } from "../config/hrFeatures";
 import { supabase } from "../supabaseClient";
 
+const DEFAULT_UNIT_DETAILS: Record<string, { nameEn: string; code: string }> = {
+  "នាយកដ្ឋានរដ្ឋបាល និងកិច្ចការទូទៅ": {
+    nameEn: "Department of Administration and General Affairs",
+    code: "DAGA",
+  },
+  "នាយកដ្ឋានរដ្ឋបាល និងបុគ្គលិក": {
+    nameEn: "Administration and Personnel Department",
+    code: "APD",
+  },
+  "នាយកដ្ឋានហិរញ្ញវត្ថុ និងបុគ្គលិក": {
+    nameEn: "Department of Finance and Personnel",
+    code: "DFP",
+  },
+  "នាយកដ្ឋានហិរញ្ញវត្ថុ": {
+    nameEn: "Department of Finance and Personnel",
+    code: "DFP",
+  },
+  "នាយកដ្ឋានផែនការ និងហិរញ្ញវត្ថុ": {
+    nameEn: "Planning and Finance Department",
+    code: "PFD",
+  },
+  "នាយកដ្ឋាននីតិកម្មនយោបាយសារពើពន្ធ និងសហប្រតិបត្តិការពន្ធដារអន្តរជាតិ": {
+    nameEn: "Department of Tax Policy, Legislation and International Tax Cooperation",
+    code: "DTPLIC",
+  },
+  "នាយកដ្ឋានពន្ធចលនទ្រព្យ និងអចលនទ្រព្យ": {
+    nameEn: "Department of Movable and Immovable Property Tax",
+    code: "DMIPT",
+  },
+  "នាយកដ្ឋានបច្ចេកវិទ្យាព័ត៌មាន": {
+    nameEn: "Department of Information Technology",
+    code: "DIT",
+  },
+  "នាយកដ្ឋានស៊ើបអង្កេតបទល្មើសពន្ធដារ": {
+    nameEn: "Department of Tax Crime Investigation",
+    code: "DTCI",
+  },
+  "នាយកដ្ឋានគ្រប់គ្រងអ្នកជាប់ពន្ធធំ": {
+    nameEn: "Department of Large Taxpayers Management",
+    code: "DLTM",
+  },
+  "នាយកដ្ឋានគ្រប់គ្រងអ្នកជាប់ពន្ធតូចនិងមធ្យម": {
+    nameEn: "Department of Small and Medium Taxpayers Management",
+    code: "DSMTM",
+  },
+  "នាយកដ្ឋានសវនកម្មសហគ្រាស": {
+    nameEn: "Enterprise Audit Department",
+    code: "EAD",
+  },
+  "សាលាជាតិពន្ធដារ": {
+    nameEn: "National Tax School",
+    code: "NTS",
+  },
+  "សវនកម្មពន្ធដារពិសេស": {
+    nameEn: "Special Tax Audit Department",
+    code: "STAD",
+  },
+  "នាយកដ្ឋានស្រាវជ្រាវ": {
+    nameEn: "Research Department",
+    code: "RD",
+  },
+  "នាយកដ្ឋានអនុលោមភាព": {
+    nameEn: "Compliance Department",
+    code: "CD",
+  },
+  "សាខាពន្ធដារខណ្ឌដូនពេញ": {
+    nameEn: "Daun Penh District Tax Branch",
+    code: "DPDTB",
+  },
+  "សាខាពន្ធដារខណ្ឌចំការមន": {
+    nameEn: "Chamkar Mon District Tax Branch",
+    code: "CMDTB",
+  },
+  "សាខាពន្ធដារខេត្តកណ្ដាល": {
+    nameEn: "Kandal Provincial Tax Branch",
+    code: "KPTB",
+  },
+  "សាខាពន្ធដារខេត្តសៀមរាប": {
+    nameEn: "Siem Reap Provincial Tax Branch",
+    code: "SRPTB",
+  },
+};
+
 const OfficeRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -13,6 +96,8 @@ const OfficeRowSchema = z.object({
 const UnitRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  name_en: z.string().nullable().optional(),
+  code: z.string().nullable().optional(),
   type: z.string(),
   sort_order: z.number(),
   parent_id: z.string().uuid().nullable().optional(),
@@ -28,6 +113,9 @@ export interface OrgOffice {
 export interface OrgUnit {
   id: string;
   name: string;
+  name_en?: string | null;
+  nameEn?: string | null;
+  code?: string | null;
   type: string;
   sort_order: number;
   parent_id?: string | null;
@@ -75,28 +163,16 @@ async function fetchOrgData(force = false): Promise<void> {
   fetchPromise = (async () => {
     try {
       let rawData: unknown = null;
-      const res = HR_FEATURES_ENABLED
-        ? await supabase
-            .from("org_units")
-            .select(`
-              id, name, type, sort_order, parent_id,
-              org_offices ( id, name, sort_order )
-            `)
-            .order("sort_order", { ascending: true })
-        : await supabase
-            .from("org_units")
-            .select(`
-              id, name, type, sort_order,
-              org_offices ( id, name, sort_order )
-            `)
-            .order("sort_order", { ascending: true });
+      const res = await supabase
+        .from("org_units")
+        .select(`
+          id, name, name_en, code, type, sort_order, parent_id,
+          org_offices ( id, name, sort_order )
+        `)
+        .order("sort_order", { ascending: true });
 
-      if (
-        HR_FEATURES_ENABLED &&
-        res.error &&
-        (res.error.code === "42703" || res.error.code === "PGRST204")
-      ) {
-        // Fallback for legacy DB schema prior to migration_org_structure.sql
+      if (res.error) {
+        // Graceful fallback if name_en, code, or parent_id columns are not yet present
         const legacyRes = await supabase
           .from("org_units")
           .select(`
@@ -107,7 +183,6 @@ async function fetchOrgData(force = false): Promise<void> {
         if (legacyRes.error) throw legacyRes.error;
         rawData = legacyRes.data;
       } else {
-        if (res.error) throw res.error;
         rawData = res.data;
       }
 
@@ -115,18 +190,26 @@ async function fetchOrgData(force = false): Promise<void> {
       if (!parsed.success) {
         throw new Error("The organization structure response was malformed.");
       }
-      const units = parsed.data.map((unit) => ({
-        id: unit.id,
-        name: unit.name,
-        type: unit.type,
-        sort_order: unit.sort_order,
-        ...(unit.parent_id !== undefined
-          ? { parent_id: unit.parent_id }
-          : {}),
-        offices: [...unit.org_offices].sort(
-          (left, right) => left.sort_order - right.sort_order,
-        ),
-      }));
+      const units = parsed.data.map((unit) => {
+        const fallback = DEFAULT_UNIT_DETAILS[unit.name];
+        const nameEn = unit.name_en || fallback?.nameEn || null;
+        const code = unit.code || fallback?.code || null;
+        return {
+          id: unit.id,
+          name: unit.name,
+          name_en: nameEn,
+          nameEn: nameEn,
+          code: code,
+          type: unit.type,
+          sort_order: unit.sort_order,
+          ...(unit.parent_id !== undefined
+            ? { parent_id: unit.parent_id }
+            : {}),
+          offices: [...unit.org_offices].sort(
+            (left, right) => left.sort_order - right.sort_order,
+          ),
+        };
+      });
       store = {
         units,
         loading: false,

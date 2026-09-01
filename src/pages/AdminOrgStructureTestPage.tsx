@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
   AlertTriangle,
   Building2,
   Check,
@@ -18,14 +19,15 @@ import { z } from "zod";
 
 import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
+import { ToastContainer, ToastMessage } from "../components/ui/Toast";
 import { cn } from "../lib/utils";
-import { useOrgStructure } from "../hooks/useOrgStructure";
+import { OrgUnit, useOrgStructure } from "../hooks/useOrgStructure";
 import { supabase } from "../supabaseClient";
 import "./AdminDashboardTestPage.css";
 import "./AdminOrgStructureTestPage.css";
 
 const PAGE_SIZE = 7;
-const OFFICE_PAGE_SIZE = 6;
+const OFFICE_PAGE_SIZE = 7;
 
 const TYPE_LABELS: Record<string, string> = {
   department: "Department",
@@ -38,7 +40,28 @@ const OrganizationNameSchema = z
   .string()
   .trim()
   .min(1, "Name is required.")
-  .max(200, "Name must be 200 characters or fewer.");
+  .max(200, "Name must be 200 characters or fewer.")
+  .refine((val) => !/\d/.test(val), {
+    message: "Name cannot contain numbers.",
+  });
+
+const OrganizationNameEnSchema = z
+  .string()
+  .trim()
+  .min(1, "English name is required.")
+  .max(200, "English name must be 200 characters or fewer.")
+  .refine((val) => !/\d/.test(val), {
+    message: "English name cannot contain numbers.",
+  });
+
+const OrganizationCodeSchema = z
+  .string()
+  .trim()
+  .min(1, "Shortcut name is required.")
+  .max(20, "Shortcut name must be 20 characters or fewer.")
+  .refine((val) => !/\d/.test(val), {
+    message: "Shortcut name cannot contain numbers.",
+  });
 
 type UnitType = z.infer<typeof UnitTypeSchema>;
 type UnitFilter = "all" | UnitType;
@@ -48,6 +71,15 @@ interface DeleteTarget {
   unitId: string;
   officeId?: string;
   name: string;
+}
+
+interface UnitModalState {
+  mode: "create" | "edit";
+  unitId?: string;
+  name: string;
+  nameEn: string;
+  code: string;
+  type: UnitType;
 }
 
 function TypeBadge({ type }: { type: string }) {
@@ -72,18 +104,27 @@ export default function AdminOrgStructurePageView() {
   const [filter, setFilter] = useState<UnitFilter>("all");
   const [page, setPage] = useState(1);
   const [officePage, setOfficePage] = useState(1);
-  const [showUnitForm, setShowUnitForm] = useState(false);
-  const [newUnitName, setNewUnitName] = useState("");
-  const [newUnitType, setNewUnitType] = useState<UnitType>("department");
+  const [unitModal, setUnitModal] = useState<UnitModalState | null>(null);
+  const [unitErrors, setUnitErrors] = useState<{
+    name?: string | undefined;
+    nameEn?: string | undefined;
+    code?: string | undefined;
+  }>({});
   const [showOfficeForm, setShowOfficeForm] = useState(false);
   const [newOfficeName, setNewOfficeName] = useState("");
-  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
-  const [unitDraft, setUnitDraft] = useState("");
+  const [newOfficeError, setNewOfficeError] = useState<string | null>(null);
   const [editingOfficeId, setEditingOfficeId] = useState<string | null>(null);
   const [officeDraft, setOfficeDraft] = useState("");
+  const [editingOfficeError, setEditingOfficeError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const officePanelRef = useRef<HTMLElement>(null);
+
+  const showToast = (type: ToastMessage["type"], message: string) => {
+    const id = "toast_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    setToasts((curr) => [...curr, { id, type, message }]);
+  };
 
   useEffect(() => {
     if (units.length > 0 && (!selectedUnitId || !units.some((u) => u.id === selectedUnitId))) {
@@ -99,6 +140,9 @@ export default function AdminOrgStructurePageView() {
       if (!query) return true;
       return (
         unit.name.toLocaleLowerCase().includes(query) ||
+        (unit.name_en && unit.name_en.toLocaleLowerCase().includes(query)) ||
+        (unit.nameEn && unit.nameEn.toLocaleLowerCase().includes(query)) ||
+        (unit.code && unit.code.toLocaleLowerCase().includes(query)) ||
         (unit.offices || []).some((item) => item.name.toLocaleLowerCase().includes(query))
       );
     });
@@ -155,69 +199,136 @@ export default function AdminOrgStructurePageView() {
     }
   };
 
-  const addUnit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const input = z
-      .object({ name: OrganizationNameSchema, type: UnitTypeSchema })
-      .safeParse({ name: newUnitName, type: newUnitType });
-    if (!input.success) {
-      alert(input.error.issues[0]?.message ?? "Enter a valid unit.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const maxSort = (units || []).reduce(
-        (max, u) => Math.max(max, u.sort_order || 0),
-        0,
-      );
-      const { data, error: insertError } = await supabase
-        .from("org_units")
-        .insert({
-          name: input.data.name,
-          type: input.data.type,
-          sort_order: maxSort + 1,
-        })
-        .select("id")
-        .single();
-      if (insertError) throw insertError;
-      setNewUnitName("");
-      setShowUnitForm(false);
-      await refetch();
-      const inserted = data as { id?: string } | null;
-      if (inserted?.id) setSelectedUnitId(inserted.id);
-    } catch (err) {
-      console.error("Failed to add unit:", err);
-      alert(err instanceof Error ? err.message : "Failed to add unit");
-    } finally {
-      setSaving(false);
-    }
+  const openCreateUnitModal = () => {
+    setUnitErrors({});
+    setUnitModal({
+      mode: "create",
+      name: "",
+      nameEn: "",
+      code: "",
+      type: "department",
+    });
   };
 
-  const saveUnitName = async (unitId: string) => {
-    const input = OrganizationNameSchema.safeParse(unitDraft);
+  const openEditUnitModal = (unit: OrgUnit) => {
+    setUnitErrors({});
+    setUnitModal({
+      mode: "edit",
+      unitId: unit.id,
+      name: unit.name,
+      nameEn: unit.name_en || unit.nameEn || "",
+      code: unit.code || "",
+      type: (UnitTypeSchema.safeParse(unit.type).success ? unit.type : "department") as UnitType,
+    });
+  };
+
+  const handleUnitModalSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!unitModal) return;
+
+    const input = z
+      .object({
+        name: OrganizationNameSchema,
+        nameEn: OrganizationNameEnSchema,
+        code: OrganizationCodeSchema,
+        type: UnitTypeSchema,
+      })
+      .safeParse({
+        name: unitModal.name,
+        nameEn: unitModal.nameEn,
+        code: unitModal.code.trim().toUpperCase(),
+        type: unitModal.type,
+      });
+
     if (!input.success) {
-      alert(input.error.issues[0]?.message ?? "Enter a valid unit name.");
+      const fieldErrors: { name?: string; nameEn?: string; code?: string } = {};
+      input.error.issues.forEach((issue) => {
+        const field = issue.path[0] as "name" | "nameEn" | "code";
+        if (field && !fieldErrors[field]) {
+          fieldErrors[field] = issue.message;
+        }
+      });
+      setUnitErrors(fieldErrors);
       return;
     }
 
+    setUnitErrors({});
     setSaving(true);
     try {
-      const { data, error: updateError } = await supabase
-        .from("org_units")
-        .update({ name: input.data })
-        .eq("id", unitId)
-        .select("id")
-        .maybeSingle();
-      if (updateError) throw updateError;
-      if (!data) throw new Error("Unit not found or update prohibited.");
+      if (unitModal.mode === "create") {
+        const maxSort = (units || []).reduce(
+          (max, u) => Math.max(max, u.sort_order || 0),
+          0,
+        );
+
+        const payload = {
+          name: input.data.name,
+          name_en: input.data.nameEn,
+          code: input.data.code,
+          type: input.data.type,
+          sort_order: maxSort + 1,
+        };
+
+        const res = await supabase
+          .from("org_units")
+          .insert(payload)
+          .select("id")
+          .single();
+
+        if (res.error) {
+          // Fallback for legacy DB schema before name_en and code columns
+          const legacyRes = await supabase
+            .from("org_units")
+            .insert({
+              name: input.data.name,
+              type: input.data.type,
+              sort_order: maxSort + 1,
+            })
+            .select("id")
+            .single();
+          if (legacyRes.error) throw legacyRes.error;
+          const insertedLegacy = legacyRes.data as { id?: string } | null;
+          if (insertedLegacy?.id) setSelectedUnitId(String(insertedLegacy.id));
+        } else {
+          const inserted = res.data as { id?: string } | null;
+          if (inserted?.id) setSelectedUnitId(String(inserted.id));
+        }
+        showToast("success", `Created unit "${input.data.name}" successfully.`);
+      } else {
+        // Edit mode
+        const updatePayload = {
+          name: input.data.name,
+          name_en: input.data.nameEn,
+          code: input.data.code,
+          type: input.data.type,
+        };
+
+        const res = await supabase
+          .from("org_units")
+          .update(updatePayload)
+          .eq("id", unitModal.unitId!)
+          .select("id")
+          .maybeSingle();
+
+        if (res.error) {
+          const legacyRes = await supabase
+            .from("org_units")
+            .update({ name: input.data.name, type: input.data.type })
+            .eq("id", unitModal.unitId!)
+            .select("id")
+            .maybeSingle();
+          if (legacyRes.error) throw legacyRes.error;
+        }
+        showToast("success", `Updated "${input.data.name}" successfully.`);
+      }
+
+      setUnitModal(null);
       await refetch();
     } catch (err) {
-      console.error("Failed to rename unit:", err);
-      alert(err instanceof Error ? err.message : "Failed to rename unit");
+      console.error("Failed to save unit:", err);
+      showToast("error", err instanceof Error ? err.message : "Failed to save organizational unit.");
     } finally {
       setSaving(false);
-      setEditingUnitId(null);
     }
   };
 
@@ -226,10 +337,11 @@ export default function AdminOrgStructurePageView() {
     if (!selectedUnit) return;
     const input = OrganizationNameSchema.safeParse(newOfficeName);
     if (!input.success) {
-      alert(input.error.issues[0]?.message ?? "Enter a valid office name.");
+      setNewOfficeError(input.error.issues[0]?.message ?? "Enter a valid office name.");
       return;
     }
 
+    setNewOfficeError(null);
     setSaving(true);
     try {
       const maxSort = (selectedUnit.offices || []).reduce(
@@ -249,11 +361,12 @@ export default function AdminOrgStructurePageView() {
       if (!data) throw new Error("Office was not created or creation was prohibited.");
       setNewOfficeName("");
       setShowOfficeForm(false);
+      showToast("success", `Added office "${input.data}" to ${selectedUnit.name}.`);
       await refetch();
       setOfficePage(Math.ceil(((selectedUnit.offices?.length || 0) + 1) / OFFICE_PAGE_SIZE));
     } catch (err) {
       console.error("Failed to add office:", err);
-      alert(err instanceof Error ? err.message : "Failed to add office");
+      showToast("error", err instanceof Error ? err.message : "Failed to add office.");
     } finally {
       setSaving(false);
     }
@@ -262,10 +375,11 @@ export default function AdminOrgStructurePageView() {
   const saveOfficeName = async (_unitId: string, officeId: string) => {
     const input = OrganizationNameSchema.safeParse(officeDraft);
     if (!input.success) {
-      alert(input.error.issues[0]?.message ?? "Enter a valid office name.");
+      setEditingOfficeError(input.error.issues[0]?.message ?? "Enter a valid office name.");
       return;
     }
 
+    setEditingOfficeError(null);
     setSaving(true);
     try {
       const { data, error: updateError } = await supabase
@@ -276,10 +390,11 @@ export default function AdminOrgStructurePageView() {
         .maybeSingle();
       if (updateError) throw updateError;
       if (!data) throw new Error("Office not found or update prohibited.");
+      showToast("success", "Office renamed successfully.");
       await refetch();
     } catch (err) {
       console.error("Failed to rename office:", err);
-      alert(err instanceof Error ? err.message : "Failed to rename office");
+      showToast("error", err instanceof Error ? err.message : "Failed to rename office.");
     } finally {
       setSaving(false);
       setEditingOfficeId(null);
@@ -300,6 +415,7 @@ export default function AdminOrgStructurePageView() {
           .maybeSingle();
         if (delError) throw delError;
         if (!data) throw new Error("Unit not found or deletion prohibited.");
+        showToast("success", `Deleted unit "${deleteTarget.name}".`);
         await refetch();
         if (selectedUnitId === deleteTarget.unitId) {
           const remaining = units.filter((unit) => unit.id !== deleteTarget.unitId);
@@ -314,11 +430,12 @@ export default function AdminOrgStructurePageView() {
           .maybeSingle();
         if (delError) throw delError;
         if (!data) throw new Error("Office not found or deletion prohibited.");
+        showToast("success", `Deleted office "${deleteTarget.name}".`);
         await refetch();
       }
     } catch (err) {
       console.error("Failed to delete:", err);
-      alert(err instanceof Error ? err.message : "Failed to delete");
+      showToast("error", err instanceof Error ? err.message : "Failed to delete item.");
     } finally {
       setSaving(false);
       setDeleteTarget(null);
@@ -390,8 +507,8 @@ export default function AdminOrgStructurePageView() {
                 <button
                   type="button"
                   className="ost-primary-button pa-focus-ring"
-                  onClick={() => setShowUnitForm((current) => !current)}
-                  aria-expanded={showUnitForm}
+                  onClick={openCreateUnitModal}
+                  aria-haspopup="dialog"
                   disabled={saving}
                 >
                   <Plus size={15} aria-hidden="true" />
@@ -415,41 +532,6 @@ export default function AdminOrgStructurePageView() {
               <div><span>Regional branches</span><strong>{regionalCount}</strong></div>
               <div><span>Offices</span><strong>{totalOffices}</strong></div>
             </section>
-
-            {showUnitForm && (
-              <form className="ost-create-unit" onSubmit={addUnit}>
-                <div className="ost-create-unit__heading">
-                  <div>
-                    <strong>New organizational unit</strong>
-                    <span>Live database record</span>
-                  </div>
-                  <button type="button" onClick={() => setShowUnitForm(false)} aria-label="Close new unit form">
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="ost-create-unit__fields">
-                  <label>
-                    <span>Unit name</span>
-                    <input autoFocus value={newUnitName} onChange={(event) => setNewUnitName(event.target.value)} placeholder="e.g. នាយកដ្ឋាន..." required />
-                  </label>
-                  <label>
-                    <span>Unit type</span>
-                    <select
-                      value={newUnitType}
-                      onChange={(event) => {
-                        const parsedType = UnitTypeSchema.safeParse(event.target.value);
-                        if (parsedType.success) setNewUnitType(parsedType.data);
-                      }}
-                    >
-                      {Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                  </label>
-                  <button className="ost-primary-button pa-focus-ring" type="submit" disabled={saving}>
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Add unit
-                  </button>
-                </div>
-              </form>
-            )}
 
             <div className="ost-filter-row" aria-label="Filter organizational units">
               <div className="ost-segmented-control">
@@ -482,6 +564,7 @@ export default function AdminOrgStructurePageView() {
                   <table className="ost-unit-table">
                     <thead>
                       <tr>
+                        <th scope="col" className="ost-index-column">N.o</th>
                         <th scope="col">Unit</th>
                         <th scope="col" className="ost-type-column">Type</th>
                         <th scope="col" className="ost-offices-column">Offices</th>
@@ -489,35 +572,29 @@ export default function AdminOrgStructurePageView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagedUnits.map((unit) => {
+                      {pagedUnits.map((unit, index) => {
                         const selected = unit.id === selectedUnitId;
-                        const editing = unit.id === editingUnitId;
                         const officeCount = unit.offices?.length || 0;
+                        const englishLabel = unit.name_en || unit.nameEn || "";
+                        const shortcutLabel = unit.code ? ` (${unit.code})` : "";
                         return (
                           <tr key={unit.id} className={cn(selected && "is-selected")}>
+                            <td className="ost-index-column">
+                              <span className="ost-unit-index">
+                                {String((page - 1) * PAGE_SIZE + index + 1).padStart(2, "0")}
+                              </span>
+                            </td>
                             <td>
-                              {editing ? (
-                                <div className="ost-inline-edit">
-                                  <input
-                                    autoFocus
-                                    value={unitDraft}
-                                    onChange={(event) => setUnitDraft(event.target.value)}
-                                    onKeyDown={(event) => {
-                                      if (event.key === "Enter") saveUnitName(unit.id);
-                                      if (event.key === "Escape") setEditingUnitId(null);
-                                    }}
-                                    aria-label={`Rename ${unit.name}`}
-                                  />
-                                  <button type="button" onClick={() => saveUnitName(unit.id)} aria-label="Save unit name"><Check size={14} /></button>
-                                  <button type="button" onClick={() => setEditingUnitId(null)} aria-label="Cancel unit rename"><X size={14} /></button>
-                                </div>
-                              ) : (
-                                <button type="button" className="ost-unit-select" onClick={() => selectUnit(unit.id)} aria-current={selected ? "true" : undefined}>
-                                  <span dir="auto">{unit.name}</span>
-                                  <small>{TYPE_LABELS[(unit.type || "").toLowerCase()] || unit.type}</small>
-                                  <span className="ost-mobile-type"><TypeBadge type={unit.type} /></span>
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                className="ost-unit-select"
+                                onClick={() => selectUnit(unit.id)}
+                                aria-current={selected ? "true" : undefined}
+                              >
+                                <span dir="auto">{unit.name}</span>
+                                <small>{englishLabel ? `${englishLabel}${shortcutLabel}` : (unit.code ? unit.code : "")}</small>
+                                <span className="ost-mobile-type"><TypeBadge type={unit.type} /></span>
+                              </button>
                             </td>
                             <td className="ost-type-column"><TypeBadge type={unit.type} /></td>
                             <td className="ost-offices-column">
@@ -530,12 +607,9 @@ export default function AdminOrgStructurePageView() {
                               <div className="ost-row-actions">
                                 <button
                                   type="button"
-                                  title="Rename unit"
-                                  aria-label={`Rename ${unit.name}`}
-                                  onClick={() => {
-                                    setEditingUnitId(unit.id);
-                                    setUnitDraft(unit.name);
-                                  }}
+                                  title="Edit unit"
+                                  aria-label={`Edit ${unit.name}`}
+                                  onClick={() => openEditUnitModal(unit)}
                                 ><Pencil size={14} /></button>
                                 <button
                                   type="button"
@@ -589,9 +663,8 @@ export default function AdminOrgStructurePageView() {
                     <div className="ost-office-panel__header">
                       <div className="ost-office-panel__icon"><Building2 size={19} /></div>
                       <div>
-                        <TypeBadge type={selectedUnit.type} />
                         <h2 id="ost-offices-heading" dir="auto">{selectedUnit.name}</h2>
-                        <p>{TYPE_LABELS[(selectedUnit.type || "").toLowerCase()] || selectedUnit.type}</p>
+                        <p>{selectedUnit.name_en || selectedUnit.nameEn || TYPE_LABELS[(selectedUnit.type || "").toLowerCase()] || selectedUnit.type}</p>
                       </div>
                     </div>
 
@@ -607,18 +680,48 @@ export default function AdminOrgStructurePageView() {
                     </div>
 
                     {showOfficeForm && (
-                      <form className="ost-add-office" onSubmit={addOffice}>
-                        <MapPin size={15} />
-                        <input autoFocus value={newOfficeName} onChange={(event) => setNewOfficeName(event.target.value)} placeholder="Office name" aria-label="New office name" required />
-                        <button type="submit" aria-label="Save office" disabled={saving}>
-                          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
-                        </button>
-                        <button type="button" onClick={() => setShowOfficeForm(false)} aria-label="Cancel adding office"><X size={15} /></button>
-                      </form>
+                      <div className="flex flex-col gap-1 mb-2">
+                        <form className="ost-add-office" onSubmit={addOffice}>
+                          <MapPin size={15} />
+                          <input
+                            autoFocus
+                            value={newOfficeName}
+                            onChange={(event) => {
+                              setNewOfficeName(event.target.value);
+                              if (newOfficeError) setNewOfficeError(null);
+                            }}
+                            placeholder="Office name"
+                            aria-label="New office name"
+                            className={newOfficeError ? "is-invalid" : ""}
+                            required
+                          />
+                          <button type="submit" aria-label="Save office" disabled={saving}>
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={15} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowOfficeForm(false);
+                              setNewOfficeError(null);
+                            }}
+                            aria-label="Cancel adding office"
+                          >
+                            <X size={15} />
+                          </button>
+                        </form>
+                        {newOfficeError && (
+                          <span className="ost-form-error px-1">
+                            <AlertCircle size={12} /> {newOfficeError}
+                          </span>
+                        )}
+                      </div>
                     )}
 
                     <div className="ost-office-list-heading">
-                      <span>Office directory</span>
+                      <div className="ost-office-heading-left">
+                        <span className="ost-office-index-label">N.o</span>
+                        <span>Office directory</span>
+                      </div>
                       <strong>{visibleOffices.length}</strong>
                     </div>
                     <div className="ost-office-list">
@@ -628,19 +731,42 @@ export default function AdminOrgStructurePageView() {
                             {String((officePage - 1) * OFFICE_PAGE_SIZE + index + 1).padStart(2, "0")}
                           </span>
                           {editingOfficeId === item.id ? (
-                            <div className="ost-inline-edit ost-inline-edit--office">
-                              <input
-                                autoFocus
-                                value={officeDraft}
-                                onChange={(event) => setOfficeDraft(event.target.value)}
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") saveOfficeName(selectedUnit.id, item.id);
-                                  if (event.key === "Escape") setEditingOfficeId(null);
-                                }}
-                                aria-label={`Rename ${item.name}`}
-                              />
-                              <button type="button" onClick={() => saveOfficeName(selectedUnit.id, item.id)} aria-label="Save office name"><Check size={14} /></button>
-                              <button type="button" onClick={() => setEditingOfficeId(null)} aria-label="Cancel office rename"><X size={14} /></button>
+                            <div className="flex flex-col flex-1 gap-1">
+                              <div className="ost-inline-edit ost-inline-edit--office">
+                                <input
+                                  autoFocus
+                                  value={officeDraft}
+                                  onChange={(event) => {
+                                    setOfficeDraft(event.target.value);
+                                    if (editingOfficeError) setEditingOfficeError(null);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") saveOfficeName(selectedUnit.id, item.id);
+                                    if (event.key === "Escape") {
+                                      setEditingOfficeId(null);
+                                      setEditingOfficeError(null);
+                                    }
+                                  }}
+                                  aria-label={`Rename ${item.name}`}
+                                  className={editingOfficeError ? "is-invalid" : ""}
+                                />
+                                <button type="button" onClick={() => saveOfficeName(selectedUnit.id, item.id)} aria-label="Save office name"><Check size={14} /></button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingOfficeId(null);
+                                    setEditingOfficeError(null);
+                                  }}
+                                  aria-label="Cancel office rename"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                              {editingOfficeError && (
+                                <span className="ost-form-error">
+                                  <AlertCircle size={12} /> {editingOfficeError}
+                                </span>
+                              )}
                             </div>
                           ) : (
                             <span className="ost-office-name" dir="auto">{item.name}</span>
@@ -661,41 +787,39 @@ export default function AdminOrgStructurePageView() {
                         </div>
                       )}
                     </div>
-                    {totalOfficePages > 1 && (
-                      <div
-                        className="ost-pagination ost-office-pagination"
-                        aria-label="Office directory pagination"
-                      >
-                        <span>
-                          {visibleOffices.length
-                            ? `${(officePage - 1) * OFFICE_PAGE_SIZE + 1}-${Math.min(officePage * OFFICE_PAGE_SIZE, visibleOffices.length)} of ${visibleOffices.length}`
-                            : "0 results"}
-                        </span>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => setOfficePage((current) => Math.max(1, current - 1))}
-                            disabled={officePage === 1}
-                            aria-label="Previous office page"
-                          >
-                            <ChevronLeft size={15} />
-                          </button>
-                          <strong>{officePage} / {totalOfficePages}</strong>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOfficePage((current) =>
-                                Math.min(totalOfficePages, current + 1),
-                              )
-                            }
-                            disabled={officePage === totalOfficePages}
-                            aria-label="Next office page"
-                          >
-                            <ChevronRight size={15} />
-                          </button>
-                        </div>
+                    <div
+                      className="ost-pagination ost-office-pagination"
+                      aria-label="Office directory pagination"
+                    >
+                      <span>
+                        {visibleOffices.length
+                          ? `${(officePage - 1) * OFFICE_PAGE_SIZE + 1}-${Math.min(officePage * OFFICE_PAGE_SIZE, visibleOffices.length)} of ${visibleOffices.length}`
+                          : "0 results"}
+                      </span>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setOfficePage((current) => Math.max(1, current - 1))}
+                          disabled={officePage <= 1}
+                          aria-label="Previous office page"
+                        >
+                          <ChevronLeft size={15} />
+                        </button>
+                        <strong>{officePage} / {totalOfficePages}</strong>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOfficePage((current) =>
+                              Math.min(totalOfficePages, current + 1),
+                            )
+                          }
+                          disabled={officePage >= totalOfficePages}
+                          aria-label="Next office page"
+                        >
+                          <ChevronRight size={15} />
+                        </button>
                       </div>
-                    )}
+                    </div>
                   </>
                 ) : (
                   <div className="ost-empty-offices"><Building2 size={24} /><strong>Select a unit</strong><span>Its offices will appear here.</span></div>
@@ -710,6 +834,194 @@ export default function AdminOrgStructurePageView() {
           Live organizational structure connected to database
         </footer>
       </div>
+
+      {unitModal && (
+        <div
+          className="ost-dialog-backdrop"
+          role="presentation"
+          onMouseDown={() => !saving && setUnitModal(null)}
+        >
+          <div
+            className="ost-dialog ost-dialog--unit-form"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ost-unit-modal-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <form onSubmit={handleUnitModalSubmit}>
+              <div className="ost-dialog__header">
+                <div className="ost-dialog__header-left">
+                  <div className="ost-dialog__icon ost-dialog__icon--primary">
+                    <Building2 size={20} />
+                  </div>
+                  <div>
+                    <h2 id="ost-unit-modal-title">
+                      {unitModal.mode === "create" ? "New organizational unit" : "Edit organizational unit"}
+                    </h2>
+                    <p className="ost-dialog__subtitle">
+                      {unitModal.mode === "create" ? "Add a new department or branch to the structure" : "Update department and translation details"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="ost-dialog__close"
+                  onClick={() => setUnitModal(null)}
+                  disabled={saving}
+                  aria-label="Close dialog"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="ost-dialog__form-body">
+                <div className={`ost-form-group ${unitErrors.name ? "has-error" : ""}`}>
+                  <label htmlFor="modal-unit-name">
+                    Unit name (Khmer) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="modal-unit-name"
+                    autoFocus
+                    value={unitModal.name}
+                    onChange={(event) => {
+                      const val = event.target.value;
+                      setUnitModal((curr) => (curr ? { ...curr, name: val } : null));
+                      if (unitErrors.name) {
+                        setUnitErrors((curr) => {
+                          const next = { ...curr };
+                          delete next.name;
+                          return next;
+                        });
+                      }
+                    }}
+                    placeholder="e.g. នាយកដ្ឋានហិរញ្ញវត្ថុ និងបុគ្គលិក"
+                    className={unitErrors.name ? "is-invalid" : ""}
+                    required
+                  />
+                  {unitErrors.name ? (
+                    <span className="ost-form-error">
+                      <AlertCircle size={12} /> {unitErrors.name}
+                    </span>
+                  ) : (
+                    <span className="ost-form-hint">Numbers are not allowed in the name.</span>
+                  )}
+                </div>
+
+                <div className={`ost-form-group ${unitErrors.nameEn ? "has-error" : ""}`}>
+                  <label htmlFor="modal-unit-name-en">
+                    English name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="modal-unit-name-en"
+                    value={unitModal.nameEn}
+                    onChange={(event) => {
+                      const val = event.target.value;
+                      setUnitModal((curr) => (curr ? { ...curr, nameEn: val } : null));
+                      if (unitErrors.nameEn) {
+                        setUnitErrors((curr) => {
+                          const next = { ...curr };
+                          delete next.nameEn;
+                          return next;
+                        });
+                      }
+                    }}
+                    placeholder="e.g. Department of Finance and Personnel"
+                    className={unitErrors.nameEn ? "is-invalid" : ""}
+                    required
+                  />
+                  {unitErrors.nameEn ? (
+                    <span className="ost-form-error">
+                      <AlertCircle size={12} /> {unitErrors.nameEn}
+                    </span>
+                  ) : (
+                    <span className="ost-form-hint">Numbers are not allowed in the name.</span>
+                  )}
+                </div>
+
+                <div className="ost-form-row">
+                  <div className={`ost-form-group ${unitErrors.code ? "has-error" : ""}`}>
+                    <label htmlFor="modal-unit-code">
+                      Shortcut name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="modal-unit-code"
+                      value={unitModal.code}
+                      onChange={(event) => {
+                        const val = event.target.value.toUpperCase();
+                        setUnitModal((curr) => (curr ? { ...curr, code: val } : null));
+                        if (unitErrors.code) {
+                          setUnitErrors((curr) => {
+                            const next = { ...curr };
+                            delete next.code;
+                            return next;
+                          });
+                        }
+                      }}
+                      placeholder="e.g. DFP"
+                      className={`font-mono uppercase font-bold ${unitErrors.code ? "is-invalid" : ""}`}
+                      maxLength={20}
+                      required
+                    />
+                    {unitErrors.code && (
+                      <span className="ost-form-error">
+                        <AlertCircle size={12} /> {unitErrors.code}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="ost-form-group">
+                    <label htmlFor="modal-unit-type">Unit type</label>
+                    <select
+                      id="modal-unit-type"
+                      value={unitModal.type}
+                      onChange={(event) => {
+                        const parsedType = UnitTypeSchema.safeParse(event.target.value);
+                        if (parsedType.success) {
+                          setUnitModal((curr) =>
+                            curr ? { ...curr, type: parsedType.data } : null
+                          );
+                        }
+                      }}
+                    >
+                      {Object.entries(TYPE_LABELS).map(([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ost-dialog__actions">
+                <button
+                  type="button"
+                  onClick={() => setUnitModal(null)}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="ost-primary-button"
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} />
+                      {unitModal.mode === "create" ? "Add unit" : "Save changes"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="ost-dialog-backdrop" role="presentation" onMouseDown={() => setDeleteTarget(null)}>
@@ -727,6 +1039,11 @@ export default function AdminOrgStructurePageView() {
           </div>
         </div>
       )}
+
+      <ToastContainer
+        toasts={toasts}
+        onDismiss={(id) => setToasts((curr) => curr.filter((t) => t.id !== id))}
+      />
     </div>
   );
 }

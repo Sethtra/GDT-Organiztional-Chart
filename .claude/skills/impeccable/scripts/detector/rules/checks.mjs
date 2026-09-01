@@ -2489,7 +2489,7 @@ function isKickerCardContext(heading, kicker) {
 // Meta lines above headlines join category and date (or path crumbs) with
 // separator glyphs, or carry a year. A kicker is one short phrase; metadata
 // keeps its markers.
-const KICKER_META_TEXT_RE = /[·•|]|\s[\/›»>]\s|\b(19|20)\d{2}\b/;
+const KICKER_META_TEXT_RE = /[·•|]|\s[/›»>]\s|\b(19|20)\d{2}\b/;
 // Legal and document numbering: "Section 4.2", "Article IX", "§ 12.3",
 // dotted decimal outlines. The label identifies the clause, so it stays.
 const KICKER_DOC_NUMBERING_RE = /^(§|\d+(\.\d+)+\b|(section|article|clause|appendix|exhibit|schedule|chapter|part|rule|title)\s+([\divxlc]+\b|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b)/i;

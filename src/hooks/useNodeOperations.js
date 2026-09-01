@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { addEdge, reconnectEdge } from '@xyflow/react';
 import { TYPE_META } from '../data/nodeTypes';
 import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../utils/chartData';
-import { getLayoutedElements } from '../utils/layoutUtils';
 import { moveSelectedNodesToLayer as reorderSelectedNodes } from '../utils/nodeLayering';
 
 /**
@@ -22,8 +21,6 @@ export function useNodeOperations({
   nodesRef,
   setNodes,
   setEdges,
-  layoutDir,
-  setLayoutDir,
   setCollapsedNodes,
 }) {
   // ── ReactFlow event handlers that take a snapshot ───────────────
@@ -214,35 +211,6 @@ export function useNodeOperations({
     ]);
   }, [setNodes, takeSnapshot]);
 
-  // ── Layout / collapse ────────────────────────────────────────────
-  const autoLayout = useCallback(() => {
-    takeSnapshot();
-    const { nodes: ln, edges: le } = getLayoutedElements(
-      nodes,
-      edges,
-      layoutDir,
-    );
-    setNodes(ln);
-    setEdges(le);
-  }, [nodes, edges, layoutDir, setNodes, setEdges, takeSnapshot]);
-
-  const toggleLayout = useCallback(() => {
-    takeSnapshot();
-    const nextDir = layoutDir === 'TB' ? 'LR' : 'TB';
-    setLayoutDir(nextDir);
-    const { nodes: ln, edges: le } = getLayoutedElements(nodes, edges, nextDir);
-    setNodes(ln);
-    setEdges(le);
-  }, [
-    layoutDir,
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
-    setLayoutDir,
-    takeSnapshot,
-  ]);
-
   const toggleCollapse = useCallback(
     (nodeId) => {
       setCollapsedNodes((prev) => {
@@ -266,8 +234,6 @@ export function useNodeOperations({
     duplicateNodes,
     addChildNode,
     addRootNode,
-    autoLayout,
-    toggleLayout,
     toggleCollapse,
   };
 }

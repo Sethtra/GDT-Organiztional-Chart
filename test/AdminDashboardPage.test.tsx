@@ -161,7 +161,10 @@ describe("AdminDashboardPage", () => {
     expect(candidateLink).toHaveTextContent("អនុប្រធានការិយាល័យ");
     expect(candidateLink).toHaveTextContent("3/3 required skills met");
     expect(screen.getByText("1 ready")).toBeInTheDocument();
-    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    const promotionNav = screen.getByRole("navigation", {
+      name: "Promotion candidate pages",
+    });
+    expect(within(promotionNav).getByText("1 / 1")).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
         name: "Previous promotion candidates page",

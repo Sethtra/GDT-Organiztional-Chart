@@ -92,7 +92,7 @@ export default function FlowApp({
   const { theme } = useTheme();
   const { activeTabId } = useContext(TabContext);
   const navigate = useNavigate();
-  const { getNodes, setCenter, getZoom, getNodesBounds } = useReactFlow();
+  const { getNodes, setCenter, getZoom, getNodesBounds, fitView } = useReactFlow();
   const viewport = useViewport();
 
   // ── Core state ─────────────────────────────────────────────────
@@ -116,7 +116,6 @@ export default function FlowApp({
   const [showNodePanel, setShowNodePanel] = useState(false);
   const [profileNodeId, setProfileNodeId] = useState(null);
   const [profileStaffId, setProfileStaffId] = useState(null);
-  const [layoutDir, setLayoutDir] = useState('TB');
   const [previewMode, setPreviewMode] = useState(false);
   const [shiftHeld, setShiftHeld] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
@@ -274,8 +273,6 @@ export default function FlowApp({
     duplicateNodes: duplicateNodesRaw,
     addChildNode: addChildNodeRaw,
     addRootNode: addRootNodeRaw,
-    autoLayout,
-    toggleLayout,
     toggleCollapse,
   } = useNodeOperations({
     nodes,
@@ -285,8 +282,6 @@ export default function FlowApp({
     nodesRef,
     setNodes,
     setEdges,
-    layoutDir,
-    setLayoutDir,
     setCollapsedNodes,
   });
 
@@ -439,6 +434,7 @@ export default function FlowApp({
       nodesRef,
       edgesRef,
       getNodes,
+      getNodesBounds,
       theme,
       setNodes,
       setEdges,
@@ -668,9 +664,6 @@ export default function FlowApp({
       {!previewMode && (
         <EditorHeader
           addRootNode={addRootNode}
-          autoLayout={autoLayout}
-          toggleLayout={toggleLayout}
-          layoutDir={layoutDir}
           undo={undo}
           redo={redo}
           canUndo={canUndo}
@@ -687,6 +680,9 @@ export default function FlowApp({
             setSelectedNodes([]);
             setSelectedEdge(null);
             setShowNodePanel(false);
+            window.requestAnimationFrame(() => {
+              fitView({ padding: 0.2, duration: 400 });
+            });
           }}
           onSave={() => performSave({ refreshThumbnail: true })}
           saveStatus={saveStatus}

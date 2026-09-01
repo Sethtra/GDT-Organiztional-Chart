@@ -1,11 +1,8 @@
 import {
-  ArrowDownUp,
-  ArrowLeftRight,
   CheckCircle2,
   Download,
   Eye,
   Keyboard,
-  LayoutGrid,
   Loader2,
   Plus,
   Redo2,
@@ -21,19 +18,9 @@ import {
  * backup, preview, theme toggle, save, and the save-status badge.
  *
  * Pure presentational component: no state, all behavior via props.
- *
- * The brand mark is the seal only, at a resolution it is actually displayed at,
- * with the wordmark set as live text beside it. The old header scaled the full
- * 2609x546 lockup down to ~34px tall — a 16x downscale the browser rasterised
- * once with a cheap filter, which is why it looked soft until a hover transform
- * forced a high-quality re-raster. Text cannot blur, and the seal now ships at
- * 1x/2x/3x so no downscaling happens at display size.
  */
 export default function EditorHeader({
   addRootNode,
-  autoLayout,
-  toggleLayout,
-  layoutDir,
   undo,
   redo,
   canUndo,
@@ -80,7 +67,9 @@ export default function EditorHeader({
           onClick={() => navigate('/dashboard')}
           role="link"
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/dashboard'); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') navigate('/dashboard');
+          }}
           title="Go to Dashboard"
           aria-label="Go to Dashboard"
         >
@@ -102,26 +91,6 @@ export default function EditorHeader({
           title="Add Root Node"
         >
           <Plus size={14} aria-hidden="true" /> Add Node
-        </button>
-        <button
-          className="tb-btn tb-btn--icon"
-          onClick={autoLayout}
-          title="Auto Layout Diagram"
-          aria-label="Auto Layout Diagram"
-        >
-          <LayoutGrid size={15} aria-hidden="true" />
-        </button>
-        <button
-          className="tb-btn tb-btn--icon"
-          onClick={toggleLayout}
-          title={layoutDir === 'TB' ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
-          aria-label={layoutDir === 'TB' ? 'Switch to Horizontal Layout' : 'Switch to Vertical Layout'}
-        >
-          {layoutDir === 'TB' ? (
-            <ArrowDownUp size={15} aria-hidden="true" />
-          ) : (
-            <ArrowLeftRight size={15} aria-hidden="true" />
-          )}
         </button>
 
         <div className="tb-divider" />
