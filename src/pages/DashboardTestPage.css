@@ -69,62 +69,85 @@
    cells on the last row, and those would otherwise render as grey blocks. */
 .gdt-register-dashboard .rd-folder-grid {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 16px 20px;
   background: var(--pa-surface);
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
+/* Card container */
 .gdt-register-dashboard .rd-folder {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 60px;
-  padding: 0 10px 0 0;
+  gap: 0;
+  min-height: 64px;
+  padding: 0 8px 0 0;
   border: 1px solid var(--pa-border);
-  border-radius: 11px;
+  border-left: 3px solid transparent;
+  border-radius: 10px;
   background: var(--pa-surface);
-  transition: background-color 180ms ease-out, border-color 180ms ease-out;
+  box-shadow: 0 1px 2px rgba(11, 43, 32, 0.03);
+  transition:
+    border-color 200ms ease,
+    border-left-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
 }
 
 .gdt-register-dashboard .rd-folder:hover {
   border-color: var(--pa-border-strong);
-  background: var(--pa-canvas);
+  border-left-color: var(--pa-primary);
+  background: var(--pa-surface);
+  box-shadow:
+    0 2px 8px rgba(11, 43, 32, 0.07),
+    0 0 0 0px rgba(19, 98, 50, 0);
 }
 
+/* Clickable open button fills all available space */
 .gdt-register-dashboard .rd-folder-open {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   min-width: 0;
-  min-height: 60px;
-  padding: 0 4px 0 20px;
+  min-height: 64px;
+  padding: 10px 4px 10px 14px;
   border-radius: 8px;
   background: none;
   text-align: left;
 }
 
+/* Icon badge — clean, refined green-tinted square */
 .gdt-register-dashboard .rd-folder-icon {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--pa-gold-border);
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--pa-primary-border);
   border-radius: 8px;
-  background: var(--pa-gold-soft);
-  color: #8a6716;
+  background: var(--pa-primary-soft);
+  color: var(--pa-primary);
+  transition: background-color 200ms ease, border-color 200ms ease;
 }
 
+.gdt-register-dashboard .rd-folder:hover .rd-folder-icon {
+  background: #d6ecdf;
+  border-color: #a8d4bb;
+}
+
+/* Folder name — allows up to 2 lines so Khmer text breathes */
 .gdt-register-dashboard .rd-folder-name {
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 12.5px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 1.45;
   color: var(--pa-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 /* ── Register rows (list view) ──────────────────── */
