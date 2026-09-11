@@ -8,8 +8,8 @@ import { PanelHeader, StatusBadge } from "./DashboardPrimitives";
 const PAGE_SIZE = 3;
 
 function getStatusLabel(loading: boolean, hasError: boolean, count: number) {
-  if (loading) return "Checking promotions";
-  if (hasError) return "Promotion data unavailable";
+  if (loading) return "Checking candidates";
+  if (hasError) return "Data unavailable";
   return `${count} ready`;
 }
 
@@ -17,10 +17,15 @@ export default function PromotionCandidatesPanel({
   candidates,
   loading,
   hasError,
+  hasMatchingVacancy,
+  vacantLoading,
 }: {
   candidates: PromotionReadiness[];
   loading: boolean;
   hasError: boolean;
+  /** True when a vacant position exists at the candidates' target job title level. */
+  hasMatchingVacancy: boolean;
+  vacantLoading: boolean;
 }) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(candidates.length / PAGE_SIZE));
@@ -38,8 +43,8 @@ export default function PromotionCandidatesPanel({
     >
       <PanelHeader
         eyebrow="Decision queue"
-        title="Promotion candidates"
-        description="Verified for the officer's next position level"
+        title="Qualify Candidate"
+        description="Officers verified and ready for the next position level"
         action={
           <StatusBadge tone={hasError ? "danger" : "success"}>
             {getStatusLabel(loading, hasError, candidates.length)}
@@ -47,14 +52,28 @@ export default function PromotionCandidatesPanel({
         }
       />
       <div aria-live="polite" className="flex flex-1 flex-col bg-white">
-        {loading ? (
+        {loading || vacantLoading ? (
           <p role="status" className="flex flex-1 items-center justify-center px-5 py-5 text-center text-[12px] font-semibold text-[var(--pa-muted)] sm:px-6">
-            Checking officer skills and title requirements…
+            Checking officer skills and available positions…
           </p>
         ) : hasError ? (
           <p role="alert" className="flex flex-1 items-center justify-center px-5 py-5 text-center text-[12px] font-semibold text-[var(--pa-danger)] sm:px-6">
-            Promotion readiness could not be loaded.
+            Candidate data could not be loaded.
           </p>
+        ) : !hasMatchingVacancy ? (
+          <div className="flex flex-1 items-center justify-center gap-3 px-5 py-5 sm:px-6">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--pa-surface-muted)] text-[var(--pa-muted)]">
+              <Award size={17} strokeWidth={1.9} aria-hidden="true" />
+            </div>
+            <div>
+              <div className="text-[12px] font-extrabold text-[var(--pa-text)]">
+                No Vacant Positions
+              </div>
+              <p className="mt-1 text-[11px] font-medium leading-4 text-[var(--pa-muted)]">
+                All positions are currently filled. Qualified candidates will appear here once a position opens.
+              </p>
+            </div>
+          </div>
         ) : candidates.length === 0 ? (
           <div className="flex flex-1 items-center justify-center gap-3 px-5 py-5 sm:px-6">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--pa-surface-muted)] text-[var(--pa-muted)]">
@@ -62,10 +81,10 @@ export default function PromotionCandidatesPanel({
             </div>
             <div>
               <div className="text-[12px] font-extrabold text-[var(--pa-text)]">
-                No candidates are ready
+                No Qualified Candidates
               </div>
               <p className="mt-1 text-[11px] font-medium leading-4 text-[var(--pa-muted)]">
-                No officer currently meets every skill required for the next title.
+                No officer currently meets every skill required for the next position level.
               </p>
             </div>
           </div>
@@ -135,7 +154,7 @@ export default function PromotionCandidatesPanel({
       <footer className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-t border-[var(--pa-border)] px-5 sm:px-6">
         <span aria-hidden="true" />
         <nav
-          aria-label="Promotion candidate pages"
+          aria-label="Qualify candidate pages"
           className="flex items-center justify-center gap-1"
         >
           <button
@@ -143,7 +162,7 @@ export default function PromotionCandidatesPanel({
             onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={paginationDisabled || currentPage === 1}
             className="pa-focus-ring grid size-8 place-items-center rounded-md text-[var(--pa-muted)] transition-colors hover:bg-[var(--pa-canvas)] hover:text-[var(--pa-text)] disabled:cursor-not-allowed disabled:opacity-35"
-            aria-label="Previous promotion candidates page"
+            aria-label="Previous qualify candidate page"
             title="Previous page"
           >
             <ChevronLeft size={15} aria-hidden="true" />
@@ -158,7 +177,7 @@ export default function PromotionCandidatesPanel({
             }
             disabled={paginationDisabled || currentPage === totalPages}
             className="pa-focus-ring grid size-8 place-items-center rounded-md text-[var(--pa-muted)] transition-colors hover:bg-[var(--pa-canvas)] hover:text-[var(--pa-text)] disabled:cursor-not-allowed disabled:opacity-35"
-            aria-label="Next promotion candidates page"
+            aria-label="Next qualify candidate page"
             title="Next page"
           >
             <ChevronRight size={15} aria-hidden="true" />
@@ -167,7 +186,7 @@ export default function PromotionCandidatesPanel({
         <Link
           to="/admin/staff?promotion=ready"
           className="pa-focus-ring inline-flex min-h-10 items-center gap-1 justify-self-end rounded-md text-[11px] font-extrabold text-[var(--pa-primary)] no-underline"
-          aria-label="View all promotion-ready officers"
+          aria-label="View all qualified candidates"
         >
           View all
           <ChevronRight size={13} aria-hidden="true" />

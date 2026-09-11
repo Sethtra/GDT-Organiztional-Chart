@@ -15,6 +15,7 @@ import { useRecentActivity } from "../hooks/useRecentActivity";
 import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
 import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
+import { useVacantPositions } from "../hooks/useVacantPositions";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
@@ -24,6 +25,7 @@ export default function AdminDashboardPage() {
   const workforce = useWorkforceMetrics();
   const activity = useRecentActivity();
   const coverage = useDepartmentCoverage();
+  const vacant = useVacantPositions(promotion.candidates);
 
   // Filtering is now handled inside RecentActivityPanel to keep this page lean.
 
@@ -116,6 +118,8 @@ export default function AdminDashboardPage() {
               candidates={promotion.candidates}
               loading={promotion.loading}
               hasError={promotion.hasError}
+              hasMatchingVacancy={vacant.hasMatchingVacancy}
+              vacantLoading={vacant.loading}
             />
           </div>
 
