@@ -143,61 +143,15 @@ describe("AdminDashboardPage", () => {
     ).toHaveLength(1);
   });
 
-  it("shows one-level promotion candidates in the decision queue", async () => {
+  it("renders the headcount trend panel full-width on the dashboard", async () => {
     render(
       <MemoryRouter>
         <AdminDashboardPage />
       </MemoryRouter>,
     );
 
-    const candidateLink = await screen.findByRole("link", {
-      name: /Open profile for Sok Dara/,
-    });
-    expect(candidateLink).toHaveAttribute(
-      "href",
-      "/admin/staff?profile=00000000-0000-4000-8000-000000000001",
-    );
-    expect(candidateLink).toHaveTextContent("មន្ត្រី");
-    expect(candidateLink).toHaveTextContent("អនុប្រធានការិយាល័យ");
-    expect(candidateLink).toHaveTextContent("3/3 required skills met");
-    expect(screen.getByText("1 ready")).toBeInTheDocument();
-    const promotionNav = screen.getByRole("navigation", {
-      name: "Promotion candidate pages",
-    });
-    expect(within(promotionNav).getByText("1 / 1")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Previous promotion candidates page",
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Next promotion candidates page" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("link", { name: "View all promotion-ready officers" }),
-    ).toHaveAttribute("href", "/admin/staff?promotion=ready");
-    expect(screen.queryByText("Position assignments")).not.toBeInTheDocument();
-    expect(screen.queryByText("Transfer requests")).not.toBeInTheDocument();
-    expect(screen.queryByText("Profile updates")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Five assignments affect priority service teams/),
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not present a failed readiness request as zero candidates", async () => {
-    vi.mocked(listPromotionReadiness).mockRejectedValueOnce(
-      new Error("RPC unavailable"),
-    );
-    render(
-      <MemoryRouter>
-        <AdminDashboardPage />
-      </MemoryRouter>,
-    );
-
-    expect(
-      await screen.findByText("Promotion data unavailable"),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("0 promotion ready")).not.toBeInTheDocument();
+    expect(await screen.findByText("Headcount trend")).toBeInTheDocument();
+    expect(screen.getByText("Officers serving today")).toBeInTheDocument();
   });
 
   it("does not present a failed workforce request as zero officers", async () => {

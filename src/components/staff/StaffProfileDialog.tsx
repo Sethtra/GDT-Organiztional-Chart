@@ -28,6 +28,10 @@ import { loadStaffProfile } from "../../services/staffProfileService";
 import { buildChartNodePath } from "../../utils/chartNodeNavigation";
 import { getDisplayedStaffPlacement } from "../../utils/staffDisplay";
 import {
+  getPerformanceScore,
+  getPerformanceTone,
+} from "../../utils/performanceScore";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -389,6 +393,51 @@ export default function StaffProfileDialog({
                       label="Other"
                       value={profile.otherInformation}
                     />
+                    {profile.access === "hr" && (() => {
+                      const score = getPerformanceScore(profile.id);
+                      const tone = getPerformanceTone(score);
+                      const colorMap = {
+                        success: { bar: "#136232", text: "#136232", bg: "#e7f3ec" },
+                        warning: { bar: "#c08c00", text: "#735413", bg: "#fff7df" },
+                        danger:  { bar: "#c0392b", text: "#9c332d", bg: "#fdecea" },
+                      };
+                      const colors = colorMap[tone];
+                      return (
+                        <div className="grid grid-cols-[138px_1fr] gap-3 border-b border-[#d9e1dc] py-3 text-[12.5px] last:border-0 max-sm:grid-cols-1 max-sm:gap-1">
+                          <div className="flex items-center gap-2 font-semibold text-[#66716b]">
+                            <span className="text-[#16211b]">
+                              <Award className="size-3.5" />
+                            </span>
+                            Performance
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                              <span
+                                className="text-[12px] font-extrabold"
+                                style={{ color: colors.text }}
+                              >
+                                {score} / 100
+                              </span>
+                              <span
+                                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                style={{ background: colors.bg, color: colors.text }}
+                              >
+                                {tone === "success" ? "High" : tone === "warning" ? "Mid" : "Low"}
+                              </span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-[#e8ede9]">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${score}%`,
+                                  background: colors.bar,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </section>
                 </div>
               )}

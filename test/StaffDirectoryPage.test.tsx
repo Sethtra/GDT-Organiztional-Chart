@@ -292,56 +292,18 @@ import { listPromotionReadiness } from "../src/services/promotionReadinessServic
 import { listHrStaff } from "../src/services/staffService";
 
 describe("Staff Directory", () => {
-  it("applies the Ready to Promote URL filter and can clear it", async () => {
-    const user = userEvent.setup();
-    const readyOfficer = (await vi.mocked(listHrStaff)(true))[0]!;
-    vi.mocked(listHrStaff).mockResolvedValueOnce([
-      readyOfficer,
-      {
-        ...readyOfficer,
-        id: "00000000-0000-4000-8000-000000000002",
-        employeeId: "GDT-002",
-        name: "Not Ready Officer",
-      },
-    ]);
-
+  it("renders the qualify target position filter and allows selection", async () => {
     render(
-      <MemoryRouter initialEntries={["/admin/staff?promotion=ready"]}>
+      <MemoryRouter initialEntries={["/admin/staff"]}>
         <StaffDirectoryPage />
       </MemoryRouter>,
     );
 
     const filter = await screen.findByRole("combobox", {
-      name: "Filter by promotion readiness",
+      name: "Filter qualify candidates by target position",
     });
-    expect(filter).toHaveValue("ready");
-
-    const readyName = await screen.findByText("Test Officer");
-    expect(screen.queryByText("Not Ready Officer")).not.toBeInTheDocument();
-    const readyRow = readyName.closest("tr");
-    expect(readyRow).not.toBeNull();
-    expect(within(readyRow!).getByText("Ready to Promote")).toBeInTheDocument();
-
-    await user.selectOptions(filter, "all");
-    expect(await screen.findByText("Not Ready Officer")).toBeInTheDocument();
-  });
-
-  it("shows a recoverable error when the promotion filter cannot load", async () => {
-    vi.mocked(listPromotionReadiness).mockRejectedValueOnce(
-      new Error("RPC unavailable"),
-    );
-
-    render(
-      <MemoryRouter initialEntries={["/admin/staff?promotion=ready"]}>
-        <StaffDirectoryPage />
-      </MemoryRouter>,
-    );
-
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Promotion readiness is unavailable");
-    expect(
-      within(alert).getByRole("button", { name: "Try again" }),
-    ).toBeInTheDocument();
+    expect(filter).toBeInTheDocument();
+    expect(filter).toHaveValue("");
   });
 
   it("opens the officer profile named in the dashboard link", async () => {

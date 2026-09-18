@@ -20,10 +20,10 @@ import { PanelHeader } from "./DashboardPrimitives";
 // Headcount line occupies the upper region; joined/departed bars sit in a
 // separate band below so the two different scales are never read as one.
 const LINE_TOP = 20;
-const LINE_BOTTOM = 138;
-const BAR_TOP = 166;
-const BAR_BASELINE = 222;
-const CHART_WIDTH = 720;
+const LINE_BOTTOM = 148;
+const BAR_TOP = 180;
+const BAR_BASELINE = 248;
+const CHART_WIDTH = 1100;
 const PAD_X = 14;
 
 function WorkforceYearRangePicker({
@@ -260,7 +260,7 @@ export default function WorkforceTrendPanel({
       1,
       ...visible.map((year) => Math.max(year.joined, year.departed)),
     );
-    const barWidth = Math.min(16, Math.max(3, slotWidth * 0.28));
+    const barWidth = Math.min(28, Math.max(4, slotWidth * 0.28));
     const barHeight = (value: number) =>
       value === 0 ? 0 : Math.max(2, (value / movementMax) * (BAR_BASELINE - BAR_TOP));
 
@@ -284,6 +284,12 @@ export default function WorkforceTrendPanel({
     });
 
     return { points, polyline, area, bars, barWidth, domainMin, domainMax };
+  }, [visible]);
+
+  const avgHeadcount = useMemo(() => {
+    if (visible.length === 0) return 0;
+    const total = visible.reduce((sum, y) => sum + y.headcount, 0);
+    return Math.round(total / visible.length);
   }, [visible]);
 
   const rangeLabel =
@@ -311,7 +317,7 @@ export default function WorkforceTrendPanel({
   return (
     <section
       id="workforce-trend"
-      className="overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)] xl:col-span-8"
+      className="overflow-hidden rounded-[14px] border border-[var(--pa-border)] bg-white shadow-[var(--pa-shadow)]"
       aria-busy={loading}
     >
       <PanelHeader
@@ -372,13 +378,13 @@ export default function WorkforceTrendPanel({
           </div>
         </div>
 
-        <div className="h-[262px] w-full">
+        <div className="h-[300px] w-full">
           {showChart ? (
             <>
               <svg
-                viewBox="0 0 720 232"
+                viewBox={`0 0 ${CHART_WIDTH} 260`}
                 preserveAspectRatio="none"
-                className="h-[228px] w-full overflow-visible"
+                className="h-[260px] w-full overflow-visible"
                 role="img"
                 aria-labelledby="workforce-chart-title workforce-chart-description"
               >
@@ -389,7 +395,7 @@ export default function WorkforceTrendPanel({
                   {`${rangeLabel}. Headcount moves from ${visible[0]!.headcount} officers in ${visible[0]!.label ?? visible[0]!.year} to ${summary.headcount} in ${visible.at(-1)!.label ?? visible.at(-1)!.year}, with ${summary.joined} joining and ${summary.departed} departing over the period. Arrival and departure bars use their own scale, shown beneath the headcount line.`}
                 </desc>
 
-                {[LINE_TOP, 49, 79, 108, LINE_BOTTOM].map((y) => (
+                {[LINE_TOP, 62, 105, 127, LINE_BOTTOM].map((y) => (
                   <line
                     key={y}
                     x1={PAD_X}
@@ -453,11 +459,23 @@ export default function WorkforceTrendPanel({
                         y={bar.joined.y}
                         width={chart.barWidth}
                         height={bar.joined.height}
-                        rx="1.5"
+                        rx="2"
                         fill="var(--pa-primary)"
                       >
                         <title>{`${bar.year.label ?? bar.year.year}: ${bar.year.joined} joined`}</title>
                       </rect>
+                    )}
+                    {bar.joined.height > 0 && chart.barWidth >= 10 && (
+                      <text
+                        x={bar.joined.x + chart.barWidth / 2}
+                        y={bar.joined.y - 4}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fontWeight="700"
+                        fill="var(--pa-primary)"
+                      >
+                        {bar.year.joined}
+                      </text>
                     )}
                     {bar.departed.height > 0 && (
                       <rect
@@ -465,11 +483,23 @@ export default function WorkforceTrendPanel({
                         y={bar.departed.y}
                         width={chart.barWidth}
                         height={bar.departed.height}
-                        rx="1.5"
+                        rx="2"
                         fill="var(--pa-danger)"
                       >
                         <title>{`${bar.year.label ?? bar.year.year}: ${bar.year.departed} departed`}</title>
                       </rect>
+                    )}
+                    {bar.departed.height > 0 && chart.barWidth >= 10 && (
+                      <text
+                        x={bar.departed.x + chart.barWidth / 2}
+                        y={bar.departed.y - 4}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fontWeight="700"
+                        fill="var(--pa-danger)"
+                      >
+                        {bar.year.departed}
+                      </text>
                     )}
                   </g>
                 ))}
@@ -505,13 +535,14 @@ export default function WorkforceTrendPanel({
           )}
         </div>
 
-        <div className="mt-1 grid grid-cols-3 divide-x divide-[var(--pa-border)] border-t border-[var(--pa-border)] pt-4">
-          {[
+        <div className="mt-1 grid grid-cols-4 divide-x divide-[var(--pa-border)] border-t border-[var(--pa-border)] pt-4">
+          {([
             ["New joiners", summary.joined],
             ["Departures", summary.departed],
             ["Net change", summary.net],
-          ].map(([label, value]) => (
-            <div key={label as string} className="min-w-0 px-2 first:pl-0 sm:px-3">
+            ["Avg headcount", avgHeadcount],
+          ] as const).map(([label, value]) => (
+            <div key={label} className="min-w-0 px-2 first:pl-0 sm:px-3">
               <div className="pa-tabular text-[16px] font-extrabold text-[var(--pa-text)]">
                 {loading || hasError
                   ? "—"

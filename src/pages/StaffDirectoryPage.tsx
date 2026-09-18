@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CircleAlert,
   Eye,
   Loader2,
@@ -27,20 +28,28 @@ import StaffFormDialog from "../components/staff/StaffFormDialog";
 import StaffProfileDialog from "../components/staff/StaffProfileDialog";
 import StaffSkillsDialog from "../components/staff/StaffSkillsDialog";
 import { cn } from "../lib/utils";
-import { UuidSchema, type HrStaffDirectoryRecord } from "../contracts/hr";
+import { UuidSchema, type HrStaffDirectoryRecord, type JobTitle } from "../contracts/hr";
 import { useOrgStructure } from "../hooks/useOrgStructure";
 import { listPromotionReadiness } from "../services/promotionReadinessService";
+import { listJobArchitecture } from "../services/jobArchitectureService";
 import { archiveStaff, listHrStaff } from "../services/staffService";
 import {
   getStaffLocationLabel,
   getStaffPositionTitle,
 } from "../utils/staffDisplay";
+import {
+  getPerformanceScore,
+  getPerformanceTone,
+  PERFORMANCE_THRESHOLD,
+} from "../utils/performanceScore";
 import "./AdminDashboardTestPage.css";
 
 type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
-const READY_PROMOTION_FILTER = "ready";
+
+/** Positions excluded from the Qualify Candidate target dropdown */
+const EXCLUDED_POSITION_NAMES = ["មន្ត្រី", "មន្ត្រីកម្មសិក្សា", "មន្ត្រីកិច្ចសន្យា"];
 
 const GENDER_LABELS: Record<HrStaffDirectoryRecord["gender"], string> = {
   male: "ប្រុស",
@@ -130,17 +139,15 @@ export default function StaffDirectoryPage() {
   const [profileTarget, setProfileTarget] =
     useState<HrStaffDirectoryRecord | null>(null);
   const [archiving, setArchiving] = useState(false);
-  const [readyPromotionStaffIds, setReadyPromotionStaffIds] = useState<
-    Set<string>
-  >(() => new Set());
-  const [promotionLoading, setPromotionLoading] = useState(true);
-  const [promotionError, setPromotionError] = useState<string | null>(null);
+
+  // ── Qualify Candidate state ────────────────────────────────────
+  const [jobTitles, setJobTitles] = useState<JobTitle[]>([]);
+  const [targetPositionId, setTargetPositionId] = useState("");
+  const [allReadiness, setAllReadiness] = useState<
+    Awaited<ReturnType<typeof listPromotionReadiness>>
+  >([]);
 
   const requestedProfileId = searchParams.get("profile");
-  const promotionFilter =
-    searchParams.get("promotion") === READY_PROMOTION_FILTER
-      ? READY_PROMOTION_FILTER
-      : "all";
   const directProfileStaffId = useMemo(() => {
     const parsed = UuidSchema.safeParse(requestedProfileId);
     return parsed.success ? parsed.data : null;
@@ -171,34 +178,12 @@ export default function StaffDirectoryPage() {
     }
   }, []);
 
-  const loadPromotionFilter = useCallback(async (): Promise<void> => {
-    setPromotionLoading(true);
-    setPromotionError(null);
-    try {
-      const readiness = await listPromotionReadiness();
-      setReadyPromotionStaffIds(
-        new Set(
-          readiness
-            .filter((candidate) => candidate.status === "ready")
-            .map((candidate) => candidate.staffId),
-        ),
-      );
-    } catch (loadError) {
-      setReadyPromotionStaffIds(new Set());
-      setPromotionError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Unable to load promotion readiness.",
-      );
-    } finally {
-      setPromotionLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     void load();
-    void loadPromotionFilter();
-  }, [load, loadPromotionFilter]);
+    // Load job titles for qualify candidate dropdown
+    void listJobArchitecture().then(setJobTitles).catch(() => {});
+  }, [load]);
 
   const confirmArchive = async () => {
     if (!archiveTarget) return;
@@ -206,7 +191,7 @@ export default function StaffDirectoryPage() {
     try {
       await archiveStaff(archiveTarget.id);
       setArchiveTarget(null);
-      await Promise.all([load(), loadPromotionFilter()]);
+      await load();
     } catch (archiveError) {
       setError(
         archiveError instanceof Error
@@ -223,7 +208,7 @@ export default function StaffDirectoryPage() {
     savedStaffId: string,
     manageSkills: boolean,
   ) => {
-    const [nextStaff] = await Promise.all([load(), loadPromotionFilter()]);
+    const [nextStaff] = await Promise.all([load()]);
     if (!manageSkills) return;
     const savedStaff = nextStaff.find((person) => person.id === savedStaffId);
     if (savedStaff) setSkillsTarget(savedStaff);
@@ -232,32 +217,73 @@ export default function StaffDirectoryPage() {
   const closeProfile = () => {
     setProfileTarget(null);
     if (!directProfileStaffId) return;
-
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.delete("profile");
     setSearchParams(nextSearchParams, { replace: true });
   };
 
-  const changePromotionFilter = (value: string) => {
-    const nextSearchParams = new URLSearchParams(searchParams);
-    if (value === READY_PROMOTION_FILTER) {
-      nextSearchParams.set("promotion", READY_PROMOTION_FILTER);
-    } else {
-      nextSearchParams.delete("promotion");
-    }
-    setSearchParams(nextSearchParams, { replace: true });
-  };
+  // ── Qualify Candidate — 3-step filter ─────────────────────────
+  const targetTitle = useMemo(
+    () => jobTitles.find((jt) => jt.id === targetPositionId) ?? null,
+    [jobTitles, targetPositionId],
+  );
+
+  const qualifyCandidates = useMemo(() => {
+    if (!targetTitle) return [];
+    const targetRank = targetTitle.rankOrder;
+    const requiredSkills = targetTitle.requirements.filter((r) => r.isRequired);
+
+    return staff
+      .filter((person) => {
+        if (person.status !== "active") return false;
+
+        // Step 1: position N-1 (candidate's rank must be exactly targetRank - 1)
+        const currentRank = person.jobTitle?.rankOrder ?? null;
+        if (currentRank === null || currentRank !== targetRank - 1) return false;
+
+        // Step 2: performance >= threshold
+        const score = getPerformanceScore(person.id);
+        if (score < PERFORMANCE_THRESHOLD) return false;
+
+        // Step 3: skills superset — candidate must have all required skills
+        // Use the promotionReadiness data which carries metSkillCount/requiredSkillCount,
+        // but for precise per-skill check we need the readiness detail.
+        // Shortcut: if requiredSkills is empty, the title has no configured requirements → pass.
+        if (requiredSkills.length > 0) {
+          const readiness = allReadiness.find((r) => r.staffId === person.id);
+          if (!readiness) return false;
+          if (readiness.metSkillCount < requiredSkills.length) return false;
+        }
+
+        return true;
+      })
+      // Sort by performance score descending (highest first)
+      .sort((a, b) => getPerformanceScore(b.id) - getPerformanceScore(a.id));
+  }, [staff, targetTitle, allReadiness]);
+
+  // Load full readiness detail when a target position is selected
+  useEffect(() => {
+    if (!targetPositionId) return;
+    void listPromotionReadiness().then(setAllReadiness).catch(() => {});
+  }, [targetPositionId]);
+
+  const eligibleJobTitles = useMemo(
+    () =>
+      jobTitles.filter(
+        (jt) => jt.isActive && !EXCLUDED_POSITION_NAMES.includes(jt.name),
+      ),
+    [jobTitles],
+  );
+
+  /** True when the qualify candidate filter is active */
+  const qualifyMode = Boolean(targetPositionId && targetTitle);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    return staff.filter((person) => {
+    // In qualify mode — use the 3-step filtered list as the source
+    const source = qualifyMode ? qualifyCandidates : staff;
+    return source.filter((person) => {
       if (!includeArchived && person.status === "archived") {
-        return false;
-      }
-      if (
-        promotionFilter === READY_PROMOTION_FILTER &&
-        !readyPromotionStaffIds.has(person.id)
-      ) {
         return false;
       }
       if (selectedDepartment) {
@@ -285,8 +311,8 @@ export default function StaffDirectoryPage() {
     });
   }, [
     includeArchived,
-    promotionFilter,
-    readyPromotionStaffIds,
+    qualifyMode,
+    qualifyCandidates,
     search,
     selectedDepartment,
     selectedOffice,
@@ -299,14 +325,12 @@ export default function StaffDirectoryPage() {
     search,
     selectedDepartment,
     selectedOffice,
-    promotionFilter,
+    targetPositionId,
     includeArchived,
     pageSize,
   ]);
 
-  const tableLoading =
-    loading ||
-    (promotionFilter === READY_PROMOTION_FILTER && promotionLoading);
+  const tableLoading = loading;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -469,27 +493,6 @@ export default function StaffDirectoryPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
-                    value={promotionFilter}
-                    onChange={(event) =>
-                      changePromotionFilter(event.target.value)
-                    }
-                    className={cn(
-                      "pa-focus-ring h-8 rounded-lg border px-2 text-[10.5px] font-bold",
-                      promotionFilter === READY_PROMOTION_FILTER
-                        ? "border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]"
-                        : "border-[var(--pa-border)] bg-white text-[var(--pa-muted)]",
-                    )}
-                    aria-label="Filter by promotion readiness"
-                  >
-                    <option value="all">All promotion statuses</option>
-                    <option value={READY_PROMOTION_FILTER}>
-                      Ready to Promote
-                      {!promotionLoading && !promotionError
-                        ? ` (${readyPromotionStaffIds.size})`
-                        : ""}
-                    </option>
-                  </select>
-                  <select
                     value={selectedDepartment}
                     onChange={(event) => {
                       setSelectedDepartment(event.target.value);
@@ -532,6 +535,40 @@ export default function StaffDirectoryPage() {
                       </option>
                     ))}
                   </select>
+                  <div className="flex items-center gap-1">
+                    <select
+                      id="qualify-target-position"
+                      value={targetPositionId}
+                      onChange={(event) => setTargetPositionId(event.target.value)}
+                      className={cn(
+                        "pa-focus-ring h-8 rounded-lg border px-2 text-[10.5px] font-bold transition-colors",
+                        targetPositionId
+                          ? "border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[var(--pa-primary)]"
+                          : "border-[var(--pa-border)] bg-white text-[var(--pa-muted)]",
+                      )}
+                      aria-label="Filter qualify candidates by target position"
+                    >
+                      <option value="">Select target position…</option>
+                      {eligibleJobTitles
+                        .sort((a, b) => a.rankOrder - b.rankOrder)
+                        .map((jt) => (
+                          <option key={jt.id} value={jt.id}>
+                            {jt.name}{jt.nameEn ? ` · ${jt.nameEn}` : ""}
+                          </option>
+                        ))}
+                    </select>
+                    {targetPositionId && (
+                      <button
+                        type="button"
+                        onClick={() => setTargetPositionId("")}
+                        className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                        title="Clear target position filter"
+                        aria-label="Clear target position filter"
+                      >
+                        <X size={12} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                   <label className="flex h-8 items-center gap-1.5 rounded-lg border border-[var(--pa-border)] px-2 text-[10.5px] font-bold text-[var(--pa-muted)]">
                     <input
                       type="checkbox"
@@ -544,18 +581,14 @@ export default function StaffDirectoryPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={() =>
-                      void Promise.all([load(), loadPromotionFilter()])
-                    }
-                    disabled={loading || promotionLoading}
+                    onClick={() => void load()}
+                    disabled={loading}
                     aria-label="Refresh staff directory"
                     className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
                   >
                     <RefreshCw
                       size={14}
-                      className={
-                        loading || promotionLoading ? "animate-spin" : ""
-                      }
+                      className={loading ? "animate-spin" : ""}
                       aria-hidden="true"
                     />
                   </button>
@@ -573,37 +606,42 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {promotionFilter === READY_PROMOTION_FILTER &&
-              promotionError ? (
-                <div
-                  role="alert"
-                  className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center"
-                >
-                  <CircleAlert
-                    size={22}
-                    className="text-[var(--pa-danger)]"
-                    aria-hidden="true"
-                  />
-                  <div className="mt-3 text-[12px] font-extrabold text-[var(--pa-text)]">
-                    Promotion readiness is unavailable
+              {/* ── Qualify mode banner ────────────────────────── */}
+              {qualifyMode && targetTitle && (
+                <div className="flex items-center gap-3 border-b border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] px-5 py-2 sm:px-6">
+                  <Award size={13} className="shrink-0 text-[var(--pa-primary)]" aria-hidden="true" />
+                  <span className="text-[11px] font-extrabold text-[var(--pa-primary)]">
+                    Qualify Candidate
+                  </span>
+                  <span className="text-[11px] font-semibold text-[var(--pa-muted)]">·</span>
+                  <span className="text-[11px] font-semibold text-[var(--pa-text)]" dir="auto">
+                    {targetTitle.name}
+                    {targetTitle.nameEn ? (
+                      <span className="ml-1.5 font-normal text-[var(--pa-muted)]">{targetTitle.nameEn}</span>
+                    ) : null}
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="inline-flex h-5 items-center rounded-full bg-[var(--pa-primary)] px-2 text-[9.5px] font-extrabold text-white">
+                      {qualifyCandidates.length} qualified
+                    </span>
+                    <span className="text-[9.5px] font-semibold italic text-[var(--pa-muted)]">sorted by performance</span>
+                    <button
+                      type="button"
+                      onClick={() => setTargetPositionId("")}
+                      className="pa-focus-ring ml-1 flex size-5 items-center justify-center rounded-full text-[var(--pa-primary)] transition-colors hover:bg-[var(--pa-primary)] hover:text-white"
+                      title="Clear qualify filter"
+                      aria-label="Clear qualify filter"
+                    >
+                      <X size={11} aria-hidden="true" />
+                    </button>
                   </div>
-                  <p className="mt-1 max-w-[340px] text-[10.5px] leading-5 text-[var(--pa-muted)]">
-                    The officer records loaded, but the promotion filter could not be applied.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void loadPromotionFilter()}
-                    className="pa-focus-ring mt-3 inline-flex h-8 items-center rounded-lg border border-[var(--pa-border)] px-3 text-[10.5px] font-extrabold text-[var(--pa-text)] transition-colors hover:border-[var(--pa-border-strong)]"
-                  >
-                    Try again
-                  </button>
                 </div>
-              ) : tableLoading ? (
+              )}
+
+              {tableLoading ? (
                 <div className="flex min-h-[260px] items-center justify-center gap-2 text-[12px] font-semibold text-[var(--pa-muted)]">
                   <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                  {loading
-                    ? "Loading officer records…"
-                    : "Checking promotion readiness…"}
+                  Loading officer records…
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
@@ -613,192 +651,205 @@ export default function StaffDirectoryPage() {
                     aria-hidden="true"
                   />
                   <div className="mt-3 text-[12px] font-extrabold text-[var(--pa-text)]">
-                    {promotionFilter === READY_PROMOTION_FILTER
-                      ? "No officers are ready to promote"
-                      : "No officers found"}
+                    {qualifyMode ? "No qualified candidates" : "No officers found"}
                   </div>
                   <p className="mt-1 max-w-[280px] text-[10.5px] leading-5 text-[var(--pa-muted)]">
-                    {promotionFilter === READY_PROMOTION_FILTER
-                      ? "No active officer currently meets every skill required for the next position level."
+                    {qualifyMode
+                      ? "No active officer meets all three criteria (N-1 rank, performance ≥ 80, required skills)."
                       : "Try a different name, employee ID, or department filter."}
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1100px] border-collapse text-left">
+                    <table className="w-full min-w-[860px] border-collapse text-left">
                       <thead>
                         <tr className="border-b border-[var(--pa-border)] bg-[var(--pa-canvas)]">
-                          <th className="px-6 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                          <th className="w-12 px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
                             No.
                           </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                          <th className="px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
                             Officer
                           </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
-                            Employee ID
+                          <th className="px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                            Position
                           </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
-                            Position &amp; placement
-                          </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
-                            Gender
-                          </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
-                            Education
-                          </th>
-                          <th className="px-4 py-3 text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
-                            Joined date
-                          </th>
-                          <th className="px-6 py-3 text-right text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                          {qualifyMode && (
+                            <th className="px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-primary)]">
+                              Performance
+                            </th>
+                          )}
+                          {!qualifyMode && (
+                            <th className="px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
+                              Joined
+                            </th>
+                          )}
+                          <th className="px-5 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--pa-muted)]">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--pa-border)]">
-                        {paginated.map((person, index) => (
-                          <tr
-                            key={person.id}
-                            className="transition-colors hover:bg-[var(--pa-canvas)]"
-                          >
-                            <td className="px-6 py-4 text-[13.5px] font-extrabold tracking-[0.06em] text-[var(--pa-gold)] [font-variant-numeric:tabular-nums]">
-                              {String((currentPage - 1) * pageSize + index + 1).padStart(2, "0")}
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[12px] font-extrabold text-[var(--pa-primary)]">
-                                  {person.photoUrl ? (
-                                    <img
-                                      src={person.photoUrl}
-                                      alt=""
-                                      className="size-full object-cover"
-                                    />
-                                  ) : (
-                                    (person.nameEn || person.name).charAt(0).toUpperCase()
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className="truncate text-[15px] font-extrabold text-[var(--pa-text)]"
-                                      dir="auto"
-                                    >
-                                      {person.name}
-                                    </span>
-                                    {person.status === "archived" && (
-                                      <StatusBadge tone="danger">
-                                        Archived
-                                      </StatusBadge>
+                        {paginated.map((person, index) => {
+                          const score = qualifyMode ? getPerformanceScore(person.id) : null;
+                          const tone = score !== null ? getPerformanceTone(score) : null;
+                          const isQualified = qualifyMode;
+                          const perfColor =
+                            tone === "success" ? "var(--pa-primary)" :
+                            tone === "warning" ? "#c08c00" : "var(--pa-danger)";
+                          return (
+                            <tr
+                              key={person.id}
+                              className={cn(
+                                "transition-colors hover:bg-[var(--pa-canvas)]",
+                                isQualified && "hover:bg-[#f0faf4]",
+                              )}
+                            >
+                              {/* No. */}
+                              <td className="px-5 py-3.5 text-[12px] font-extrabold tracking-[0.06em] text-[var(--pa-gold)] [font-variant-numeric:tabular-nums]">
+                                {String((currentPage - 1) * pageSize + index + 1).padStart(2, "0")}
+                              </td>
+
+                              {/* Officer cell */}
+                              <td className="px-4 py-3.5">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <div className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--pa-primary-border)] bg-[var(--pa-primary-soft)] text-[12px] font-extrabold text-[var(--pa-primary)]">
+                                    {person.photoUrl ? (
+                                      <img src={person.photoUrl} alt="" className="size-full object-cover" />
+                                    ) : (
+                                      (person.nameEn || person.name).charAt(0).toUpperCase()
+                                    )}
+                                    {isQualified && (
+                                      <span
+                                        className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full border-2 border-white bg-[var(--pa-primary)]"
+                                        title="Qualified candidate"
+                                      >
+                                        <Award size={7} className="text-white" aria-hidden="true" />
+                                      </span>
                                     )}
                                   </div>
-                                  {person.nameEn && (
-                                    <div className="truncate text-[12.5px] font-medium text-[var(--pa-faint)]">
-                                      {person.nameEn}
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate text-[13.5px] font-extrabold text-[var(--pa-text)]" dir="auto">
+                                        {person.name}
+                                      </span>
+                                      {person.status === "archived" && (
+                                        <StatusBadge tone="danger">Archived</StatusBadge>
+                                      )}
                                     </div>
-                                  )}
-                                  {readyPromotionStaffIds.has(person.id) && (
-                                    <div className="mt-1">
-                                      <StatusBadge tone="success">
-                                        Ready to Promote
-                                      </StatusBadge>
-                                    </div>
-                                  )}
+                                    {person.nameEn && (
+                                      <div className="truncate text-[11.5px] font-medium text-[var(--pa-faint)]">
+                                        {person.nameEn}
+                                      </div>
+                                    )}
+                                    {/* Employee ID shown inline as a subtle tag */}
+                                    {person.employeeId && (
+                                      <div className="mt-0.5 inline-flex items-center rounded border border-[var(--pa-border)] bg-[var(--pa-canvas)] px-1.5 py-px text-[9.5px] font-bold text-[var(--pa-faint)]">
+                                        #{person.employeeId}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              {person.employeeId ? (
-                                <StatusBadge tone="neutral" dot={false}>
-                                  {person.employeeId}
-                                </StatusBadge>
-                              ) : (
-                                <span className="text-[13.5px] font-medium text-[var(--pa-faint)]">
-                                  —
-                                </span>
+                              </td>
+
+                              {/* Position cell */}
+                              <td className="px-4 py-3.5">
+                                <div className="max-w-[200px] truncate text-[13px] font-semibold text-[var(--pa-text)]" dir="auto">
+                                  {getStaffPositionTitle(person)}
+                                </div>
+                                <div className="mt-0.5 max-w-[180px] truncate text-[11.5px] font-medium text-[var(--pa-faint)]" dir="auto">
+                                  {getStaffLocationLabel(person)}
+                                </div>
+                                {qualifyMode && targetTitle && (
+                                  <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-[var(--pa-primary)]">
+                                    <ChevronRight size={10} aria-hidden="true" />
+                                    {targetTitle.name}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Performance column — qualify mode only */}
+                              {qualifyMode && score !== null && (
+                                <td className="px-4 py-3.5">
+                                  <div className="flex w-28 flex-col gap-1">
+                                    <div className="flex items-center justify-between text-[10px] font-bold">
+                                      <span style={{ color: perfColor }}>{score}%</span>
+                                      <span
+                                        className="rounded px-1 py-px text-[9px] font-bold"
+                                        style={{ color: perfColor, background: tone === "success" ? "var(--pa-primary-soft)" : tone === "warning" ? "#fff7df" : "var(--pa-danger-soft)" }}
+                                      >
+                                        {tone === "success" ? "High" : tone === "warning" ? "Mid" : "Low"}
+                                      </span>
+                                    </div>
+                                    <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--pa-border)]">
+                                      <div
+                                        className="h-full rounded-full transition-all"
+                                        style={{ width: `${score}%`, background: perfColor }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
                               )}
-                            </td>
-                            <td className="px-4 py-4">
-                              <div
-                                className="max-w-[180px] truncate text-[14px] font-semibold text-[var(--pa-text)]"
-                                dir="auto"
-                              >
-                                {getStaffPositionTitle(person)}
-                              </div>
-                              <div
-                                className="mt-1 max-w-[140px] truncate text-[12.5px] font-medium text-[var(--pa-faint)]"
-                                dir="auto"
-                                title="View profile for full placement details"
-                              >
-                                {getStaffLocationLabel(person)}
-                              </div>
-                            </td>
-                            <td
-                              className="px-4 py-4 text-[13.5px] font-semibold text-[var(--pa-text)]"
-                              dir="auto"
-                            >
-                              {GENDER_LABELS[person.gender]}
-                            </td>
-                            <td className="px-4 py-4">
-                              <div
-                                className="max-w-[200px] truncate text-[13.5px] font-semibold text-[var(--pa-text)]"
-                                dir="auto"
-                              >
-                                {person.education ?? "—"}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-[var(--pa-muted)]">
-                                <CalendarDays size={13} aria-hidden="true" />
-                                {formatDate(person.joinedDate)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setProfileTarget(person)}
-                                  title="View profile"
-                                  aria-label={`View profile for ${person.name}`}
-                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
-                                >
-                                  <Eye size={15} strokeWidth={1.9} aria-hidden="true" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setSkillsTarget(person)}
-                                  title="Manage skills"
-                                  aria-label={`Manage skills for ${person.name}`}
-                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
-                                >
-                                  <Award size={15} strokeWidth={1.9} aria-hidden="true" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditing(person);
-                                    setFormOpen(true);
-                                  }}
-                                  title="Edit officer info"
-                                  aria-label={`Edit ${person.name}`}
-                                  className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
-                                >
-                                  <Pencil size={15} strokeWidth={1.9} aria-hidden="true" />
-                                </button>
-                                {person.status !== "archived" && (
+
+                              {/* Joined date — normal mode only */}
+                              {!qualifyMode && (
+                                <td className="px-4 py-3.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--pa-muted)]">
+                                    <CalendarDays size={12} aria-hidden="true" />
+                                    {formatDate(person.joinedDate)}
+                                  </div>
+                                </td>
+                              )}
+
+                              {/* Actions */}
+                              <td className="px-5 py-3.5">
+                                <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => setArchiveTarget(person)}
-                                    title="Archive officer record"
-                                    aria-label={`Archive ${person.name}`}
-                                    className="pa-focus-ring flex size-9 items-center justify-center rounded-lg border border-[var(--pa-danger-border)] text-[var(--pa-danger)] transition-colors hover:bg-[var(--pa-danger-soft)]"
+                                    onClick={() => setProfileTarget(person)}
+                                    title="View profile"
+                                    aria-label={`View profile for ${person.name}`}
+                                    className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
                                   >
-                                    <Archive size={15} strokeWidth={1.9} aria-hidden="true" />
+                                    <Eye size={14} strokeWidth={1.9} aria-hidden="true" />
                                   </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSkillsTarget(person)}
+                                    title="Manage skills"
+                                    aria-label={`Manage skills for ${person.name}`}
+                                    className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                                  >
+                                    <Award size={14} strokeWidth={1.9} aria-hidden="true" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditing(person);
+                                      setFormOpen(true);
+                                    }}
+                                    title="Edit officer"
+                                    aria-label={`Edit ${person.name}`}
+                                    className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-border)] text-[var(--pa-muted)] transition-colors hover:border-[var(--pa-border-strong)] hover:text-[var(--pa-text)]"
+                                  >
+                                    <Pencil size={14} strokeWidth={1.9} aria-hidden="true" />
+                                  </button>
+                                  {person.status !== "archived" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setArchiveTarget(person)}
+                                      title="Archive officer"
+                                      aria-label={`Archive ${person.name}`}
+                                      className="pa-focus-ring flex size-8 items-center justify-center rounded-lg border border-[var(--pa-danger-border)] text-[var(--pa-danger)] transition-colors hover:bg-[var(--pa-danger-soft)]"
+                                    >
+                                      <Archive size={14} strokeWidth={1.9} aria-hidden="true" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -872,7 +923,6 @@ export default function StaffDirectoryPage() {
         onOpenChange={(open) => {
           if (!open) {
             setSkillsTarget(null);
-            void loadPromotionFilter();
           }
         }}
       />

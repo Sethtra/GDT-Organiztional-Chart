@@ -7,25 +7,20 @@ import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
 import DashboardMetricGrid from "../components/admin/dashboard/DashboardMetricGrid";
 import DepartmentCoveragePanel from "../components/admin/dashboard/DepartmentCoveragePanel";
-import PromotionCandidatesPanel from "../components/admin/dashboard/PromotionCandidatesPanel";
 import RecentActivityPanel from "../components/admin/dashboard/RecentActivityPanel";
 import { StatusBadge } from "../components/admin/dashboard/DashboardPrimitives";
 import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPanel";
 import { useRecentActivity } from "../hooks/useRecentActivity";
-import { usePromotionReadiness } from "../hooks/usePromotionReadiness";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
 import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
-import { useVacantPositions } from "../hooks/useVacantPositions";
 import "./AdminDashboardTestPage.css";
 
 export default function AdminDashboardPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const promotion = usePromotionReadiness();
   const workforce = useWorkforceMetrics();
   const activity = useRecentActivity();
   const coverage = useDepartmentCoverage();
-  const vacant = useVacantPositions(promotion.candidates);
 
   // Filtering is now handled inside RecentActivityPanel to keep this page lean.
 
@@ -108,18 +103,11 @@ export default function AdminDashboardPage() {
             hasError={workforce.hasError}
           />
 
-          <div className="mb-4 grid gap-4 xl:grid-cols-12">
+          <div className="mb-4">
             <WorkforceTrendPanel
               years={workforce.years}
               loading={workforce.loading}
               hasError={workforce.hasError}
-            />
-            <PromotionCandidatesPanel
-              candidates={promotion.candidates}
-              loading={promotion.loading}
-              hasError={promotion.hasError}
-              hasMatchingVacancy={vacant.hasMatchingVacancy}
-              vacantLoading={vacant.loading}
             />
           </div>
 
