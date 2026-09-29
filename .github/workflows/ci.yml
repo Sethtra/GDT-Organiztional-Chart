@@ -15,6 +15,11 @@ jobs:
     name: Lint, Typecheck & Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+      VITE_HR_FEATURES_ENABLED: 'true'
+      VITE_CHART_VERSION_WRITES_ENABLED: 'false'
 
     steps:
       - name: Checkout repository
@@ -40,8 +45,3 @@ jobs:
 
       - name: Verify production build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          VITE_HR_FEATURES_ENABLED: 'true'
-          VITE_CHART_VERSION_WRITES_ENABLED: 'false'
