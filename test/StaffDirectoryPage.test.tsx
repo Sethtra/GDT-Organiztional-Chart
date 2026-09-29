@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -288,8 +288,6 @@ vi.mock("../src/services/jobArchitectureService", () => ({
 
 
 import StaffDirectoryPage from "../src/pages/StaffDirectoryPage";
-import { listPromotionReadiness } from "../src/services/promotionReadinessService";
-import { listHrStaff } from "../src/services/staffService";
 
 describe("Staff Directory", () => {
   it("renders the qualify target position filter and allows selection", async () => {

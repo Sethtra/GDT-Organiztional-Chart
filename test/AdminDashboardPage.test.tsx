@@ -80,7 +80,6 @@ vi.mock("../src/services/activityLogService", () => ({
 }));
 
 import AdminDashboardPage from "../src/pages/AdminDashboardPage";
-import { listPromotionReadiness } from "../src/services/promotionReadinessService";
 import { listHrStaff } from "../src/services/staffService";
 
 describe("AdminDashboardPage", () => {
