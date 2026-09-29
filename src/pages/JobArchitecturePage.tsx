@@ -39,7 +39,7 @@ import {
 } from "../services/skillService";
 import { cn } from "../lib/utils";
 import { getPositionNameEn } from "../data/nodeTypes";
-import "./AdminDashboardTestPage.css";
+import "./AdminDashboardPage.css";
 
 
 const PROFICIENCY_LABELS: Record<ProficiencyLevel, string> = {

@@ -27,7 +27,7 @@ import RegisterFolderCard from "../components/dashboard/RegisterFolderCard";
 import ConfirmModal from "../components/ConfirmModal";
 import ShareModal from "../components/ShareModal";
 import MoveModal from "../components/MoveModal";
-import "./DashboardTestPage.css";
+import "./DashboardPage.css";
 
 const BASE_PATH = "/dashboard";
 const VIEW_MODE_KEY = "gdt_register_view_mode";

@@ -1,0 +1,37 @@
+/* The `--pa-*` tokens and `pa-*` utilities now live in the shared theme file so
+   other surfaces can adopt the same design system. This file keeps only the
+   admin shell's own layout rules. */
+@import "../styles/pa-theme.css";
+
+.admin-dashboard-test {
+  height: 100dvh;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--pa-canvas);
+}
+
+@media (pointer: coarse) {
+  .admin-dashboard-test button,
+  .admin-dashboard-test a[href],
+  .admin-dashboard-test input,
+  .admin-dashboard-test select,
+  .admin-dashboard-test textarea {
+    min-height: 44px;
+  }
+
+  .admin-dashboard-test input,
+  .admin-dashboard-test select,
+  .admin-dashboard-test textarea {
+    font-size: 16px;
+  }
+
+  .admin-dashboard-test button,
+  .admin-dashboard-test a[href] {
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  .admin-dashboard-test footer {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}

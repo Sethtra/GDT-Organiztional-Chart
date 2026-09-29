@@ -24,7 +24,7 @@ import { cn } from "../lib/utils";
 import { useAuth } from "../hooks/useAuth";
 import { useChart } from "../hooks/useChart";
 import { useHrAdmin } from "../hooks/useHrAdmin";
-import "./LandingTestPage.css";
+import "./LandingPage.css";
 
 type BadgeTone = "success" | "warning" | "info" | "neutral";
 

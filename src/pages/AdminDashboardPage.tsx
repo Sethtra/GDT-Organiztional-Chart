@@ -13,7 +13,7 @@ import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPan
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
 import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
-import "./AdminDashboardTestPage.css";
+import "./AdminDashboardPage.css";
 
 export default function AdminDashboardPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="flex h-10 items-center gap-2 rounded-[9px] border border-[var(--pa-border)] bg-white px-3 text-[11.5px] font-bold text-[var(--pa-muted)]">
                 <CalendarDays size={15} aria-hidden="true" />
-                31 July 2026
+                {new Intl.DateTimeFormat("en-US", { day: "numeric", month: "long", year: "numeric" }).format(new Date())}
               </div>
               <Link
                 to="/admin/staff"

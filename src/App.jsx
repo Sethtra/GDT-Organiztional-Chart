@@ -3,10 +3,11 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 import { TabProvider } from './contexts/TabProvider';
 import ProtectedRoute from './components/editor/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import EditorShell from './components/editor/EditorShell';
 import HrAdminRoute from './components/HrAdminRoute';
-import LandingTestPage from './pages/LandingTestPage';
-import DashboardTestPage from './pages/DashboardTestPage';
+import LandingPage from './pages/LandingPage';
+import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import LoginTestPage from './pages/LoginTestPage';
 import RegisterPage from './pages/RegisterPage';
@@ -20,7 +21,7 @@ import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminActivityPage from './pages/AdminActivityPage';
-import ChartEditorTestPage from './pages/ChartEditorTestPage';
+import ChartEditorPage from './pages/ChartEditorPage';
 
 /**
  * Main layout: renders Routes for all pages, plus a persistent EditorShell
@@ -34,7 +35,7 @@ function AppLayout() {
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         <Routes>
           {/* ── Public routes ────────────────────────────── */}
-          <Route path="/" element={<LandingTestPage />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/test-login" element={<LoginTestPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -47,7 +48,9 @@ function AppLayout() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardTestPage />
+                <ErrorBoundary>
+                  <DashboardPage />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -55,7 +58,9 @@ function AppLayout() {
             path="/dashboard/folder/:folderId"
             element={
               <ProtectedRoute>
-                <DashboardTestPage />
+                <ErrorBoundary>
+                  <DashboardPage />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -63,7 +68,9 @@ function AppLayout() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <ProfilePage />
+                <ErrorBoundary>
+                  <ProfilePage />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />
@@ -78,7 +85,9 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <HrAdminRoute>
-                  <AdminDashboardPage />
+                  <ErrorBoundary>
+                    <AdminDashboardPage />
+                  </ErrorBoundary>
                 </HrAdminRoute>
               </ProtectedRoute>
             }
@@ -88,7 +97,9 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <HrAdminRoute>
-                  <AdminOrgStructurePage />
+                  <ErrorBoundary>
+                    <AdminOrgStructurePage />
+                  </ErrorBoundary>
                 </HrAdminRoute>
               </ProtectedRoute>
             }
@@ -98,7 +109,9 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <HrAdminRoute>
-                  <StaffDirectoryPage />
+                  <ErrorBoundary>
+                    <StaffDirectoryPage />
+                  </ErrorBoundary>
                 </HrAdminRoute>
               </ProtectedRoute>
             }
@@ -108,7 +121,9 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <HrAdminRoute>
-                  <JobArchitecturePage />
+                  <ErrorBoundary>
+                    <JobArchitecturePage />
+                  </ErrorBoundary>
                 </HrAdminRoute>
               </ProtectedRoute>
             }
@@ -118,18 +133,20 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <HrAdminRoute>
-                  <AdminActivityPage />
+                  <ErrorBoundary>
+                    <AdminActivityPage />
+                  </ErrorBoundary>
                 </HrAdminRoute>
               </ProtectedRoute>
             }
           />
           {/* ── Design sandboxes — never wired into the live routes ── */}
-          <Route path="/test-landing" element={<LandingTestPage />} />
+          <Route path="/test-landing" element={<LandingPage />} />
           <Route
             path="/test-dashboard"
             element={
               <ProtectedRoute>
-                <DashboardTestPage />
+                <DashboardPage />
               </ProtectedRoute>
             }
           />
@@ -137,11 +154,11 @@ function AppLayout() {
             path="/test-dashboard/folder/:folderId"
             element={
               <ProtectedRoute>
-                <DashboardTestPage />
+                <DashboardPage />
               </ProtectedRoute>
             }
           />
-          <Route path="/test-chart-editor" element={<ChartEditorTestPage />} />
+          <Route path="/test-chart-editor" element={<ChartEditorPage />} />
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

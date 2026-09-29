@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import {
   Background,
@@ -51,6 +52,8 @@ import { useChartLoad } from '../../hooks/useChartLoad';
 import { useChartNodeFocus } from '../../hooks/useChartNodeFocus';
 import { useNodeOperations } from '../../hooks/useNodeOperations';
 import { useNodeResizeSnap } from '../../hooks/useNodeResizeSnap';
+import { useCanvasInteractions } from '../../hooks/useCanvasInteractions';
+import { useFlowAppModals } from '../../hooks/useFlowAppModals';
 
 import { TabContext } from '../../contexts/TabContext';
 import { ChartContext } from '../../contexts/ChartContext';
@@ -61,7 +64,7 @@ import { TYPE_META } from '../../data/nodeTypes';
 import { supabase } from '../../supabaseClient';
 import { DEFAULT_EDGE_OPTIONS, withoutRelationalIds } from '../../utils/chartData';
 import { computeChartHierarchy } from '../../utils/chartHierarchy';
-import { getNodeAlignmentGuides } from '../../utils/nodeAlignment';
+// nodeAlignment is now consumed inside useCanvasInteractions
 
 const nodeTypes = { orgNode: OrgNode };
 const edgeTypes = { custom: CustomEdge };
@@ -122,18 +125,23 @@ export default function FlowApp({
 
   const [collapsedNodes, setCollapsedNodes] = useState(new Set());
   const [searchHighlights, setSearchHighlights] = useState([]);
-  const [showSearch, setShowSearch] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [contextMenu, setContextMenu] = useState(null);
-  const [confirmModal, setConfirmModal] = useState(null);
-  const [showShare, setShowShare] = useState(false);
   const [chartIsPublic, setChartIsPublic] = useState(false);
   const [canEdit, setCanEdit] = useState(true);
   const [canViewProfiles, setCanViewProfiles] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [linkedChartPopup, setLinkedChartPopup] = useState(null); // { node, x, y }
-  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
-  const backupFileInputRef = useRef(null);
+
+  // ── Extracted modal/overlay state ──────────────────────────────
+  const {
+    showSearch, setShowSearch,
+    showShortcuts, setShowShortcuts,
+    showShare, setShowShare,
+    contextMenu, setContextMenu,
+    confirmModal, setConfirmModal,
+    linkedChartPopup, setLinkedChartPopup,
+    isVersionHistoryOpen, setIsVersionHistoryOpen,
+    backupFileInputRef,
+    showConfirm,
+  } = useFlowAppModals();
 
   // Tracks what's currently saved on the server so the persist effect can
   // tell "nothing changed" from "needs saving" without re-sending identical data.
@@ -285,44 +293,54 @@ export default function FlowApp({
     setCollapsedNodes,
   });
 
-  // ── Alignment guides ────────────────────────────────────────────
-  // Figma/Visio-style smart guides: snap the dragged node onto any visible
-  // sibling's edge/centre line — or the position grid — the moment it's
-  // within tolerance, and surface whichever matched for AlignmentGuides to
-  // render. Grid and sibling alignment are ONE candidate pool (see
-  // nodeAlignment.js), not the grid rounding unconditionally with guides
-  // layered on top: snapToGrid/snapGrid are deliberately gone from the
-  // <ReactFlow> props below, so movement is free everywhere except near an
-  // actual candidate line. An unconditional round can put a node's
-  // position out of a sibling's alignment tolerance for good (half a 20px
-  // cell can exceed a 6px threshold) even when the two are dragged
-  // together, which is what made every drag feel like it "always defined a
-  // place for it" rather than following the pointer.
-  //
-  // Applied in BOTH onNodeDrag and onNodeDragStop, not just the former:
-  // xyflow's drag-end doesn't fire another onNodeDrag before
-  // onNodeDragStop, so a version that only snapped in onNodeDrag left the
-  // final dropped position wherever the pointer released — every guide
-  // during the drag was cosmetically correct and the one position the user
-  // actually looks at afterward was not.
-  const [alignmentGuides, setAlignmentGuides] = useState({ guideX: null, guideY: null });
-  const dragGuideFrameRef = useRef(null);
+  // ── Canvas interactions (alignment, drag, click, search fly-to) ─
+  const {
+    alignmentGuides,
+    setAlignmentGuides,
+    clearResizeGuides,
+    onNodeDrag,
+    onNodeDragStop,
+    dragGuideFrameRef,
+    openNodeProperties,
+    onNodeClick,
+    onEdgeClick,
+    onPaneClick,
+    onNodeContextMenu,
+    handleFlyTo,
+    handleLocatedNode,
+  } = useCanvasInteractions({
+    visibleNodes,
+    nodes,
+    canEdit,
+    previewMode,
+    canViewProfiles,
+    setNodes,
+    setSelectedNodes,
+    setSelectedEdge,
+    setShowNodePanel,
+    setContextMenu,
+    setLinkedChartPopup,
+    setCollapsedNodes,
+    setSearchHighlights,
+    setShowSearch,
+    setProfileNodeId,
+    setProfileStaffId,
+    getZoom,
+    setCenter,
+    gridSize: GRID_SIZE,
+    alignmentThresholdPx: ALIGNMENT_THRESHOLD_PX,
+    nodesRef,
+    TYPE_META,
+  });
 
+  // Clean up the animation frame on unmount
   useEffect(() => {
     return () => {
       if (dragGuideFrameRef.current != null) {
         cancelAnimationFrame(dragGuideFrameRef.current);
       }
     };
-  }, []);
-
-  const clearResizeGuides = useCallback(() => {
-    if (dragGuideFrameRef.current != null) {
-      cancelAnimationFrame(dragGuideFrameRef.current);
-      dragGuideFrameRef.current = null;
-    }
-    setAlignmentGuides({ guideX: null, guideY: null });
-  }, []);
+  }, [dragGuideFrameRef]);
 
   const onNodeResize = useNodeResizeSnap({
     getNodes,
@@ -330,78 +348,6 @@ export default function FlowApp({
     setNodes,
     setGuides: setAlignmentGuides,
   });
-
-  const applyAlignmentSnap = useCallback(
-    (node, commit = false) => {
-      const dragged = {
-        x: node.position.x,
-        y: node.position.y,
-        width: node.measured?.width ?? node.width ?? 0,
-        height: node.measured?.height ?? node.height ?? 0,
-      };
-      const others = visibleNodes
-        .filter((n) => n.id !== node.id)
-        .map((n) => ({
-          x: n.position.x,
-          y: n.position.y,
-          width: n.measured?.width ?? n.width ?? 0,
-          height: n.measured?.height ?? n.height ?? 0,
-        }));
-
-      const threshold = ALIGNMENT_THRESHOLD_PX / Math.max(getZoom(), 0.01);
-      const { deltaX, deltaY, guideX, guideY } = getNodeAlignmentGuides(
-        dragged,
-        others,
-        threshold,
-        GRID_SIZE,
-      );
-
-      if (commit) {
-        if (dragGuideFrameRef.current != null) {
-          cancelAnimationFrame(dragGuideFrameRef.current);
-          dragGuideFrameRef.current = null;
-        }
-        setAlignmentGuides({ guideX: null, guideY: null });
-
-        if (deltaX !== 0 || deltaY !== 0) {
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === node.id
-                ? {
-                    ...n,
-                    position: {
-                      x: n.position.x + deltaX,
-                      y: n.position.y + deltaY,
-                    },
-                  }
-                : n,
-            ),
-          );
-        }
-      } else {
-        if (dragGuideFrameRef.current != null) {
-          cancelAnimationFrame(dragGuideFrameRef.current);
-        }
-        dragGuideFrameRef.current = requestAnimationFrame(() => {
-          setAlignmentGuides({ guideX, guideY });
-          dragGuideFrameRef.current = null;
-        });
-      }
-    },
-    [visibleNodes, setNodes, getZoom],
-  );
-
-  const onNodeDrag = useCallback(
-    (_event, node) => applyAlignmentSnap(node, false),
-    [applyAlignmentSnap],
-  );
-
-  const onNodeDragStop = useCallback(
-    (_event, node) => {
-      applyAlignmentSnap(node, true);
-    },
-    [applyAlignmentSnap],
-  );
 
 
   // Creating or duplicating a node is itself an explicit edit action, so
@@ -455,83 +401,6 @@ export default function FlowApp({
     [],
   );
 
-  const openNodeProperties = useCallback(
-    (nodeId) => {
-      const node = nodesRef.current.find((candidate) => candidate.id === nodeId);
-      if (!node) return;
-
-      setSelectedNodes([node]);
-      setSelectedEdge(null);
-      setNodes((currentNodes) =>
-        currentNodes.map((candidate) => ({
-          ...candidate,
-          selected: candidate.id === nodeId,
-        })),
-      );
-      setShowNodePanel(true);
-      setLinkedChartPopup(null);
-    },
-    [nodesRef, setNodes],
-  );
-
-  const onNodeClick = useCallback((evt, node) => {
-    if (
-      document.activeElement &&
-      (document.activeElement.tagName === 'INPUT' ||
-        document.activeElement.tagName === 'TEXTAREA')
-    ) {
-      document.activeElement.blur();
-    }
-    setContextMenu(null);
-    // A plain click only selects (for drag/copy/delete/shortcuts) — it must
-    // not surface the properties panel. Only an explicit edit action does.
-    setShowNodePanel(false);
-    if (node.data.linkedChartId) {
-      setLinkedChartPopup({ node, x: evt.clientX, y: evt.clientY });
-    } else {
-      setLinkedChartPopup(null);
-    }
-  }, []);
-
-  const onEdgeClick = useCallback(() => {
-    if (
-      document.activeElement &&
-      (document.activeElement.tagName === 'INPUT' ||
-        document.activeElement.tagName === 'TEXTAREA')
-    ) {
-      document.activeElement.blur();
-    }
-  }, []);
-
-  const onPaneClick = useCallback(() => {
-    if (
-      document.activeElement &&
-      (document.activeElement.tagName === 'INPUT' ||
-        document.activeElement.tagName === 'TEXTAREA')
-    ) {
-      document.activeElement.blur();
-    }
-    setContextMenu(null);
-    setShowNodePanel(false);
-  }, []);
-
-  const onNodeContextMenu = useCallback(
-    (evt, node) => {
-      if (
-        document.activeElement &&
-        (document.activeElement.tagName === 'INPUT' ||
-          document.activeElement.tagName === 'TEXTAREA')
-      ) {
-        document.activeElement.blur();
-      }
-      evt.preventDefault();
-      const isPerson = !!TYPE_META[node.data?.orgType]?.isPerson;
-      if (!canEdit && !isPerson) return;
-      setContextMenu({ x: evt.clientX, y: evt.clientY, nodeId: node.id });
-    },
-    [canEdit],
-  );
-
   const onEdgeDoubleClick = useCallback(
     (_evt, edge) => {
       takeSnapshot();
@@ -539,34 +408,6 @@ export default function FlowApp({
       setSelectedEdge(null);
     },
     [setEdges, takeSnapshot],
-  );
-
-  const showConfirm = (title, message, onConfirm, danger = false) => {
-    setConfirmModal({ title, message, onConfirm, danger });
-  };
-
-  // Search fly-to
-  const handleFlyTo = useCallback(
-    (node) => {
-      setCenter(node.position.x + 100, node.position.y + 50, {
-        zoom: 1.2,
-        duration: 600,
-      });
-    },
-    [setCenter],
-  );
-
-  const handleLocatedNode = useCallback(
-    (node) => {
-      setCollapsedNodes(new Set());
-      setSearchHighlights([node.id]);
-      setShowSearch(false);
-      setContextMenu(null);
-      setProfileNodeId(null);
-      setProfileStaffId(null);
-      handleFlyTo(node);
-    },
-    [handleFlyTo],
   );
 
   useChartNodeFocus({

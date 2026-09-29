@@ -42,7 +42,7 @@ import {
   getPerformanceTone,
   PERFORMANCE_THRESHOLD,
 } from "../utils/performanceScore";
-import "./AdminDashboardTestPage.css";
+import "./AdminDashboardPage.css";
 
 type BadgeTone = "success" | "warning" | "info" | "neutral" | "danger";
 

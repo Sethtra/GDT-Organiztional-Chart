@@ -23,8 +23,8 @@ import { ToastContainer, ToastMessage } from "../components/ui/Toast";
 import { cn } from "../lib/utils";
 import { OrgUnit, useOrgStructure } from "../hooks/useOrgStructure";
 import { supabase } from "../supabaseClient";
-import "./AdminDashboardTestPage.css";
-import "./AdminOrgStructureTestPage.css";
+import "./AdminDashboardPage.css";
+import "./AdminOrgStructurePage.css";
 
 const PAGE_SIZE = 7;
 const OFFICE_PAGE_SIZE = 7;

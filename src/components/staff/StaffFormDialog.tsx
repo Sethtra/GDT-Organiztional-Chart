@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  BookOpen,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
@@ -28,6 +29,7 @@ import {
   saveStaff,
   uploadStaffPhoto,
 } from "../../services/staffService";
+import { loadStaffProfile } from "../../services/staffProfileService";
 import { getPositionNameEn } from "../../data/nodeTypes";
 import { cn } from "../../lib/utils";
 import { ImagePrepError, validateOfficerPhotoFile } from "../../utils/imagePrep";
@@ -63,6 +65,7 @@ interface StaffDraft {
   retiredDate: string;
   gender: StaffInput["gender"];
   education: string;
+  major: string;
   email: string;
   phone: string;
   address: string;
@@ -73,7 +76,7 @@ interface StaffDraft {
 type FormSection = "personal" | "employment" | "contact";
 
 const SECTION_FIELDS: Record<FormSection, ReadonlyArray<keyof StaffDraft>> = {
-  personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education", "photoUrl"],
+  personal: ["employeeId", "dateOfBirth", "name", "nameEn", "gender", "education", "major", "photoUrl"],
   employment: ["departmentId", "officeId", "jobTitleId", "joinedDate", "retiredDate"],
   contact: ["email", "phone", "address", "otherInformation"],
 };
@@ -102,6 +105,28 @@ const positionOrder = new Map<string, number>(
   approvedPositionNames.map((name, index) => [name, index]),
 );
 
+// Maps skill keyword fragments → likely academic major.
+// Used to auto-suggest a major when editing an officer with existing skills.
+const SKILL_TO_MAJOR_MAP: Array<[keywords: string[], major: string]> = [
+  [["python", "java", "javascript", "typescript", "programming", "software", "developer", "coding", "react", "node", "backend", "frontend"], "Computer Science"],
+  [["data", "analytics", "machine learning", "ai", "artificial intelligence", "statistics", "tableau", "power bi", "excel"], "Data Science / Statistics"],
+  [["network", "cisco", "routing", "switching", "firewall", "cybersecurity", "security", "ethical hacking", "penetration"], "Information Technology / Network Engineering"],
+  [["accounting", "bookkeeping", "auditing", "tax", "financial reporting"], "Accounting"],
+  [["finance", "investment", "banking", "economics", "financial analysis", "treasury"], "Finance / Economics"],
+  [["law", "legal", "legislation", "contract", "regulation", "compliance", "judiciary"], "Law"],
+  [["management", "leadership", "planning", "strategy", "project management", "pmp", "agile"], "Business Administration / Management"],
+  [["hr", "human resource", "recruitment", "training", "payroll", "talent"], "Human Resource Management"],
+  [["marketing", "branding", "advertising", "social media", "seo", "content"], "Marketing / Communication"],
+  [["teaching", "education", "curriculum", "pedagogy", "training delivery"], "Education"],
+  [["engineering", "civil", "structural", "construction", "autocad"], "Civil Engineering"],
+  [["electrical", "electronics", "embedded", "iot", "circuit"], "Electrical / Electronic Engineering"],
+  [["procurement", "supply chain", "logistics", "warehouse", "inventory"], "Supply Chain / Logistics"],
+  [["public health", "health", "medicine", "nurse", "clinical", "pharmacy"], "Public Health / Medicine"],
+  [["khmer", "translation", "linguistics", "language", "interpretation"], "Linguistics / Translation"],
+  [["customs", "tariff", "trade", "import", "export", "gdt", "tax administration"], "Public Finance / Tax Administration"],
+  [["agriculture", "environment", "forestry", "ecology"], "Agriculture / Environmental Science"],
+];
+
 const emptyDraft: StaffDraft = {
   employeeId: "",
   name: "",
@@ -114,6 +139,7 @@ const emptyDraft: StaffDraft = {
   retiredDate: "",
   gender: "male",
   education: "",
+  major: "",
   email: "",
   phone: "",
   address: "",
@@ -140,6 +166,7 @@ function draftFromStaff(staff: HrStaffDirectoryRecord | null): StaffDraft {
     retiredDate: staff.retiredDate ?? "",
     gender: staff.gender === "female" ? "female" : "male",
     education: staff.education ?? "",
+    major: staff.major ?? "",
     email: staff.email ?? "",
     phone: staff.phone ?? "",
     address: staff.address ?? "",
@@ -369,6 +396,7 @@ export default function StaffFormDialog({
   const [duplicates, setDuplicates] = useState<StaffDuplicate[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [skillMajorSuggestions, setSkillMajorSuggestions] = useState<string[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const {
     units,
@@ -392,6 +420,25 @@ export default function StaffFormDialog({
     setActiveSection("personal");
     setError(null);
     setDuplicates([]);
+    setSkillMajorSuggestions([]);
+    if (staff?.id) {
+      void loadStaffProfile(staff.id).then((profile) => {
+        const activeSkillNames = profile.skills
+          .filter((s) => s.effectiveTo === null)
+          .map((s) => s.skill.name.toLowerCase());
+        const suggested = new Set<string>();
+        activeSkillNames.forEach((skillName) => {
+          for (const [keywords, major] of SKILL_TO_MAJOR_MAP) {
+            if (keywords.some((kw) => skillName.includes(kw))) {
+              suggested.add(major);
+            }
+          }
+        });
+        setSkillMajorSuggestions(Array.from(suggested));
+      }).catch(() => {
+        // Non-critical — fail silently
+      });
+    }
   }, [open, staff]);
 
   useEffect(() => {
@@ -504,6 +551,7 @@ export default function StaffFormDialog({
       retiredDate: draft.retiredDate || null,
       gender: draft.gender,
       education: draft.education || null,
+      major: draft.major || null,
       email: draft.email || null,
       phone: draft.phone || null,
       address: draft.address || null,
@@ -779,6 +827,63 @@ export default function StaffFormDialog({
                     <option value="អនុបណ្ឌិត">អនុបណ្ឌិត</option>
                     <option value="បរិញ្ញាបត្រ">បរិញ្ញាបត្រ</option>
                   </select>
+                </label>
+
+                {/* Major (Field of Study) — free-text combobox with suggestions */}
+                <label className={labelClass}>
+                  <span className="flex items-center gap-1.5">
+                    <BookOpen className="size-3 text-[#66716b]" />
+                    Major / Field of Study
+                  </span>
+                  <div className="relative">
+                    <input
+                      id="major-input"
+                      list="major-suggestions"
+                      className={inputClass}
+                      value={draft.major}
+                      onChange={(event) => update("major", event.target.value)}
+                      placeholder="e.g. Computer Science, Law, Finance…"
+                      maxLength={500}
+                      autoComplete="off"
+                    />
+                    <datalist id="major-suggestions">
+                      {skillMajorSuggestions.map((m) => (
+                        <option key={`skill-${m}`} value={m} />
+                      ))}
+                      <option value="Computer Science" />
+                      <option value="Information Technology / Network Engineering" />
+                      <option value="Data Science / Statistics" />
+                      <option value="Accounting" />
+                      <option value="Finance / Economics" />
+                      <option value="Business Administration / Management" />
+                      <option value="Law" />
+                      <option value="Public Finance / Tax Administration" />
+                      <option value="Human Resource Management" />
+                      <option value="Marketing / Communication" />
+                      <option value="Education" />
+                      <option value="Civil Engineering" />
+                      <option value="Electrical / Electronic Engineering" />
+                      <option value="Supply Chain / Logistics" />
+                      <option value="Public Health / Medicine" />
+                      <option value="Linguistics / Translation" />
+                      <option value="Agriculture / Environmental Science" />
+                    </datalist>
+                  </div>
+                  {skillMajorSuggestions.length > 0 && !draft.major && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {skillMajorSuggestions.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => update("major", m)}
+                          className="inline-flex items-center gap-1 rounded-full border border-[#c6e1d1] bg-[#e7f3ec] px-2.5 py-0.5 text-[11px] font-bold text-[#136232] transition hover:bg-[#d0eada] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#136232]/40"
+                        >
+                          <Sparkles className="size-2.5" />
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </label>
               </div>
             )}

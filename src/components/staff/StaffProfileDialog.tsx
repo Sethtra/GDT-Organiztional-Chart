@@ -357,6 +357,11 @@ export default function StaffProfileDialog({
                       label="Education"
                       value={profile.education}
                     />
+                    <ValueRow
+                      icon={<GraduationCap className="size-3.5" />}
+                      label="Major"
+                      value={profile.major}
+                    />
                   </section>
 
                   <section className="rounded-[14px] border border-[#d9e1dc] bg-white p-4">

@@ -17,7 +17,10 @@ export default defineConfig({
   webServer: externalBaseUrl
     ? undefined
     : {
-        command: 'npm.cmd run dev -- --host 127.0.0.1 --port 4173',
+        command:
+          process.platform === 'win32'
+            ? 'npm.cmd run dev -- --host 127.0.0.1 --port 4173'
+            : 'npm run dev -- --host 127.0.0.1 --port 4173',
         url: 'http://127.0.0.1:4173',
         reuseExistingServer: false,
         timeout: 30_000,

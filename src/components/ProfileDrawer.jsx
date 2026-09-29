@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Pencil, Hash, Calendar, Users, Phone, MapPin, Heart, GraduationCap, Sparkles, Briefcase, Contact, ChevronDown, ChevronUp, Clock, FileText } from "lucide-react";
+import { Pencil, Hash, Calendar, Users, Phone, MapPin, Heart, GraduationCap, BookOpen, Sparkles, Briefcase, Contact, ChevronDown, ChevronUp, Clock, FileText } from "lucide-react";
 import { TYPE_META } from "../data/nodeTypes";
 import {
   Dialog,
@@ -124,6 +124,7 @@ function HistoryItem({ record, defaultOpen }) {
             <div className="pp-section" style={{ marginBottom: 12 }}>
               <div className="pp-section-label"><GraduationCap size={11} /> Background</div>
               <Row icon={<GraduationCap size={12} />} label="Education" value={record.education} hideIfEmpty />
+              <Row icon={<BookOpen size={12} />}      label="Major"     value={record.major} hideIfEmpty />
               <Row icon={<Sparkles size={12} />}      label="Skills"    value={record.skill} hideIfEmpty />
             </div>
           )}
@@ -258,6 +259,7 @@ export default function ProfileDrawer({ node, teamSize, canEdit, onEdit, onClose
         <div className="pp-section">
           <div className="pp-section-label"><GraduationCap size={11} /> Background</div>
           <Row icon={<GraduationCap size={12} />} label="Education" value={d.education} />
+          <Row icon={<BookOpen size={12} />}      label="Major"     value={d.major} />
           <Row icon={<Sparkles size={12} />}      label="Skills"    value={d.skill} />
         </div>
           </>

@@ -73,6 +73,7 @@ export const StaffInputSchema = z
     retiredDate: NullableIsoDateSchema,
     gender: GenderSchema,
     education: z.string().trim().max(4_000, 'Education description is too long.').nullable(),
+    major: z.string().trim().max(500, 'Major is too long.').nullable().default(null),
     email: EmailSchema.nullable().default(null),
     phone: z.string().trim().max(50, 'Phone number is too long.').nullable(),
     address: z.string().trim().max(4_000, 'Address is too long.').nullable(),
@@ -165,6 +166,7 @@ export const StaffDirectorySummarySchema = z.object({
 
 export const HrStaffDirectoryRecordSchema = StaffDirectorySummarySchema.extend({
   education: z.string().trim().max(4_000).nullable(),
+  major: z.string().trim().max(500).nullable(),
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
   otherInformation: z.string().trim().max(4_000).nullable(),
@@ -353,6 +355,7 @@ const SharedProfileFieldsSchema = StaffDirectorySummarySchema.extend({
   phone: z.string().trim().max(50).nullable(),
   address: z.string().trim().max(4_000).nullable(),
   education: z.string().trim().max(4_000).nullable(),
+  major: z.string().trim().max(500).nullable(),
   otherInformation: z.string().trim().max(4_000).nullable(),
   assignmentHistory: z.array(AssignmentHistorySchema),
   skills: z.array(StaffSkillSchema),

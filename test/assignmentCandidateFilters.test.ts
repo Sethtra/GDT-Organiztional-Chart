@@ -105,6 +105,7 @@ describe("assignment candidate filters", () => {
       status: "active",
       photoUrl: null,
       education: "Private education",
+      major: null,
       phone: "Private phone",
       address: "Private address",
       otherInformation: "Private notes",
