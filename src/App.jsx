@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
 import { TabProvider } from './contexts/TabProvider';
@@ -160,6 +161,7 @@ export default function App() {
         <TabProvider>
           <BrowserRouter>
             <AppLayout />
+            <Analytics />
           </BrowserRouter>
         </TabProvider>
       </AuthProvider>
