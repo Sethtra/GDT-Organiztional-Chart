@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import type { HrStaffDirectoryRecord } from "../contracts/hr";
 import { listHrStaff } from "../services/staffService";
 import {
   buildWorkforceYears,
@@ -23,6 +24,7 @@ export function useWorkforceMetrics() {
     EMPTY_WORKFORCE_METRICS,
   );
   const [years, setYears] = useState<WorkforceYear[]>([]);
+  const [staffList, setStaffList] = useState<HrStaffDirectoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -36,6 +38,7 @@ export function useWorkforceMetrics() {
       .then((staff) => {
         if (cancelled) return;
 
+        setStaffList(staff);
         const activeStaff = staff.filter((person) => person.status === "active");
         setMetrics({
           total: activeStaff.length,
@@ -58,5 +61,5 @@ export function useWorkforceMetrics() {
     };
   }, []);
 
-  return { metrics, years, loading, hasError };
+  return { metrics, years, staffList, loading, hasError };
 }

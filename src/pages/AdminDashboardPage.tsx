@@ -5,14 +5,21 @@ import { Link } from "react-router-dom";
 import AdminFooter from "../components/admin/AdminFooter";
 import AdminHeader from "../components/admin/AdminHeader";
 import AdminSidebar from "../components/admin/AdminSidebar";
+import AgeDistributionPanel from "../components/admin/dashboard/AgeDistributionPanel";
 import DashboardMetricGrid from "../components/admin/dashboard/DashboardMetricGrid";
 import DepartmentCoveragePanel from "../components/admin/dashboard/DepartmentCoveragePanel";
+import EducationDistributionPanel from "../components/admin/dashboard/EducationDistributionPanel";
+import GenderByDepartmentPanel from "../components/admin/dashboard/GenderByDepartmentPanel";
+import JobTitleDistributionPanel from "../components/admin/dashboard/JobTitleDistributionPanel";
 import RecentActivityPanel from "../components/admin/dashboard/RecentActivityPanel";
+import RecentMovementPanel from "../components/admin/dashboard/RecentMovementPanel";
+import SkillCoveragePanel from "../components/admin/dashboard/SkillCoveragePanel";
 import { StatusBadge } from "../components/admin/dashboard/DashboardPrimitives";
 import WorkforceTrendPanel from "../components/admin/dashboard/WorkforceTrendPanel";
+import { useDashboardAnalytics } from "../hooks/useDashboardAnalytics";
+import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
 import { useRecentActivity } from "../hooks/useRecentActivity";
 import { useWorkforceMetrics } from "../hooks/useWorkforceMetrics";
-import { useDepartmentCoverage } from "../hooks/useDepartmentCoverage";
 import "./AdminDashboardPage.css";
 
 export default function AdminDashboardPage() {
@@ -21,6 +28,10 @@ export default function AdminDashboardPage() {
   const workforce = useWorkforceMetrics();
   const activity = useRecentActivity();
   const coverage = useDepartmentCoverage();
+  const analytics = useDashboardAnalytics(
+    workforce.staffList,
+    workforce.loading,
+  );
 
   // Filtering is now handled inside RecentActivityPanel to keep this page lean.
 
@@ -111,7 +122,8 @@ export default function AdminDashboardPage() {
             />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-12">
+          {/* Row 3: Department coverage + Recent activity */}
+          <div className="mb-4 grid gap-4 xl:grid-cols-12">
             <DepartmentCoveragePanel
               rows={coverage.rows}
               loading={coverage.loading}
@@ -125,6 +137,50 @@ export default function AdminDashboardPage() {
               onClearSearch={() => setQuery("")}
             />
           </div>
+
+          {/* Row 4: Job title distribution + Education levels */}
+          <div className="mb-4 grid gap-4 xl:grid-cols-2">
+            <JobTitleDistributionPanel
+              rows={analytics.jobTitleDistribution}
+              loading={workforce.loading}
+              hasError={workforce.hasError}
+            />
+            <EducationDistributionPanel
+              rows={analytics.educationDistribution}
+              loading={workforce.loading}
+              hasError={workforce.hasError}
+            />
+          </div>
+
+          {/* Row 5: Age distribution + Gender by department */}
+          <div className="mb-4 grid gap-4 xl:grid-cols-2">
+            <AgeDistributionPanel
+              bands={analytics.ageBands}
+              retirementSoonCount={analytics.retirementSoonCount}
+              loading={workforce.loading}
+              hasError={workforce.hasError}
+            />
+            <GenderByDepartmentPanel
+              rows={analytics.genderByDepartment}
+              loading={workforce.loading}
+              hasError={workforce.hasError}
+            />
+          </div>
+
+          {/* Row 6: Recent movement + Skill coverage */}
+          <div className="grid gap-4 xl:grid-cols-12">
+            <div className="flex flex-col xl:col-span-7">
+              <RecentMovementPanel
+                joiners={analytics.recentJoiners}
+                departures={analytics.recentDepartures}
+                loading={workforce.loading}
+                hasError={workforce.hasError}
+              />
+            </div>
+            <div className="flex flex-col xl:col-span-5">
+              <SkillCoveragePanel />
+            </div>
+          </div>
         </main>
 
         <AdminFooter />
@@ -132,3 +188,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

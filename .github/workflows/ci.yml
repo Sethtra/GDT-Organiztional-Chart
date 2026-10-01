@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+      VITE_SUPABASE_URL: ${{ secrets['VITE_SUPABASE_URL'] || 'https://ojuyrhwmgwefwdxdmisr.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets['VITE_SUPABASE_ANON_KEY'] || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qdXlyaHdtZ3dlZndkeGRtaXNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNjI5MTYsImV4cCI6MjA5ODYzODkxNn0.Skj_R5UiMHynSivGQ3Joue0KbsLWWm50Hc8x41HRz3k' }}
       VITE_HR_FEATURES_ENABLED: 'true'
       VITE_CHART_VERSION_WRITES_ENABLED: 'false'
 
