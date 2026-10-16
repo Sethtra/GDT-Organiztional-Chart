@@ -62,28 +62,22 @@ Test at least one backup with **Restore JSON** in staging.
 
 ## 3. Apply migrations to staging in order
 
-1. `migration_core_schema.sql`
-2. `migration_org_structure.sql`
-3. `migrations/2026072701_add_hr_admin_rbac.sql`
-4. `migrations/2026072702_secure_global_staff_directory.sql`
-5. `migrations/2026072703_add_job_titles_and_reporting.sql`
-6. `migrations/2026072704_add_skills_and_requirements.sql`
-7. `migrations/2026072705_add_atomic_assignment_operations.sql`
-8. `migrations/2026072706_add_staff_directory_api.sql`
-9. `migrations/2026072707_add_position_assignment_api.sql`
-10. `migrations/2026072708_add_profile_and_skill_api.sql`
-11. `migrations/2026072709_add_job_architecture_api.sql`
-12. `migrations/2026072710_add_position_configuration_api.sql`
-13. `migrations/2026072911_cleanup_legacy_dummy_staff.sql`
-14. `migrations/2026072912_refine_staff_profile_and_positions.sql`
-15. `migrations/2026072913_add_staff_placements.sql`
-16. `migrations/2026072914_normalize_assignment_dates.sql`
-17. `migrations/2026072915_add_staff_placement_save_api.sql`
-18. `migrations/2026072916_refine_assignment_candidates.sql`
-19. `migrations/2026080401_add_staff_photo.sql`
-20. `migrations/2026073001_add_department_scoped_skill_requirements.sql`
-21. `migrations/2026081101_add_promotion_readiness.sql`
-22. `migrations/2026081102_remove_legacy_skill_rpc_overloads.sql`
+The order is defined once, in `scripts/migration-manifest.json`, which both
+rollout paths read (`deploy-supabase.ps1` with Docker, and
+`direct-database-rollout.mjs` without it). When adding a migration:
+
+- append it to the manifest with the next unused version (never reuse a version
+  listed under `reservedVersions`); `test/rolloutManifest.test.js` fails if any
+  `migrations/*.sql` file is unregistered;
+- wrap it in `BEGIN;` / `COMMIT;` and make every statement safe to re-run
+  (`IF NOT EXISTS`, `DROP POLICY/TRIGGER IF EXISTS`, `CREATE OR REPLACE`), because
+  a staging copy restored without migration history replays everything.
+
+Each rollout records executed versions in
+`supabase_migrations.schema_migrations` and skips versions already recorded.
+Replaying an older migration would overwrite functions a newer migration
+redefined, which is how the 2026-10-16 staff-directory outage happened.
+`npm run db:rollout:check` lists which migrations it would skip and run.
 
 Stop on the first error. Do not continue with later migrations until the staging
 database has been restored to the known backup or the failure has been

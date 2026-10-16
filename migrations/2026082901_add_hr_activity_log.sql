@@ -31,6 +31,8 @@ CREATE INDEX IF NOT EXISTS hr_activity_log_event_type_idx
 REVOKE ALL ON TABLE public.hr_activity_log FROM anon, authenticated;
 GRANT SELECT ON TABLE public.hr_activity_log TO service_role;
 
+DROP POLICY IF EXISTS "HR administrators read activity log"
+  ON public.hr_activity_log;
 CREATE POLICY "HR administrators read activity log"
   ON public.hr_activity_log
   FOR SELECT

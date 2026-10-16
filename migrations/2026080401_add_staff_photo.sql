@@ -65,6 +65,17 @@ CREATE POLICY "HR admins delete from Profile bucket"
 -- prior signatures are kept for service-role recovery/import use only, and
 -- the browser is moved onto the new signatures below.
 
+-- PostgreSQL cannot rename parameters via CREATE OR REPLACE, so drop the
+-- prior 15-arg overload (and its companion) if it already exists.
+DROP FUNCTION IF EXISTS public.save_staff_record(
+  UUID, TEXT, TEXT, TEXT, UUID, DATE, DATE, DATE,
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+);
+DROP FUNCTION IF EXISTS public.save_staff_record_with_placement(
+  UUID, TEXT, TEXT, TEXT, UUID, UUID, UUID, DATE, DATE, DATE,
+  TEXT, TEXT, TEXT, TEXT, TEXT, TEXT
+);
+
 CREATE OR REPLACE FUNCTION public.save_staff_record(
   target_staff_id UUID,
   employee_id_value TEXT,

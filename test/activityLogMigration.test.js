@@ -19,27 +19,25 @@ test('activity log RPC is volatile because it prunes old rows', async () => {
   assert.match(sql, /COMMIT;\s*$/i);
 });
 
-test('activity log migrations are included in both database rollout paths', async () => {
-  const [powershellRollout, directRollout] = await Promise.all([
-    readFile(new URL('../scripts/deploy-supabase.ps1', import.meta.url), 'utf8'),
-    readFile(new URL('../scripts/direct-database-rollout.mjs', import.meta.url), 'utf8'),
-  ]);
-
-  for (const rollout of [powershellRollout, directRollout]) {
-    const migrationNames = [
-      '2026082901_add_hr_activity_log.sql',
-      '2026082902_fix_activity_log_triggers.sql',
-      '2026082903_fix_hr_activity_log_rpc_volatility.sql',
-    ];
-    const migrationIndexes = migrationNames.map((name) => rollout.indexOf(name));
-    assert.ok(
-      migrationIndexes.every((index) => index >= 0),
-      'all activity log migrations must be staged',
-    );
-    assert.ok(
-      migrationIndexes[2] > migrationIndexes[1] &&
-        migrationIndexes[1] > migrationIndexes[0],
-      'activity log migrations must run in dependency order',
-    );
-  }
+test('activity log migrations are included in the shared rollout manifest', async () => {
+  // Both deploy-supabase.ps1 and direct-database-rollout.mjs read this manifest.
+  const manifest = await readFile(
+    new URL('../scripts/migration-manifest.json', import.meta.url),
+    'utf8',
+  );
+  const migrationNames = [
+    '2026082901_add_hr_activity_log.sql',
+    '2026082902_fix_activity_log_triggers.sql',
+    '2026082903_fix_hr_activity_log_rpc_volatility.sql',
+  ];
+  const migrationIndexes = migrationNames.map((name) => manifest.indexOf(name));
+  assert.ok(
+    migrationIndexes.every((index) => index >= 0),
+    'all activity log migrations must be staged',
+  );
+  assert.ok(
+    migrationIndexes[2] > migrationIndexes[1] &&
+      migrationIndexes[1] > migrationIndexes[0],
+    'activity log migrations must run in dependency order',
+  );
 });

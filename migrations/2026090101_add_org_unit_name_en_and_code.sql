@@ -2,6 +2,8 @@
 -- Migration: Add name_en and code columns to org_units
 -- ============================================================
 
+BEGIN;
+
 ALTER TABLE public.org_units ADD COLUMN IF NOT EXISTS name_en TEXT;
 ALTER TABLE public.org_units ADD COLUMN IF NOT EXISTS code TEXT;
 
@@ -65,3 +67,5 @@ WHERE name = 'នាយកដ្ឋានស្រាវជ្រាវ' AND (na
 UPDATE public.org_units
 SET name_en = 'Compliance Department', code = 'CD'
 WHERE name = 'នាយកដ្ឋានអនុលោមភាព' AND (name_en IS NULL OR name_en = '');
+
+COMMIT;

@@ -365,6 +365,7 @@ BEGIN
       'address', staff.address,
       'maritalStatus', coalesce(staff.marital_status, 'unspecified'),
       'otherInformation', staff.other_information,
+      'photoUrl', staff.photo_url,
       'jobTitle', CASE
         WHEN selected_title.id IS NULL THEN NULL
         ELSE jsonb_build_object(
@@ -465,6 +466,7 @@ BEGIN
     'education', staff.education,
     'major', staff.major,
     'otherInformation', staff.other_information,
+    'photoUrl', staff.photo_url,
     'jobTitle', CASE
       WHEN selected_title.id IS NULL THEN NULL
       ELSE jsonb_build_object(

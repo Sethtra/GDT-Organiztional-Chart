@@ -386,35 +386,30 @@ test('promotion readiness is HR-only and evaluates exactly the next title level'
 });
 
 test('database rollout includes scoped skills before promotion readiness', async () => {
-  const powershellRollout = await readFile(
-    new URL('../scripts/deploy-supabase.ps1', import.meta.url),
-    'utf8',
-  );
-  const directRollout = await readFile(
-    new URL('../scripts/direct-database-rollout.mjs', import.meta.url),
+  // Both rollout paths read this shared manifest.
+  const rollout = await readFile(
+    new URL('../scripts/migration-manifest.json', import.meta.url),
     'utf8',
   );
 
-  for (const rollout of [powershellRollout, directRollout]) {
-    const scopedSkillsIndex = rollout.indexOf(
-      '2026073001_add_department_scoped_skill_requirements.sql',
-    );
-    const promotionIndex = rollout.indexOf(
-      '2026081101_add_promotion_readiness.sql',
-    );
-    const overloadCleanupIndex = rollout.indexOf(
-      '2026081102_remove_legacy_skill_rpc_overloads.sql',
-    );
-    assert.ok(scopedSkillsIndex >= 0, 'scoped skill migration must be staged');
-    assert.ok(
-      promotionIndex > scopedSkillsIndex,
-      'promotion readiness must run after scoped skill requirements',
-    );
-    assert.ok(
-      overloadCleanupIndex > promotionIndex,
-      'legacy overload cleanup must run after the scoped RPCs exist',
-    );
-  }
+  const scopedSkillsIndex = rollout.indexOf(
+    '2026073001_add_department_scoped_skill_requirements.sql',
+  );
+  const promotionIndex = rollout.indexOf(
+    '2026081101_add_promotion_readiness.sql',
+  );
+  const overloadCleanupIndex = rollout.indexOf(
+    '2026081102_remove_legacy_skill_rpc_overloads.sql',
+  );
+  assert.ok(scopedSkillsIndex >= 0, 'scoped skill migration must be staged');
+  assert.ok(
+    promotionIndex > scopedSkillsIndex,
+    'promotion readiness must run after scoped skill requirements',
+  );
+  assert.ok(
+    overloadCleanupIndex > promotionIndex,
+    'legacy overload cleanup must run after the scoped RPCs exist',
+  );
 });
 
 test('promotion rollout is isolated from charts, cleanup, imports, and role provisioning', async () => {

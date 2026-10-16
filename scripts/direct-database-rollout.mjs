@@ -10,6 +10,7 @@ import {
   executeStaffWorkbookImport,
   parseStaffWorkbookImport,
 } from './staff-workbook-import.mjs'
+import { planMigrations, readMigrationManifest } from './migration-plan.mjs'
 
 const { Client } = pg
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -61,153 +62,7 @@ if (staffImportFile) {
   )
 }
 
-const migrations = [
-  {
-    version: '20260727000001',
-    name: 'core_schema',
-    file: 'migration_core_schema.sql',
-  },
-  {
-    version: '20260727000002',
-    name: 'org_structure',
-    file: 'migration_org_structure.sql',
-  },
-  {
-    version: '20260727000003',
-    name: 'add_hr_admin_rbac',
-    file: 'migrations/2026072701_add_hr_admin_rbac.sql',
-  },
-  {
-    version: '20260727000004',
-    name: 'secure_global_staff_directory',
-    file: 'migrations/2026072702_secure_global_staff_directory.sql',
-  },
-  {
-    version: '20260727000005',
-    name: 'add_job_titles_and_reporting',
-    file: 'migrations/2026072703_add_job_titles_and_reporting.sql',
-  },
-  {
-    version: '20260727000006',
-    name: 'add_skills_and_requirements',
-    file: 'migrations/2026072704_add_skills_and_requirements.sql',
-  },
-  {
-    version: '20260727000007',
-    name: 'add_atomic_assignment_operations',
-    file: 'migrations/2026072705_add_atomic_assignment_operations.sql',
-  },
-  {
-    version: '20260727000008',
-    name: 'add_staff_directory_api',
-    file: 'migrations/2026072706_add_staff_directory_api.sql',
-  },
-  {
-    version: '20260727000009',
-    name: 'add_position_assignment_api',
-    file: 'migrations/2026072707_add_position_assignment_api.sql',
-  },
-  {
-    version: '20260727000010',
-    name: 'add_profile_and_skill_api',
-    file: 'migrations/2026072708_add_profile_and_skill_api.sql',
-  },
-  {
-    version: '20260727000011',
-    name: 'add_job_architecture_api',
-    file: 'migrations/2026072709_add_job_architecture_api.sql',
-  },
-  {
-    version: '20260727000012',
-    name: 'add_position_configuration_api',
-    file: 'migrations/2026072710_add_position_configuration_api.sql',
-  },
-  {
-    version: '20260727000014',
-    name: 'cleanup_legacy_dummy_staff',
-    file: 'migrations/2026072911_cleanup_legacy_dummy_staff.sql',
-  },
-  {
-    version: '20260727000015',
-    name: 'refine_staff_profile_and_positions',
-    file: 'migrations/2026072912_refine_staff_profile_and_positions.sql',
-  },
-  {
-    version: '20260727000016',
-    name: 'add_staff_placements',
-    file: 'migrations/2026072913_add_staff_placements.sql',
-  },
-  {
-    version: '20260727000017',
-    name: 'normalize_assignment_dates',
-    file: 'migrations/2026072914_normalize_assignment_dates.sql',
-  },
-  {
-    version: '20260727000018',
-    name: 'add_staff_placement_save_api',
-    file: 'migrations/2026072915_add_staff_placement_save_api.sql',
-  },
-  {
-    version: '20260727000019',
-    name: 'refine_assignment_candidates',
-    file: 'migrations/2026072916_refine_assignment_candidates.sql',
-  },
-  {
-    version: '20260727000020',
-    name: 'add_staff_photo',
-    file: 'migrations/2026080401_add_staff_photo.sql',
-  },
-  {
-    version: '20260727000021',
-    name: 'add_department_scoped_skill_requirements',
-    file: 'migrations/2026073001_add_department_scoped_skill_requirements.sql',
-  },
-  {
-    version: '20260727000022',
-    name: 'add_promotion_readiness',
-    file: 'migrations/2026081101_add_promotion_readiness.sql',
-  },
-  {
-    version: '20260727000023',
-    name: 'remove_legacy_skill_rpc_overloads',
-    file: 'migrations/2026081102_remove_legacy_skill_rpc_overloads.sql',
-  },
-  {
-    version: '20260727000024',
-    name: 'add_account_deletion_support',
-    file: 'migrations/2026082002_add_account_deletion_support.sql',
-  },
-  {
-    version: '20260727000025',
-    name: 'add_staff_excel_import',
-    file: 'migrations/2026082101_add_staff_excel_import.sql',
-  },
-  {
-    version: '20260727000026',
-    name: 'fix_staff_import_source_hash',
-    file: 'migrations/2026082102_fix_staff_import_source_hash.sql',
-  },
-  {
-    version: '20260727000027',
-    name: 'normalize_imported_skills',
-    file: 'migrations/2026082103_normalize_imported_skills.sql',
-  },
-  {
-    version: '20260727000028',
-    name: 'add_hr_activity_log',
-    file: 'migrations/2026082901_add_hr_activity_log.sql',
-  },
-  {
-    version: '20260727000029',
-    name: 'fix_activity_log_triggers',
-    file: 'migrations/2026082902_fix_activity_log_triggers.sql',
-  },
-  {
-    version: '20260727000030',
-    name: 'fix_hr_activity_log_rpc_volatility',
-    file: 'migrations/2026082903_fix_hr_activity_log_rpc_volatility.sql',
-  },
-]
+const { migrations } = await readMigrationManifest()
 
 const selectedMigrations = promotionReadinessOnly
   ? migrations.filter((migration) =>
@@ -609,15 +464,23 @@ async function loadMigrations() {
   )
 }
 
-async function recordMigration(client, migration) {
-  const historyResult = await client.query(`
-    SELECT to_regclass('supabase_migrations.schema_migrations') AS history_table
+// Same shape the Supabase CLI creates, so both rollout paths share history.
+async function readAppliedMigrations(client) {
+  await client.query('CREATE SCHEMA IF NOT EXISTS supabase_migrations')
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (
+      version TEXT NOT NULL PRIMARY KEY,
+      statements TEXT[],
+      name TEXT
+    )
   `)
+  const result = await client.query(
+    'SELECT version, name FROM supabase_migrations.schema_migrations',
+  )
+  return result.rows
+}
 
-  if (!historyResult.rows[0]?.history_table) {
-    return
-  }
-
+async function recordMigration(client, migration) {
   await client.query(
     `
       INSERT INTO supabase_migrations.schema_migrations
@@ -633,7 +496,22 @@ async function executeRollout(client, loadedMigrations) {
   await client.query('BEGIN')
 
   try {
-    for (const migration of loadedMigrations) {
+    // Migrations already recorded are never replayed: replaying an older
+    // migration overwrites functions that newer migrations redefined.
+    const { pending, skipped } = planMigrations(
+      loadedMigrations,
+      await readAppliedMigrations(client),
+    )
+    for (const migration of skipped) {
+      process.stdout.write(
+        `Skipping ${migration.version}_${migration.name} (already applied).\n`,
+      )
+    }
+    process.stdout.write(
+      `${pending.length} pending, ${skipped.length} already applied.\n`,
+    )
+
+    for (const migration of pending) {
       process.stdout.write(
         `${applyChanges ? 'Applying' : 'Validating'} ${migration.version}_${migration.name}...\n`,
       )
@@ -703,7 +581,11 @@ async function executeRollout(client, loadedMigrations) {
       await client.query('ROLLBACK')
     }
 
-    return { staffImport }
+    return {
+      staffImport,
+      appliedVersions: pending.map((migration) => migration.version),
+      skippedVersions: skipped.map((migration) => migration.version),
+    }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
     throw error
@@ -771,6 +653,8 @@ try {
     backup_table_count: backup.tableCount,
     backup_row_count: backup.rowCount,
     migration_count: loadedMigrations.length,
+    executed_versions: rollout.appliedVersions,
+    skipped_versions: rollout.skippedVersions,
     hr_admin_provisioned:
       applyChanges && !promotionReadinessOnly && Boolean(hrAdminEmail),
     staff_import: rollout.staffImport,

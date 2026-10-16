@@ -2,6 +2,8 @@
 -- Migration: Add HR Activity Log Triggers for Organizational Units
 -- ============================================================
 
+BEGIN;
+
 -- 1. Trigger function for new organizational unit creation
 CREATE OR REPLACE FUNCTION public._log_org_unit_created()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
@@ -94,3 +96,5 @@ CREATE TRIGGER trg_log_org_unit_updated
     OR OLD.code IS DISTINCT FROM NEW.code
   )
   EXECUTE FUNCTION public._log_org_unit_updated();
+
+COMMIT;

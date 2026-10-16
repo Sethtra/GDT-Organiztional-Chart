@@ -252,114 +252,16 @@ foreach ($backupFile in $backupFiles) {
   }
 }
 
+# Single source of truth shared with scripts/direct-database-rollout.mjs.
+$migrationManifestPath = Join-Path $PSScriptRoot 'migration-manifest.json'
+$migrationManifest = Get-Content -LiteralPath $migrationManifestPath -Raw -Encoding UTF8 |
+  ConvertFrom-Json
 $migrationSources = @(
-  @{
-    Source = Join-Path $projectRoot 'migration_core_schema.sql'
-    Target = '20260727000001_core_schema.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migration_org_structure.sql'
-    Target = '20260727000002_org_structure.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072701_add_hr_admin_rbac.sql'
-    Target = '20260727000003_add_hr_admin_rbac.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072702_secure_global_staff_directory.sql'
-    Target = '20260727000004_secure_global_staff_directory.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072703_add_job_titles_and_reporting.sql'
-    Target = '20260727000005_add_job_titles_and_reporting.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072704_add_skills_and_requirements.sql'
-    Target = '20260727000006_add_skills_and_requirements.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072705_add_atomic_assignment_operations.sql'
-    Target = '20260727000007_add_atomic_assignment_operations.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072706_add_staff_directory_api.sql'
-    Target = '20260727000008_add_staff_directory_api.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072707_add_position_assignment_api.sql'
-    Target = '20260727000009_add_position_assignment_api.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072708_add_profile_and_skill_api.sql'
-    Target = '20260727000010_add_profile_and_skill_api.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072709_add_job_architecture_api.sql'
-    Target = '20260727000011_add_job_architecture_api.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072710_add_position_configuration_api.sql'
-    Target = '20260727000012_add_position_configuration_api.sql'
-  },
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072911_cleanup_legacy_dummy_staff.sql'
-    Target = '20260727000014_cleanup_legacy_dummy_staff.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072912_refine_staff_profile_and_positions.sql'
-    Target = '20260727000015_refine_staff_profile_and_positions.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072913_add_staff_placements.sql'
-    Target = '20260727000016_add_staff_placements.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072914_normalize_assignment_dates.sql'
-    Target = '20260727000017_normalize_assignment_dates.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072915_add_staff_placement_save_api.sql'
-    Target = '20260727000018_add_staff_placement_save_api.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026072916_refine_assignment_candidates.sql'
-    Target = '20260727000019_refine_assignment_candidates.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026080401_add_staff_photo.sql'
-    Target = '20260727000020_add_staff_photo.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026073001_add_department_scoped_skill_requirements.sql'
-    Target = '20260727000021_add_department_scoped_skill_requirements.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026081101_add_promotion_readiness.sql'
-    Target = '20260727000022_add_promotion_readiness.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026081102_remove_legacy_skill_rpc_overloads.sql'
-    Target = '20260727000023_remove_legacy_skill_rpc_overloads.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026082002_add_account_deletion_support.sql'
-    Target = '20260727000024_add_account_deletion_support.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026082101_add_staff_excel_import.sql'
-    Target = '20260727000025_add_staff_excel_import.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026082901_add_hr_activity_log.sql'
-    Target = '20260727000028_add_hr_activity_log.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026082902_fix_activity_log_triggers.sql'
-    Target = '20260727000029_fix_activity_log_triggers.sql'
-  }
-  @{
-    Source = Join-Path $projectRoot 'migrations\2026082903_fix_hr_activity_log_rpc_volatility.sql'
-    Target = '20260727000030_fix_hr_activity_log_rpc_volatility.sql'
+  foreach ($entry in $migrationManifest.migrations) {
+    @{
+      Source = Join-Path $projectRoot ($entry.file -replace '/', '\')
+      Target = "$($entry.version)_$($entry.name).sql"
+    }
   }
 )
 
