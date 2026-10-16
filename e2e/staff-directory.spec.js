@@ -1,18 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+import { createMockAccessToken, MOCK_VERIFIED_FACTORS } from './helpers/mockHrAdminSession';
+
 const projectId = 'ojuyrhwmgwefwdxdmisr';
 const userId = '00000000-0000-4000-8000-000000000001';
 const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
-const payload = Buffer.from(
-  JSON.stringify({
-    aud: 'authenticated',
-    exp: expiresAt,
-    sub: userId,
-    email: 'hr@example.com',
-    role: 'authenticated',
-  }),
-).toString('base64url');
-const accessToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.signature`;
+const accessToken = createMockAccessToken({ userId, email: 'hr@example.com', expiresAt });
 
 const jobTitles = [
   ['10', 'DEPARTMENT_HEAD', 'ប្រធាននាយកដ្ឋាន', 'Department Director', 10, 'department'],
@@ -42,7 +35,7 @@ test.beforeEach(async ({ page }) => {
   );
 
   await page.addInitScript(
-    ({ storageKey, token, expiration, id }) => {
+    ({ storageKey, token, expiration, id, factors }) => {
       const session = JSON.stringify({
         access_token: token,
         refresh_token: 'test-refresh-token',
@@ -57,6 +50,7 @@ test.beforeEach(async ({ page }) => {
           user_metadata: {},
           app_metadata: {},
           created_at: '2026-01-01T00:00:00.000Z',
+          factors,
         },
       });
       localStorage.setItem(
@@ -69,6 +63,7 @@ test.beforeEach(async ({ page }) => {
       token: accessToken,
       expiration: expiresAt,
       id: userId,
+      factors: MOCK_VERIFIED_FACTORS,
     },
   );
 

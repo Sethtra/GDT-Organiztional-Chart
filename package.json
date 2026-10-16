@@ -19,6 +19,8 @@
     "db:promotion:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1 -PromotionReadinessOnly",
     "db:promotion:rollout": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-supabase.ps1 -PromotionReadinessOnly -Apply",
     "functions:account:deploy": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-account-function.ps1",
+    "functions:access:deploy": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-account-function.ps1 -FunctionName approve-access-request",
+    "functions:mfa-reset:deploy": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-account-function.ps1 -FunctionName reset-user-mfa",
     "preview": "vite preview"
   },
   "dependencies": {

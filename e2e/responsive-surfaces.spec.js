@@ -15,7 +15,6 @@ const PUBLIC_SURFACES = [
   "/",
   "/login",
   "/register",
-  "/verify-email",
   "/forgot-password",
   "/reset-password",
   "/test-chart-editor",

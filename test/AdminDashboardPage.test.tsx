@@ -117,6 +117,7 @@ describe("AdminDashboardPage", () => {
       expect.stringContaining("Staff directory"),
       expect.stringContaining("Organization"),
       expect.stringContaining("Job architecture"),
+      expect.stringContaining("Access requests"),
     ]);
     const metrics = within(
       screen.getByRole("region", { name: "Key workforce metrics" }),

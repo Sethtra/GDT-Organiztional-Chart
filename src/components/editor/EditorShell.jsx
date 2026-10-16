@@ -1,9 +1,10 @@
 import { useCallback, useContext, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import ChartTabBar from '../ChartTabBar';
 import ErrorBoundary from '../ErrorBoundary';
 import { TabContext } from '../../contexts/TabContext';
+import { useAuth } from '../../hooks/useAuth';
 import { readChartNodeFocusId } from '../../utils/chartNodeNavigation';
 import FlowApp from './FlowApp';
 
@@ -21,6 +22,7 @@ import FlowApp from './FlowApp';
 export default function EditorShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, mfaStatus } = useAuth();
   const {
     openTabs,
     activeTabId,
@@ -63,6 +65,19 @@ export default function EditorShell() {
   const isVisible = !!urlChartId && openTabs.length > 0;
 
   if (!isVisible) return null;
+
+  // Public visitors may open public charts, but a signed-in session must
+  // finish two-step sign-in first (the API rejects it until then).
+  if (user && mfaStatus === 'loading') return null;
+  if (user && mfaStatus === 'required') {
+    return (
+      <Navigate
+        to="/mfa"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
 
   return (
     <div

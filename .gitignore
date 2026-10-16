@@ -39,3 +39,6 @@ test-results/
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI local state (linked project, CLI version)
+supabase/.temp/

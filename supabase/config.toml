@@ -2,3 +2,9 @@ project_id = "gdt-organizational-chart"
 
 [functions.delete-account]
 verify_jwt = true
+
+[functions.approve-access-request]
+verify_jwt = true
+
+[functions.reset-user-mfa]
+verify_jwt = true

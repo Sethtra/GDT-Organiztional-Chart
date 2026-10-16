@@ -167,6 +167,16 @@
       "version": "20260727000035",
       "name": "add_staff_major",
       "file": "migrations/2026092101_add_staff_major.sql"
+    },
+    {
+      "version": "20260727000036",
+      "name": "add_access_requests",
+      "file": "migrations/2026101601_add_access_requests.sql"
+    },
+    {
+      "version": "20260727000037",
+      "name": "require_mfa_for_api",
+      "file": "migrations/2026101602_require_mfa_for_api.sql"
     }
   ]
 }

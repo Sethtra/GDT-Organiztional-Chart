@@ -176,7 +176,7 @@ export default function Navbar({ search, setSearch }) {
                 <LogIn size={15} /> Sign In
               </Link>
               <Link to="/register" className="navbar__cta">
-                <UserPlus size={15} /> Get Started
+                <UserPlus size={15} /> Request access
               </Link>
             </>
           )}

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -10,9 +11,8 @@ import HrAdminRoute from './components/HrAdminRoute';
 import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
-import LoginTestPage from './pages/LoginTestPage';
-import RegisterPage from './pages/RegisterPage';
-import VerifyEmailPage from './pages/VerifyEmailPage';
+import RequestAccessPage from './pages/RequestAccessPage';
+import MfaPage from './pages/MfaPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProfilePage from './pages/ProfilePage';
@@ -22,7 +22,16 @@ import StaffDirectoryPage from './pages/StaffDirectoryPage';
 import JobArchitecturePage from './pages/JobArchitecturePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminActivityPage from './pages/AdminActivityPage';
-import ChartEditorPage from './pages/ChartEditorPage';
+import AdminAccessRequestsPage from './pages/AdminAccessRequestsPage';
+
+// Design sandboxes exist only in `npm run dev`. The DEV guard is replaced by
+// `false` at build time, so neither the routes nor these chunks reach production.
+const LoginSandboxPage = import.meta.env.DEV
+  ? lazy(() => import('./pages/LoginTestPage'))
+  : null;
+const ChartEditorSandboxPage = import.meta.env.DEV
+  ? lazy(() => import('./pages/ChartEditorPage'))
+  : null;
 
 /**
  * Main layout: renders Routes for all pages, plus a persistent EditorShell
@@ -38,9 +47,10 @@ function AppLayout() {
           {/* ── Public routes ────────────────────────────── */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/test-login" element={<LoginTestPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          {/* Accounts are created by HR; visitors request one here. */}
+          <Route path="/register" element={<RequestAccessPage />} />
+          {/* Two-step sign-in: setup or code entry; MfaPage guards itself. */}
+          <Route path="/mfa" element={<MfaPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
@@ -141,25 +151,39 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
-          {/* ── Design sandboxes — never wired into the live routes ── */}
-          <Route path="/test-landing" element={<LandingPage />} />
           <Route
-            path="/test-dashboard"
+            path="/admin/access-requests"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <HrAdminRoute>
+                  <ErrorBoundary>
+                    <AdminAccessRequestsPage />
+                  </ErrorBoundary>
+                </HrAdminRoute>
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/test-dashboard/folder/:folderId"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/test-chart-editor" element={<ChartEditorPage />} />
+          {/* ── Design sandboxes — development server only ── */}
+          {import.meta.env.DEV && (
+            <>
+              <Route
+                path="/test-login"
+                element={
+                  <Suspense fallback={null}>
+                    <LoginSandboxPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/test-chart-editor"
+                element={
+                  <Suspense fallback={null}>
+                    <ChartEditorSandboxPage />
+                  </Suspense>
+                }
+              />
+            </>
+          )}
           {/* ── 404 ──────────────────────────────────────── */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
@@ -178,7 +202,7 @@ export default function App() {
         <TabProvider>
           <BrowserRouter>
             <AppLayout />
-            <Analytics />
+            {import.meta.env.PROD && <Analytics />}
           </BrowserRouter>
         </TabProvider>
       </AuthProvider>

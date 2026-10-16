@@ -119,9 +119,9 @@ export default function ProfilePage() {
         ? Tablet
         : Monitor;
 
-  /* Supabase reports every linked provider. An account that only ever signed
-     in through Google has no password to change, so the register states that
-     instead of offering a form that would silently mint one. */
+  /* Supabase reports every linked provider. Accounts created through the
+     retired Google sign-in have no password yet; the form below lets them set
+     one, since email and password is now the only way to sign in. */
   const providers = useMemo(() => {
     const list = user?.app_metadata?.providers;
     if (Array.isArray(list) && list.length) return list;
@@ -461,7 +461,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {hasPassword ? (
               <form onSubmit={handlePasswordSave}>
                 <div className="acct-row">
                   <label className="acct-row__label" htmlFor="acct-password">
@@ -491,6 +490,12 @@ export default function ProfilePage() {
                         )}
                       </button>
                     </div>
+                    {!hasPassword && (
+                      <p className="acct-hint">
+                        Google sign-in has been retired. Set a password here to
+                        keep signing in with your email.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -544,24 +549,6 @@ export default function ProfilePage() {
                   </div>
                 </footer>
               </form>
-            ) : (
-              <div className="acct-row acct-row--stated">
-                <span className="acct-row__label">Password</span>
-                <div className="acct-row__field">
-                  <p className="acct-stated">
-                    <Lock size={14} aria-hidden="true" />
-                    <span className="acct-stated__value">
-                      Managed by your Google account
-                    </span>
-                  </p>
-                  <p className="acct-hint">
-                    You sign in to GDT Org Chart through Google, so there is no
-                    password stored here. Change it in your Google account
-                    settings.
-                  </p>
-                </div>
-              </div>
-            )}
 
           </section>
 

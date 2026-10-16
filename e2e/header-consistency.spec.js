@@ -1,21 +1,20 @@
 import { expect, test } from '@playwright/test';
 
+import { createMockAccessToken, MOCK_VERIFIED_FACTORS } from './helpers/mockHrAdminSession';
+
 const PROJECT_ID = 'ojuyrhwmgwefwdxdmisr';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 
 async function prepareAuthenticatedPage(page) {
   const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
-  const payload = Buffer.from(JSON.stringify({
-    aud: 'authenticated',
-    exp: expiresAt,
-    sub: USER_ID,
+  const accessToken = createMockAccessToken({
+    userId: USER_ID,
     email: 'member@gdt.gov.kh',
-    role: 'authenticated',
-  })).toString('base64url');
-  const accessToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${payload}.signature`;
+    expiresAt,
+  });
 
   await page.addInitScript(
-    ({ projectId, userId, token, expiration }) => {
+    ({ projectId, userId, token, expiration, factors }) => {
       const session = JSON.stringify({
         access_token: token,
         refresh_token: 'test-refresh-token',
@@ -31,12 +30,19 @@ async function prepareAuthenticatedPage(page) {
           app_metadata: {},
           created_at: '2026-01-01T00:00:00.000Z',
           last_sign_in_at: '2026-08-20T12:00:00.000Z',
+          factors,
         },
       });
       const encoded = btoa(encodeURIComponent(session));
       localStorage.setItem(`__gdt_s_sb-${projectId}-auth-token`, encoded);
     },
-    { projectId: PROJECT_ID, userId: USER_ID, token: accessToken, expiration: expiresAt },
+    {
+      projectId: PROJECT_ID,
+      userId: USER_ID,
+      token: accessToken,
+      expiration: expiresAt,
+      factors: MOCK_VERIFIED_FACTORS,
+    },
   );
 
   await page.route('https://fonts.googleapis.com/**', (route) =>
@@ -65,7 +71,7 @@ for (const viewport of [
     const measurements = [];
     for (const surface of [
       { route: '/', name: 'landing', desktopWidth: 1540, desktopInset: 40, contentSelector: '.gdt-register-landing > main' },
-      { route: '/test-dashboard', name: 'test-dashboard', desktopWidth: 1400, desktopInset: 46 },
+      { route: '/dashboard', name: 'dashboard', desktopWidth: 1400, desktopInset: 46 },
       { route: '/profile', name: 'profile', desktopWidth: 1400, desktopInset: 46 },
     ]) {
       await page.goto(surface.route);

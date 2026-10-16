@@ -42,6 +42,28 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  /* Two-step sign-in is required for every account. 'verified' means this
+     session passed an authenticator code (AAL2); 'required' means the user
+     still has to set it up or enter a code; 'none' means signed out. The
+     database rejects API calls from sessions that are not AAL2. */
+  const [mfaStatus, setMfaStatus] = useState('loading');
+
+  useEffect(() => {
+    if (loading) return undefined;
+    if (!session) {
+      setMfaStatus('none');
+      return undefined;
+    }
+    let cancelled = false;
+    setMfaStatus('loading');
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data, error }) => {
+      if (cancelled) return;
+      setMfaStatus(!error && data?.currentLevel === 'aal2' ? 'verified' : 'required');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, loading]);
 
   useEffect(() => {
     // Get initial session and handle potential refresh errors cleanly
@@ -71,30 +93,20 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = useCallback(async ({ email, password, displayName }) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: displayName, full_name: displayName },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
+  /* HR-approved invitations link here with a one-time token hash (the Supabase
+     "Invite user" email template uses the token_hash flow, which works with
+     this client's PKCE setting). Redeeming it signs the invited officer in so
+     they can choose a password. */
+  const acceptInvite = useCallback(async (tokenHash) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'invite',
     });
     return { data, error };
   }, []);
 
   const signIn = useCallback(async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
-  }, []);
-
-  const signInWithGoogle = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
     return { data, error };
   }, []);
 
@@ -130,15 +142,6 @@ export function AuthProvider({ children }) {
     return { data, error };
   }, []);
 
-  const resendVerificationEmail = useCallback(async (email) => {
-    const { data, error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
-    });
-    return { data, error };
-  }, []);
-
   const displayName =
     user?.user_metadata?.display_name ||
     user?.user_metadata?.full_name ||
@@ -154,16 +157,15 @@ export function AuthProvider({ children }) {
     user,
     session,
     loading,
+    mfaStatus,
     displayName,
     avatarUrl,
-    signUp,
+    acceptInvite,
     signIn,
-    signInWithGoogle,
     signOut,
     resetPasswordForEmail,
     updatePassword,
     updateProfile,
-    resendVerificationEmail,
   };
 
   return React.createElement(AuthContext.Provider, { value }, children);

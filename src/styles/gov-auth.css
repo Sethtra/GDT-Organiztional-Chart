@@ -141,54 +141,6 @@
   color: var(--pa-muted);
 }
 
-.gov-auth-google-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  height: 44px;
-  border: 1px solid var(--pa-border);
-  border-radius: 9px;
-  background: var(--pa-surface);
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: var(--pa-text);
-  transition: border-color 150ms ease-out, background-color 150ms ease-out;
-}
-
-.gov-auth-google-btn:hover:not(:disabled) {
-  border-color: var(--pa-border-strong);
-  background: var(--pa-canvas);
-}
-
-.gov-auth-google-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.gov-auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-}
-
-.gov-auth-divider__line {
-  flex: 1;
-  height: 1px;
-  background: var(--pa-border);
-}
-
-.gov-auth-divider__text {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--pa-faint);
-}
-
 .gov-auth-error {
   display: flex;
   align-items: flex-start;
@@ -460,6 +412,63 @@
   text-decoration: underline;
 }
 
+/* Two-step sign-in (MfaPage) */
+.gov-auth-link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.gov-auth-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--pa-text);
+}
+
+.gov-auth-qr {
+  display: block;
+  width: 180px;
+  height: 180px;
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--pa-border);
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.gov-auth-secret {
+  display: block;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--pa-border);
+  border-radius: 7px;
+  background: var(--pa-canvas);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+  user-select: all;
+}
+
+.gov-auth-input--code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 20px;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.gov-auth-steps + .gov-auth-notice {
+  margin-bottom: 16px;
+}
+
 .gov-auth-footer {
   padding: 13px 32px;
   border-top: 1px solid var(--pa-border);
@@ -483,6 +492,7 @@
   color: var(--pa-primary);
 }
 
+.gov-auth-success-block h1,
 .gov-auth-success-block h3 {
   margin: 14px 0 0;
   font-size: 16px;

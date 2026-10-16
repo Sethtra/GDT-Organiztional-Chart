@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Your GDT Org Chart access was approved</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f5f2;">
+  <!-- Inbox preview text -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    HR approved your access request. Set your password to activate your account.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f5f2;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background-color:#ffffff; border:1px solid #d9e1dc; border-radius:12px; overflow:hidden;">
+
+          <!-- Masthead -->
+          <tr>
+            <td style="background-color:#0b2b20; padding:22px 32px; border-bottom:3px solid #b48728;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td valign="middle" style="padding-right:14px;">
+                    <img src="{{ .SiteURL }}/gdt-seal-mark@3x.png" width="48" height="48" alt="GDT seal" style="display:block; border:0; width:48px; height:48px;">
+                  </td>
+                  <td valign="middle" style="font-family:-apple-system,'Segoe UI',Roboto,Arial,'Noto Sans Khmer','Khmer OS',sans-serif;">
+                    <div style="font-size:16px; font-weight:700; line-height:20px; color:#ffffff;">GDT Org Chart</div>
+                    <div style="font-size:12px; line-height:20px; color:#d8bd79;">អគ្គនាយកដ្ឋានពន្ធដារ</div>
+                    <div style="font-size:11px; line-height:16px; color:#a9bdb2;">General Department of Taxation</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 32px 8px; font-family:-apple-system,'Segoe UI',Roboto,Arial,'Noto Sans Khmer','Khmer OS',sans-serif; color:#16211b;">
+              <div style="font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#136232;">
+                Access approved
+              </div>
+              <h1 style="margin:10px 0 0; font-size:24px; line-height:30px; font-weight:800; color:#16211b;">
+                {{ if .Data.full_name }}Welcome, {{ .Data.full_name }}{{ else }}Welcome to GDT Org Chart{{ end }}
+              </h1>
+              <p style="margin:6px 0 0; font-size:15px; line-height:26px; color:#136232;">
+                សំណើសុំចូលប្រើប្រាស់របស់អ្នកត្រូវបានអនុម័ត។
+              </p>
+              <p style="margin:16px 0 0; font-size:15px; line-height:24px; color:#3d4842;">
+                HR has approved your request for access to the GDT Organizational Chart.
+                Set a password to activate your account for
+                <strong style="color:#16211b;">{{ .Email }}</strong>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Button -->
+          <tr>
+            <td style="padding:24px 32px 8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#136232" style="border-radius:8px;">
+                    <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=invite"
+                       style="display:inline-block; padding:12px 32px; font-family:-apple-system,'Segoe UI',Roboto,Arial,'Noto Sans Khmer','Khmer OS',sans-serif; font-size:15px; font-weight:700; line-height:20px; color:#ffffff; text-decoration:none; border-radius:8px; text-align:center;">
+                      Set my password<br>
+                      <span style="font-size:13px; font-weight:600; line-height:22px; color:#dbeee2;">កំណត់ពាក្យសម្ងាត់</span>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:12px 0 0; font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif; font-size:13px; line-height:20px; color:#66716b;">
+                This link works once and expires in 24 hours.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Fallback link -->
+          <tr>
+            <td style="padding:16px 32px 0; font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+              <p style="margin:0; font-size:13px; line-height:20px; color:#66716b;">
+                Button not working? Copy this address into your browser:
+              </p>
+              <p style="margin:6px 0 0; font-size:12px; line-height:18px; word-break:break-all;">
+                <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=invite" style="color:#136232; text-decoration:underline;">{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&amp;type=invite</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Security note -->
+          <tr>
+            <td style="padding:24px 32px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f5f2; border:1px solid #d9e1dc; border-radius:8px;">
+                <tr>
+                  <td style="padding:14px 16px; font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif; font-size:13px; line-height:20px; color:#3d4842;">
+                    <strong style="color:#16211b;">Didn't request access?</strong>
+                    You can ignore this email — no account is activated until a password is set.
+                    Don't forward it: the link signs in whoever opens it.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+        <!-- Footer -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+          <tr>
+            <td align="center" style="padding:20px 16px 0; font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif; font-size:12px; line-height:18px; color:#66716b;">
+              Sent by GDT Org Chart for the General Department of Taxation.<br>
+              This mailbox is not monitored — contact HR with any questions.
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

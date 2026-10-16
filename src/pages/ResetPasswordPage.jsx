@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import MfaCodeForm from '../components/auth/MfaCodeForm';
+import { getVerifiedTotpFactorId } from '../services/mfaService';
 
 function getPasswordStrength(pwd) {
   if (!pwd) return { level: 0, label: '', color: '' };
@@ -17,8 +19,45 @@ function getPasswordStrength(pwd) {
 }
 
 export default function ResetPasswordPage() {
-  const { updatePassword } = useAuth();
+  const { updatePassword, acceptInvite, user, mfaStatus } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteTokenHash =
+    searchParams.get('type') === 'invite' ? searchParams.get('token_hash') : null;
+  const isInvite = Boolean(inviteTokenHash);
+  // 'verifying' → redeeming the one-time invitation token; 'invalid' → expired or used.
+  const [inviteStatus, setInviteStatus] = useState(isInvite ? 'verifying' : 'ready');
+  const inviteRedeemed = useRef(false);
+
+  useEffect(() => {
+    if (!inviteTokenHash || inviteRedeemed.current) return;
+    // The token is single-use; StrictMode's second effect run must not spend it again.
+    inviteRedeemed.current = true;
+    acceptInvite(inviteTokenHash).then(({ error }) => {
+      // Keep the one-time token out of browser history and shared screenshots.
+      window.history.replaceState(null, '', '/reset-password');
+      setInviteStatus(error ? 'invalid' : 'ready');
+    });
+  }, [acceptInvite, inviteTokenHash]);
+
+  // An account that already has two-step sign-in must confirm a code before
+  // Supabase accepts a password change; newly invited accounts have none yet.
+  const [mfaFactorId, setMfaFactorId] = useState(null);
+  useEffect(() => {
+    if (inviteStatus !== 'ready' || !user || mfaStatus !== 'required') {
+      setMfaFactorId(null);
+      return undefined;
+    }
+    let cancelled = false;
+    getVerifiedTotpFactorId()
+      .then((factorId) => {
+        if (!cancelled) setMfaFactorId(factorId);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteStatus, user, mfaStatus]);
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -58,21 +97,61 @@ export default function ResetPasswordPage() {
         </Link>
 
         <div className="gov-auth-body">
-          {done ? (
+          {inviteStatus === 'verifying' ? (
+            <div className="gov-auth-success-block" role="status">
+              <Loader2 size={32} className="spin" aria-hidden="true" />
+              <h1>Checking your invitation…</h1>
+            </div>
+          ) : inviteStatus === 'invalid' ? (
+            <div className="gov-auth-success-block" role="alert">
+              <AlertCircle size={40} aria-hidden="true" style={{ color: 'var(--pa-danger)' }} />
+              <h1>This invitation link no longer works</h1>
+              <p>
+                It has expired or was already used. Ask HR to resend your
+                invitation, or sign in if you have already set a password.
+              </p>
+              <p className="gov-auth-switch">
+                <Link to="/login" className="gov-auth-switch-link">Go to sign in</Link>
+              </p>
+            </div>
+          ) : mfaFactorId ? (
+            <>
+              <div className="gov-auth-intro" style={{ textAlign: 'left' }}>
+                <h1 className="gov-auth-title" style={{ fontSize: 20 }}>Confirm it's you</h1>
+                <p className="gov-auth-subtitle">
+                  Enter the 6-digit code from your authenticator app before
+                  choosing a new password.
+                </p>
+              </div>
+              <MfaCodeForm
+                factorId={mfaFactorId}
+                submitLabel="Continue"
+                onVerified={() => setMfaFactorId(null)}
+              />
+            </>
+          ) : done ? (
             <div className="gov-auth-success-block">
               <CheckCircle size={48} style={{ color: 'var(--link-color)' }} />
-              <h3>Password Updated!</h3>
+              <h3>{isInvite ? 'Password set!' : 'Password Updated!'}</h3>
               <p>Redirecting you to the dashboard...</p>
             </div>
           ) : (
             <>
               <div className="gov-auth-step-row">
                 <span className="gov-auth-step-badge gov-auth-step-badge--2">2</span>
-                <span className="gov-auth-step-label">Set a new password</span>
+                <span className="gov-auth-step-label">
+                  {isInvite ? 'Set your password' : 'Set a new password'}
+                </span>
               </div>
               <div className="gov-auth-intro" style={{ textAlign: 'left' }}>
-                <h1 className="gov-auth-title" style={{ fontSize: 20 }}>Choose a new password</h1>
-                <p className="gov-auth-subtitle">Shown after the staff member opens the link from their email.</p>
+                <h1 className="gov-auth-title" style={{ fontSize: 20 }}>
+                  {isInvite ? 'Welcome — set your password' : 'Choose a new password'}
+                </h1>
+                <p className="gov-auth-subtitle">
+                  {isInvite
+                    ? 'Your access request was approved. Choose a password to finish setting up your account.'
+                    : 'Shown after the staff member opens the link from their email.'}
+                </p>
               </div>
 
               {error && (
@@ -144,7 +223,7 @@ export default function ResetPasswordPage() {
                 <button type="submit" className="gov-auth-submit-btn gov-auth-submit-btn--dark" disabled={loading}>
                   {loading ? (
                     <><Loader2 size={17} className="spin" /> Updating...</>
-                  ) : 'Reset Password'}
+                  ) : isInvite ? 'Set Password' : 'Reset Password'}
                 </button>
               </form>
             </>

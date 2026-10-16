@@ -14,6 +14,7 @@ import {
   Sparkles,
   UserRoundCheck,
 } from 'lucide-react';
+import './LoginTestPage.css';
 
 const DEMO_EMAIL = 'demo@gdt.gov.kh';
 const DEMO_PASSWORD = 'GDT-demo-2026';

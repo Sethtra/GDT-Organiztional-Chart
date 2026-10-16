@@ -7,12 +7,13 @@ import {
   ChevronDown,
   LayoutDashboard,
   ShieldCheck,
+  UserPlus,
   UsersRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface AdminSidebarProps {
-  currentTab?: "analytics" | "activity" | "staff" | "org-structure" | "jobs";
+  currentTab?: "analytics" | "activity" | "staff" | "org-structure" | "jobs" | "access";
   onNavigate?: () => void;
 }
 
@@ -45,6 +46,13 @@ const NAV_ITEMS = [
     path: "/admin/job-architecture",
     icon: BriefcaseBusiness,
   },
+  {
+    id: "access",
+    label: "Access requests",
+    description: "Account approvals",
+    path: "/admin/access-requests",
+    icon: UserPlus,
+  },
 ] as const;
 
 export default function AdminSidebar({ currentTab, onNavigate }: AdminSidebarProps) {
@@ -57,6 +65,7 @@ export default function AdminSidebar({ currentTab, onNavigate }: AdminSidebarPro
     if (path.includes("/admin/staff")) return "staff";
     if (path.includes("/admin/org-structure")) return "org-structure";
     if (path.includes("/admin/job-architecture")) return "jobs";
+    if (path.includes("/admin/access-requests")) return "access";
     return "analytics";
   };
 

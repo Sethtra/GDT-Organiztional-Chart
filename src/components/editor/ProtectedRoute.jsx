@@ -1,10 +1,15 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-/** Route guard — redirects to /login if not authenticated */
+/**
+ * Route guard — redirects to /login if not authenticated, and to /mfa until
+ * the session has passed two-step sign-in (required for every account).
+ */
 export default function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) {
+  const { user, loading, mfaStatus } = useAuth();
+  const location = useLocation();
+
+  if (loading || (user && mfaStatus === 'loading')) {
     return (
       <div
         style={{
@@ -22,5 +27,15 @@ export default function ProtectedRoute({ children }) {
       </div>
     );
   }
-  return user ? children : <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (mfaStatus !== 'verified') {
+    return (
+      <Navigate
+        to="/mfa"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
+  return children;
 }
