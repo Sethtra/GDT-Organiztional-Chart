@@ -38,6 +38,26 @@ function clearSensitiveCache() {
   clearAuthStorage();
 }
 
+/**
+ * Emails built from Supabase's default templates return to the site with the
+ * outcome in the address hash: a session (#access_token=…&type=invite) or an
+ * error (#error_code=otp_expired). The PKCE client ignores that format, which
+ * would leave an invited officer on the landing page. Read it once, strip it
+ * from browser history, and say where to continue.
+ */
+export function readEmailLinkResult() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const type = params.get('type');
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const isSession = accessToken && refreshToken && (type === 'invite' || type === 'recovery');
+  const isError = Boolean(params.get('error_code'));
+  if (!isSession && !isError) return null;
+
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  return isSession ? { accessToken, refreshToken, type } : { error: true };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -66,6 +86,22 @@ export function AuthProvider({ children }) {
   }, [session, loading]);
 
   useEffect(() => {
+    const emailLink = readEmailLinkResult();
+    if (emailLink?.error) {
+      window.location.replace('/reset-password?link=expired');
+      return undefined;
+    }
+    if (emailLink) {
+      supabase.auth
+        .setSession({ access_token: emailLink.accessToken, refresh_token: emailLink.refreshToken })
+        .then(({ error }) => {
+          window.location.replace(
+            error ? '/reset-password?link=expired' : `/reset-password?flow=${emailLink.type}`,
+          );
+        });
+      return undefined;
+    }
+
     // Get initial session and handle potential refresh errors cleanly
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {

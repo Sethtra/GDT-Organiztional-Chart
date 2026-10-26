@@ -45,9 +45,27 @@ describe("ResetPasswordPage invitation links", () => {
     renderAt("/reset-password?token_hash=old&type=invite");
 
     expect(
-      await screen.findByRole("heading", { name: "This invitation link no longer works" }),
+      await screen.findByRole("heading", { name: "This link no longer works" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/ask hr to resend your invitation/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask HR to resend it/i)).toBeInTheDocument();
+  });
+
+  it("continues an invitation already signed in from a default-template link", () => {
+    renderAt("/reset-password?flow=invite");
+
+    expect(
+      screen.getByRole("heading", { name: "Welcome — set your password" }),
+    ).toBeInTheDocument();
+    expect(acceptInvite).not.toHaveBeenCalled();
+  });
+
+  it("explains an expired email link instead of showing the landing page", () => {
+    renderAt("/reset-password?link=expired");
+
+    expect(
+      screen.getByRole("heading", { name: "This link no longer works" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/request a new link with forgot password/i)).toBeInTheDocument();
   });
 
   it("keeps the ordinary password reset unchanged", () => {

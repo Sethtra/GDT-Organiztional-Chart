@@ -24,9 +24,14 @@ export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams();
   const inviteTokenHash =
     searchParams.get('type') === 'invite' ? searchParams.get('token_hash') : null;
-  const isInvite = Boolean(inviteTokenHash);
+  // flow=invite / link=expired are set by useAuth after it reads a default-template
+  // email link (#access_token=… or #error_code=…) from the address hash.
+  const isInvite = Boolean(inviteTokenHash) || searchParams.get('flow') === 'invite';
+  const linkExpired = searchParams.get('link') === 'expired';
   // 'verifying' → redeeming the one-time invitation token; 'invalid' → expired or used.
-  const [inviteStatus, setInviteStatus] = useState(isInvite ? 'verifying' : 'ready');
+  const [inviteStatus, setInviteStatus] = useState(
+    linkExpired ? 'invalid' : inviteTokenHash ? 'verifying' : 'ready',
+  );
   const inviteRedeemed = useRef(false);
 
   useEffect(() => {
@@ -105,10 +110,11 @@ export default function ResetPasswordPage() {
           ) : inviteStatus === 'invalid' ? (
             <div className="gov-auth-success-block" role="alert">
               <AlertCircle size={40} aria-hidden="true" style={{ color: 'var(--pa-danger)' }} />
-              <h1>This invitation link no longer works</h1>
+              <h1>This link no longer works</h1>
               <p>
-                It has expired or was already used. Ask HR to resend your
-                invitation, or sign in if you have already set a password.
+                It has expired or was already used. If it was an invitation, ask
+                HR to resend it. If you were resetting your password, request a
+                new link with Forgot password.
               </p>
               <p className="gov-auth-switch">
                 <Link to="/login" className="gov-auth-switch-link">Go to sign in</Link>
