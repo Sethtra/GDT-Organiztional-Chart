@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, UsersRound } from "lucide-react";
 
 import type { GenderByDepartmentRow } from "../../../hooks/useDashboardAnalytics";
-import { PanelHeader, StatusBadge } from "./DashboardPrimitives";
+import { PanelHeader } from "./DashboardPrimitives";
 
 const PAGE_SIZE = 5;
 

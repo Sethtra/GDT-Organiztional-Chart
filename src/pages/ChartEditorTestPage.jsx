@@ -248,7 +248,7 @@ const initialEdges = [
 function ChartEditorTestHarness() {
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const { fitView, getZoom, setCenter, getNodes } = useReactFlow();
+  const { getZoom, setCenter, getNodes } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [saveStatus, setSaveStatus] = useState('');

@@ -42,3 +42,6 @@ test-results/
 
 # Supabase CLI local state (linked project, CLI version)
 supabase/.temp/
+
+# Vercel CLI project link
+.vercel

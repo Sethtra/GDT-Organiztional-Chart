@@ -7,7 +7,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   CircleAlert,
   Eye,
   Loader2,
@@ -50,13 +49,6 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
 /** Positions excluded from the Qualify Candidate target dropdown */
 const EXCLUDED_POSITION_NAMES = ["មន្ត្រី", "មន្ត្រីកម្មសិក្សា", "មន្ត្រីកិច្ចសន្យា"];
-
-const GENDER_LABELS: Record<HrStaffDirectoryRecord["gender"], string> = {
-  male: "ប្រុស",
-  female: "ស្រី",
-  other: "ផ្សេងៗ",
-  unspecified: "—",
-};
 
 const BADGE_STYLES: Record<BadgeTone, string> = {
   success:

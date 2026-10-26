@@ -9,10 +9,7 @@ import { getNodeAlignmentGuides } from '../utils/nodeAlignment';
  */
 export function useCanvasInteractions({
   visibleNodes,
-  nodes,
   canEdit,
-  previewMode,
-  canViewProfiles,
   setNodes,
   setSelectedNodes,
   setSelectedEdge,

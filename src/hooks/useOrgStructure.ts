@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { z } from "zod";
 
-import { HR_FEATURES_ENABLED } from "../config/hrFeatures";
 import { supabase } from "../supabaseClient";
 
 const DEFAULT_UNIT_DETAILS: Record<string, { nameEn: string; code: string }> = {

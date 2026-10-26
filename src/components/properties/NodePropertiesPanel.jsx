@@ -13,6 +13,7 @@ import {
   Tag,
   Trash2,
   User,
+  UserMinus,
   X,
 } from "lucide-react";
 

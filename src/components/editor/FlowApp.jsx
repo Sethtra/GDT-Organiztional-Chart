@@ -310,10 +310,7 @@ export default function FlowApp({
     handleLocatedNode,
   } = useCanvasInteractions({
     visibleNodes,
-    nodes,
     canEdit,
-    previewMode,
-    canViewProfiles,
     setNodes,
     setSelectedNodes,
     setSelectedEdge,
